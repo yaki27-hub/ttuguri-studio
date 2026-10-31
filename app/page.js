@@ -1,7 +1,8 @@
 import { isAuthed } from '@/lib/auth';
 import { listEpisodes } from '@/lib/notion';
 import { collectPosts, matchPosts, parseIgTime } from '@/lib/sync';
-import { login, logout, syncNow, linkEpisode } from './actions';
+import { login, logout, syncNow, linkEpisode, unlinkEpisode } from './actions';
+import UnlinkButton from './UnlinkButton';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -113,10 +114,19 @@ function PostRow({ post, candidates, maxViews }) {
 
       <div className="post-episode">
         {post.episode ? (
-          <a className="episode-chip" href={post.episode.url} target="_blank" rel="noreferrer">
-            <span className="dot" />
-            {post.episode.number != null ? `#${post.episode.number} ` : ''}{post.episode.title}
-          </a>
+          <>
+            <p className="label linked">노션 연결됨</p>
+            <a className="episode-chip" href={post.episode.url} target="_blank" rel="noreferrer">
+              <span className="dot" />
+              {post.episode.number != null ? `#${post.episode.number} ` : ''}{post.episode.title}
+            </a>
+            <UnlinkButton
+              action={unlinkEpisode}
+              pageId={post.episode.id}
+              timestamp={post.timestamp}
+              title={post.episode.title}
+            />
+          </>
         ) : (
           <>
             <p className="label">노션 미연결</p>

@@ -122,6 +122,14 @@ h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .episode-chip:hover { filter: brightness(0.97); }
 .episode-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); flex: none; }
 
+.post-episode .label.linked { color: var(--good); }
+.unlink {
+  display: block; margin-top: 8px; padding: 0; border: 0; background: none;
+  font: inherit; font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer;
+}
+.unlink:hover { color: var(--bad); }
+.unlink:disabled { cursor: default; text-decoration: none; }
+
 .link-form { display: flex; gap: 6px; }
 .link-form select {
   flex: 1; min-width: 0; height: 38px; padding: 0 8px; font: inherit; font-size: 13px;

@@ -4,8 +4,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { COOKIE, passwordMatches, sessionValue, requireAuth } from '@/lib/auth';
 import { fetchInsights } from '@/lib/instagram';
-import { listEpisodes, updatePage } from '@/lib/notion';
-import { metricProperties, runSync } from '@/lib/sync';
+import { listEpisodes, updatePage, P, num, rich, url, date, select } from '@/lib/notion';
+import { metricProperties, runSync, kstDate } from '@/lib/sync';
 
 const back = (msg) => redirect(`/?msg=${encodeURIComponent(msg)}`);
 
@@ -40,6 +40,38 @@ export async function syncNow() {
       (s.errors.length ? ` · 오류 ${s.errors.length}건` : '');
   } catch (e) {
     msg = `동기화 실패: ${e.message}`;
+  }
+  back(msg);
+}
+
+/** 게시물과 노션 에피소드의 연결을 해제한다 */
+export async function unlinkEpisode(formData) {
+  await requireAuth();
+  const pageId = String(formData.get('pageId') || '');
+  const timestamp = String(formData.get('timestamp') || '');
+  if (!pageId) back('해제할 에피소드를 찾지 못했어요.');
+
+  let msg;
+  try {
+    const episode = (await listEpisodes()).find((e) => e.id === pageId);
+    const props = {
+      [P.mediaId]: rich(''),
+      [P.link]: url(null),
+      [P.views]: num(null),
+      [P.reach]: num(null),
+      [P.likes]: num(null),
+      [P.comments]: num(null),
+      [P.shares]: num(null),
+      [P.saved]: num(null),
+      [P.syncedAt]: date(null),
+      [P.syncState]: select('대기'),
+    };
+    // 업로드일은 연결할 때 자동으로 채운 값과 같을 때만 지운다 (직접 입력한 날짜는 보존)
+    if (timestamp && episode?.uploaded === kstDate(timestamp)) props[P.uploaded] = date(null);
+    await updatePage(pageId, props);
+    msg = `“${episode?.title || '에피소드'}” 연결을 해제했어요.`;
+  } catch (e) {
+    msg = `해제 실패: ${e.message}`;
   }
   back(msg);
 }
