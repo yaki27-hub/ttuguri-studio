@@ -6,7 +6,7 @@ import {
   listEpisodes, getEpisode, createEpisode, updatePage, appendText,
   P, OPTIONS, title, num, rich, select, multi, status,
 } from '@/lib/notion';
-import { recommendTopics, generateKonti } from '@/lib/studio';
+import { recommendTopics, generateKonti, systemFrom } from '@/lib/studio';
 
 const go = (path, msg) => redirect(msg ? `${path}?msg=${encodeURIComponent(msg)}` : path);
 const nextNumber = (episodes) => Math.max(0, ...episodes.map((e) => e.number || 0)) + 1;
@@ -44,12 +44,12 @@ export async function addMemo(formData) {
 }
 
 /** ② 소재 추천 (useActionState) */
-export async function recommendAction(_prev) {
+export async function recommendAction(_prev, formData) {
   await requireAuth();
   try {
     const episodes = await listEpisodes();
     const memos = episodes.filter((e) => e.status === '아이디어');
-    const topics = await recommendTopics({ memos, episodes });
+    const topics = await recommendTopics({ memos, episodes, system: systemFrom(formData?.get('settings')) });
     if (!topics.length) return { error: '추천을 만들지 못했어요. 다시 시도해 주세요.' };
     return { topics, at: Date.now() };
   } catch (e) {
@@ -97,7 +97,7 @@ export async function kontiAction(_prev, formData) {
   try {
     const [episode, episodes] = await Promise.all([getEpisode(pageId), listEpisodes()]);
     const existingTitles = episodes.filter((e) => e.id !== pageId).map((e) => e.title);
-    const draft = await generateKonti({ episode, note, existingTitles });
+    const draft = await generateKonti({ episode, note, existingTitles, system: systemFrom(formData.get('settings')) });
     return { draft, at: Date.now() };
   } catch (e) {
     return { error: e.message };

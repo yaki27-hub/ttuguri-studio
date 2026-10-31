@@ -70,6 +70,14 @@ export default async function EpisodePage({ params, searchParams }) {
             )}
           </section>
 
+          <Link href={`/studio/work/open?notion=${ep.id}`} className="cta">
+            <span>
+              <strong>작업실에서 이어서 만들기</strong>
+              <small>원문 보존 · 컷별 수정·잠금 · 이미지 첨부 · 게시 패키지</small>
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
+
           <KontiEditor pageId={ep.id} hasKonti={/콘티/.test(body)} />
 
           <section className="card">

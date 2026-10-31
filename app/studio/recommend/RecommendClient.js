@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { recommendAction, pickTopic } from '../actions';
 import SubmitButton from '../../SubmitButton';
+import SettingsInput from '../work/_c/SettingsInput';
 
 export default function RecommendClient() {
   const [state, run, pending] = useActionState(recommendAction, null);
@@ -11,6 +12,7 @@ export default function RecommendClient() {
   return (
     <>
       <form action={run}>
+        <SettingsInput />
         <button type="submit" className="btn primary block" disabled={pending}>
           {pending ? '뚜구리가 소재 고르는 중… (10~20초)' : topics.length ? '다시 추천 받기' : '소재 3개 추천 받기'}
         </button>

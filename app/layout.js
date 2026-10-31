@@ -1,4 +1,5 @@
 import './globals.css';
+import './work.css';
 
 export const metadata = {
   title: '뚜구리 스튜디오',

@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { kontiAction, saveKonti } from '../../actions';
 import SubmitButton from '../../../SubmitButton';
+import SettingsInput from '../../work/_c/SettingsInput';
 
 export default function KontiEditor({ pageId, hasKonti }) {
   const [state, run, pending] = useActionState(kontiAction, null);
@@ -23,6 +24,7 @@ export default function KontiEditor({ pageId, hasKonti }) {
       <h2>③ 콘티 {hasKonti ? '다시 만들기' : '만들기'}</h2>
       <form action={run} className="konti-ask">
         <input type="hidden" name="pageId" value={pageId} />
+        <SettingsInput />
         <textarea
           name="note"
           rows={2}
