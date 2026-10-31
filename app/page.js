@@ -133,14 +133,14 @@ export default async function Page({ searchParams }) {
   const params = await searchParams;
   if (!(await isAuthed())) return <Login error={params?.error} />;
 
-  let posts = [];
-  let episodes = [];
-  let loadError = null;
-  try {
-    [posts, episodes] = await Promise.all([collectPosts(), listEpisodes()]);
-  } catch (e) {
-    loadError = e.message;
-  }
+  // 인스타와 노션을 따로 불러와서, 한쪽이 실패해도 다른 쪽은 보이게 한다
+  const [igRes, notionRes] = await Promise.allSettled([collectPosts(), listEpisodes()]);
+  const posts = igRes.status === 'fulfilled' ? igRes.value : [];
+  const episodes = notionRes.status === 'fulfilled' ? notionRes.value : [];
+  const loadError = [
+    igRes.status === 'rejected' && `인스타그램 — ${igRes.reason?.message}`,
+    notionRes.status === 'rejected' && `노션 — ${notionRes.reason?.message}`,
+  ].filter(Boolean).join(' / ') || null;
 
   const rows = matchPosts(posts, episodes);
   const linkedIds = new Set(rows.filter((r) => r.episode).map((r) => r.episode.id));
