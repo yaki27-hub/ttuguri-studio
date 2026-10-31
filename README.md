@@ -1,0 +1,49 @@
+# 뚜구리 스튜디오
+
+@ttuguri 인스타그램 게시물 성과를 모아 보고, 노션 **🎬 에피소드 DB**에 자동으로 기록하는 대시보드입니다.
+
+- 게시물별 조회 · 도달 · 좋아요 · 댓글 · 공유 · 저장 · 공유율 · 저장률
+- 게시물 ↔ 노션 에피소드 연결 (드롭다운에서 고르면 Media ID, 링크, 업로드일, 성과가 바로 기록됨)
+- 매일 오전 9시(KST) 자동 동기화 + "지금 노션에 동기화" 버튼
+- 토큰 만료 14일 전부터 화면에 알림
+
+## 처음 설정 (한 번만)
+
+### 1. 노션 통합 만들기
+1. https://www.notion.so/profile/integrations → **새 통합** → 이름 `뚜구리 스튜디오`, 유형 **내부** → 저장
+2. **내부 통합 시크릿**을 복사 → Vercel 환경변수 `NOTION_TOKEN`에 넣을 값
+3. 노션에서 **🎬 에피소드 DB** 페이지 열기 → 오른쪽 위 `•••` → **연결** → `뚜구리 스튜디오` 추가
+
+### 2. Vercel 환경변수
+Vercel 프로젝트 → Settings → Environment Variables 에 `.env.example`의 항목을 모두 넣습니다.
+
+| 이름 | 값 |
+|---|---|
+| `IG_ACCESS_TOKEN` | 연장한 60일 토큰 |
+| `IG_USER_ID` | `17841449312506270` |
+| `TOKEN_EXPIRES_AT` | `2026-12-30` |
+| `SINCE_DATE` | `2026-10-24` |
+| `NOTION_TOKEN` | 1번에서 복사한 시크릿 |
+| `NOTION_DATA_SOURCE_ID` | `e4f6717a-4610-4a08-86cf-b555b363e582` |
+| `DASHBOARD_PASSWORD` | 접속 비밀번호 (직접 정하기) |
+| `CRON_SECRET` | 아무 긴 문자열 |
+
+환경변수를 바꾼 뒤에는 **Deployments → 최신 배포 → Redeploy** 를 해야 적용됩니다.
+
+## 토큰 갱신 (60일마다)
+1. https://developers.facebook.com/tools/debug/accesstoken/ 에 현재 토큰 붙여넣기 → 디버그 → **액세스 토큰 확장**
+2. 새 토큰으로 `IG_ACCESS_TOKEN` 교체, `TOKEN_EXPIRES_AT` 을 새 만료일로 수정 → Redeploy
+
+## 노션 열 이름
+코드는 아래 열 이름을 사용합니다. 노션에서 이름을 바꾸면 `lib/notion.js`의 `P`도 같이 바꿔 주세요.
+
+제목 · 번호 · 제작 상태 · 인스타그램 링크 · Instagram Media ID · 실제 업로드일 · 조회수 · 도달 수 · 좋아요 · 댓글 수 · 공유 · 저장 · 최근 동기화 · 동기화 상태
+
+이미 값이 있는 **인스타그램 링크**와 **실제 업로드일**은 덮어쓰지 않습니다.
+
+## 로컬 실행
+```bash
+cp .env.example .env.local   # 값 채우기
+npm install
+npm run dev
+```
