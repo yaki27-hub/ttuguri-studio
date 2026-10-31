@@ -1,7 +1,9 @@
 import { isAuthed } from '@/lib/auth';
 import { listEpisodes } from '@/lib/notion';
 import { collectPosts, matchPosts, parseIgTime } from '@/lib/sync';
-import { login, logout, syncNow, linkEpisode, unlinkEpisode } from './actions';
+import { logout, syncNow, linkEpisode, unlinkEpisode } from './actions';
+import Login from './Login';
+import Nav from './Nav';
 import UnlinkButton from './UnlinkButton';
 
 export const dynamic = 'force-dynamic';
@@ -26,29 +28,6 @@ function tokenDaysLeft() {
   if (!raw) return null;
   const ms = new Date(`${raw}T00:00:00+09:00`) - new Date();
   return Math.ceil(ms / 86400000);
-}
-
-/* ---------- 로그인 ---------- */
-function Login({ error }) {
-  const configured = Boolean(process.env.DASHBOARD_PASSWORD);
-  return (
-    <main className="login">
-      <form action={login} className="login-card">
-        <div className="brand-mark" aria-hidden>뚜</div>
-        <h1>뚜구리 스튜디오</h1>
-        <p className="muted">@ttuguri 성과 대시보드</p>
-        {configured ? (
-          <>
-            <input type="password" name="password" placeholder="비밀번호" autoFocus required />
-            {error && <p className="error">비밀번호가 맞지 않아요.</p>}
-            <button className="btn primary" type="submit">들어가기</button>
-          </>
-        ) : (
-          <p className="error">Vercel 환경변수 DASHBOARD_PASSWORD 를 먼저 설정해 주세요.</p>
-        )}
-      </form>
-    </main>
-  );
 }
 
 /* ---------- 게시물 ↔ 에피소드 연결 ---------- */
@@ -181,6 +160,7 @@ export default async function Page({ searchParams }) {
         </div>
       </header>
 
+      <Nav active="stats" />
       {params?.msg && <p className="flash">{params.msg}</p>}
       {daysLeft != null && daysLeft <= 14 && (
         <p className={`flash ${daysLeft <= 3 ? 'bad' : 'warn'}`}>

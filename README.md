@@ -7,6 +7,12 @@
 - 매일 오전 9시(KST) 자동 동기화 + "지금 노션에 동기화" 버튼
 - 토큰 만료 14일 전부터 화면에 알림
 
+**제작 탭 (/studio, 모바일 우선)**
+1. 소재 메모 → 노션에 `아이디어` 상태로 저장
+2. 소재 추천 → 내 메모 · 성과 · 시기를 섞어 AI가 3개 추천, 고르면 `스토리`로 저장
+3. 콘티 생성 → AI 초안을 고쳐서 노션 본문 끝에 추가 (기존 본문은 지우지 않음), 상태 `콘티`
+4. 단계 넘기기 → 이미지 제작 → 검수 → 업로드 완료
+
 ## 처음 설정 (한 번만)
 
 ### 1. 노션 통합 만들기
@@ -27,6 +33,10 @@ Vercel 프로젝트 → Settings → Environment Variables 에 `.env.example`의
 | `NOTION_DATA_SOURCE_ID` | `e4f6717a-4610-4a08-86cf-b555b363e582` |
 | `DASHBOARD_PASSWORD` | 접속 비밀번호 (직접 정하기) |
 | `CRON_SECRET` | 아무 긴 문자열 |
+| `GEMINI_API_KEY` | Google AI Studio 에서 발급한 키 |
+| `AI_PROVIDER` | (선택) `gemini`(기본) 또는 `claude` |
+| `GEMINI_MODEL` | (선택) 비우면 사용 가능한 최신 flash 모델 자동 선택 |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` | (선택) Claude 로 바꿀 때 |
 
 환경변수를 바꾼 뒤에는 **Deployments → 최신 배포 → Redeploy** 를 해야 적용됩니다.
 
@@ -34,10 +44,13 @@ Vercel 프로젝트 → Settings → Environment Variables 에 `.env.example`의
 1. https://developers.facebook.com/tools/debug/accesstoken/ 에 현재 토큰 붙여넣기 → 디버그 → **액세스 토큰 확장**
 2. 새 토큰으로 `IG_ACCESS_TOKEN` 교체, `TOKEN_EXPIRES_AT` 을 새 만료일로 수정 → Redeploy
 
+## AI 지시문
+소재 추천·콘티 작성 규칙은 `lib/studio.js` 의 `SYSTEM` 에 있습니다. 캐릭터 설정이나 제작 규칙이 바뀌면 여기를 고치면 됩니다.
+
 ## 노션 열 이름
 코드는 아래 열 이름을 사용합니다. 노션에서 이름을 바꾸면 `lib/notion.js`의 `P`도 같이 바꿔 주세요.
 
-제목 · 번호 · 제작 상태 · 인스타그램 링크 · Instagram Media ID · 실제 업로드일 · 조회수 · 도달 수 · 좋아요 · 댓글 수 · 공유 · 저장 · 최근 동기화 · 동기화 상태
+제목 · 번호 · 제작 상태 · 카테고리 · 형식 · 스토리 공식 · 핵심 공감 · 웃음·반전 · 구분 · 인스타그램 링크 · Instagram Media ID · 실제 업로드일 · 조회수 · 도달 수 · 좋아요 · 댓글 수 · 공유 · 저장 · 최근 동기화 · 동기화 상태
 
 이미 값이 있는 **인스타그램 링크**와 **실제 업로드일**은 덮어쓰지 않습니다.
 
