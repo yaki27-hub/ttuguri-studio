@@ -72,3 +72,7 @@ cp .env.example .env.local   # 값 채우기
 npm install
 npm run dev
 ```
+
+## 인스타그램 스킬 (Claude Code)
+이 레포를 Claude Code로 열면 `/ig-audit` · `/ig-plan` · `/ig-profile` · `/ig-caption` · `/ig-reply` · `/ig-carousel` 을 쓸 수 있습니다.
+설명과 계정 설정(`voice.md`)은 `.claude/instagram/README.md` 참고.
