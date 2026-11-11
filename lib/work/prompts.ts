@@ -1,4 +1,4 @@
-import type { CharacterSettings, Episode, FactStatus, Format, Panel, Purpose, Slide, StoryVersion } from './types'
+import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
 import type { PanelDraftItem } from './repo'
 
 /* ───────── 프롬프트 ───────── */
@@ -42,8 +42,90 @@ function storyBlock(st?: StoryVersion) {
 }
 
 function panelLine(p: Panel, i: number) {
-  return `{"id":"${p.id}","order":${i + 1},"scene":${JSON.stringify(p.scene)},"action":${JSON.stringify(p.action)},"dialogue":${JSON.stringify(p.dialogue)},"narration":${JSON.stringify(p.narration)},"productionNotes":${JSON.stringify(p.productionNotes)},"adaptationNotes":${JSON.stringify(p.adaptationNotes)}${p.locked ? ',"locked":true' : ''}}`
+  return JSON.stringify({
+    id: p.id,
+    order: i + 1,
+    scene: p.scene,
+    ...(p.action ? { action: p.action } : {}),
+    cast: (p.cast ?? []).map(({ position, name, action, dialogue }) => ({ position, name, action, dialogue })),
+    direction: p.direction ?? '',
+    dialogue: p.dialogue,
+    narration: p.narration,
+    productionNotes: p.productionNotes,
+    adaptationNotes: p.adaptationNotes,
+    ...(p.locked ? { locked: true } : {}),
+  })
 }
+
+/* ───────── 콘티 형식 ───────── */
+
+export const POSITION_LABEL: Record<CastPosition, string> = { left: '왼쪽', center: '가운데', right: '오른쪽', '': '' }
+export const RATIO_LABEL: Record<Ratio, string> = { '4:5': '4:5 세로', '1:1': '1:1 정사각형' }
+
+export const IMAGE_MEMO_FIELDS: { k: Exclude<keyof ImageMemo, 'ratio'>; label: (s: CharacterSettings) => string; placeholder: string }[] = [
+  { k: 'composition', label: () => '구도', placeholder: '두 캐릭터가 나란히 보이는 정면 구도' },
+  { k: 'placement', label: () => '캐릭터 배치', placeholder: '왼쪽 동료 / 오른쪽 뚜구리' },
+  { k: 'characterLook', label: (s) => `${s.characterName} 외형`, placeholder: '기본 디자인 유지' },
+  { k: 'extras', label: () => '주변 인물', placeholder: '얼굴 없는 익명 실루엣' },
+  { k: 'background', label: () => '배경', placeholder: '사무실 책상, 모니터, 천장 에어컨' },
+  { k: 'direction', label: () => '연출', placeholder: '대비를 소품과 행동으로 표현' },
+  { k: 'text', label: () => '텍스트', placeholder: '이미지에는 넣지 않고 Figma에서 작업' },
+]
+
+/** 인물 대사 + 기타 대사를 “이름: "대사"” 줄로 */
+export function dialogueLines(p: Pick<Panel, 'cast' | 'dialogue'>) {
+  const out = (p.cast ?? []).filter((c) => c.dialogue.trim()).map((c) => `${c.name || '인물'}: "${c.dialogue.trim()}"`)
+  if (p.dialogue?.trim()) out.push(p.dialogue.trim())
+  return out
+}
+
+const bullets = (text: string) =>
+  text
+    .split('\n')
+    .map((l) => l.trim().replace(/^[-•·]\s*/, ''))
+    .filter(Boolean)
+    .map((l) => `- ${l}`)
+
+const castHead = (c: CastItem) => [POSITION_LABEL[c.position], c.name || '인물'].filter(Boolean).join(' — ')
+
+/** 붙여넣기·공유용 콘티 문서 (제목 → 장면 → 인물별 → 핵심 연출 → 이미지 제작 메모 → 최종 대사) */
+export function kontiDocument(ep: Episode, panels: Panel[], s: CharacterSettings, memo: ImageMemo) {
+  const single = panels.length === 1
+  const lines: string[] = ['상단 제목', `「${ep.title}」`, '']
+  panels.forEach((p, i) => {
+    lines.push(single ? '한컷 장면' : `컷 ${i + 1} 장면`, p.scene || '(미정)')
+    if (p.action) lines.push(...bullets(p.action))
+    lines.push('')
+    for (const c of p.cast ?? []) {
+      lines.push(castHead(c), ...bullets(c.action))
+      if (c.dialogue.trim()) lines.push(`- 대사: "${c.dialogue.trim()}"`)
+      lines.push('')
+    }
+    if (p.dialogue.trim()) lines.push('기타 대사·효과음', ...bullets(p.dialogue), '')
+    if (p.narration.trim()) lines.push('속마음·내레이션', ...bullets(p.narration), '')
+    if (p.direction?.trim()) lines.push('핵심 연출', ...p.direction.trim().split('\n').map((l) => l.trim()).filter(Boolean), '')
+    if (p.productionNotes.trim()) lines.push('제작 메모', p.productionNotes.trim(), '')
+    if (p.adaptationNotes.trim()) lines.push(`각색 표시: ${p.adaptationNotes.trim()}`, '')
+  })
+  lines.push('이미지 제작 메모', '항목\t제작 가이드', `화면 비율\t${RATIO_LABEL[memo.ratio] ?? memo.ratio}`)
+  for (const f of IMAGE_MEMO_FIELDS) if (memo[f.k].trim()) lines.push(`${f.label(s)}\t${memo[f.k].trim().replace(/\n/g, ' ')}`)
+  const confirmed = ep.confirmedPanelRevision !== undefined && !ep.needsReview
+  lines.push('', confirmed ? '최종 확정 대사' : '대사 (미확정)', `제목: ${ep.title}`)
+  panels.forEach((p, i) => {
+    const d = dialogueLines(p)
+    if (!single && d.length) lines.push(`컷 ${i + 1}`)
+    lines.push(...d)
+  })
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
+}
+
+function memoBlock(memo: ImageMemo, s: CharacterSettings) {
+  return `이번 편 이미지 제작 메모(현재 값):\n화면 비율: ${memo.ratio}\n${IMAGE_MEMO_FIELDS.map((f) => `${f.label(s)}: ${memo[f.k] || '(비어 있음)'}`).join('\n')}`
+}
+
+const PANEL_SHAPE = `{"scene":"장소와 전체 상황 한두 문장","cast":[{"position":"left|center|right","name":"인물 이름(주변 인물은 역할로 — 예: 동료 직원)","action":"차림·행동·표정·소품 (한 줄에 하나)","dialogue":"이 인물의 대사(없으면 빈 문자열)"}],"direction":"핵심 연출 — 대비·거리감 등 이 컷에서 강조할 것","dialogue":"인물에 속하지 않는 대사·효과음(보통 빈 문자열)","narration":"속마음·내레이션","productionNotes":"제작 메모","adaptationNotes":"각색 표시"}`
+
+const MEMO_FIELDS_SHAPE = `"composition":"구도","placement":"캐릭터 배치","characterLook":"주인공 외형 지시","extras":"주변 인물","background":"배경 소품","direction":"연출","text":"텍스트 처리"`
 
 export function sourcePrompt(ep: Episode, s: CharacterSettings) {
   return `${buildSystem(s)}
@@ -66,7 +148,7 @@ ${ep.situation ? `\n한 줄 상황: ${ep.situation}` : ''}${ep.humorPoint ? `\n�
 {"summary":"","opening":"","development":"","humor":"","ending":"","recommendedFormat":"single|four","reason":""}`
 }
 
-export function panelsPrompt(ep: Episode, st: StoryVersion | undefined, format: Format, s: CharacterSettings, locked: Panel[]) {
+export function panelsPrompt(ep: Episode, st: StoryVersion | undefined, format: Format, s: CharacterSettings, locked: Panel[], memo: ImageMemo) {
   const n = format === 'single' ? 1 : 4
   return `${buildSystem(s)}
 
@@ -75,10 +157,35 @@ ${sourceBlock(ep)}
 
 ${storyBlock(st)}
 
-컷 ${n}개를 만들어. 컷마다 핵심 행동 하나. 그림으로 전달되면 설명을 줄여. 대사는 컷당 1~2개의 짧은 문장, 빈 대사도 가능. 원문에 없는 대사는 adaptationNotes에 "각색 제안"이라고 적어.${
+${memoBlock(memo, s)}
+
+컷 ${n}개를 만들어. 컷마다 핵심 행동 하나. 그림으로 전달되면 설명을 줄여.
+- 컷에 나오는 인물마다 cast 항목을 하나씩 만들고, 화면 위치(left/center/right)와 차림·행동·표정·소품을 한 줄에 하나씩 적어.
+- 대사는 그 인물의 dialogue에. 인물당 짧은 한 문장, 빈 대사도 가능.
+- direction에는 웃음이 전달되는 핵심 연출(대비, 거리감, 소품)을 짧게.
+- 원문에 없는 대사는 adaptationNotes에 "각색 제안"이라고 적어.
+- title은 짧은 상단 제목 제안. imageMemo는 이번 편에 맞게 채우되, 비어 있지 않은 현재 값은 그대로 두고 화면 비율은 넣지 마.${
     locked.length ? `\n다음 컷은 잠겨 있어 바뀌지 않으니 흐름만 맞춰:\n${locked.map(panelLine).join('\n')}` : ''
   }${JSON_ONLY}
-{"panels":[{"scene":"화면","action":"행동·표정","dialogue":"대사","narration":"속마음·내레이션","productionNotes":"제작 메모","adaptationNotes":"각색 표시"}]}`
+{"title":"상단 제목","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}}}`
+}
+
+/** 다른 곳(ChatGPT 등)에서 만든 콘티 글을 앱 형식으로 옮긴다. 내용은 바꾸지 않는다. */
+export function importKontiPrompt(text: string, s: CharacterSettings) {
+  return `${buildSystem(s)}
+
+[작업: 콘티 옮겨 적기]
+아래 <콘티> 안의 글은 작업자가 다른 곳에서 이미 확정한 콘티다. 내용을 고치거나 다듬지 말고, 적힌 그대로 JSON 칸에 나눠 담아.
+- 컷 수는 글에 적힌 대로(한컷이면 1개, 4컷이면 4개).
+- 인물별 블록(예: "왼쪽 — 동료 직원")은 cast 항목 하나로. 위치는 left/center/right, 없으면 빈 문자열. 블록 안의 줄은 action에 한 줄씩, "대사:" 줄은 dialogue로.
+- 글에 없는 칸은 빈 문자열. 새 대사·연출을 지어내지 마. adaptationNotes도 글에 없으면 빈 문자열.
+- "최종 확정 대사"가 따로 있으면 그 대사를 해당 인물의 dialogue로 쓴다.
+- 이미지 제작 메모 표가 있으면 imageMemo에, 화면 비율은 ratio에 "1:1" 또는 "4:5"로.
+
+<콘티>
+${text.trim()}
+</콘티>${JSON_ONLY}
+{"title":"상단 제목","panels":[${PANEL_SHAPE}],"imageMemo":{"ratio":"1:1|4:5",${MEMO_FIELDS_SHAPE}}}`
 }
 
 export type PanelOp = 'rewrite' | 'shorten' | 'expression' | 'ending'
@@ -93,7 +200,7 @@ export function panelOpPrompt(op: PanelOp, target: Panel, all: Panel[], ep: Epis
   const task = {
     rewrite: `이 컷만 다시 써. 요청: ${request || '(특별 요청 없음 — 더 간결하고 자연스럽게)'}`,
     shorten: '이 컷의 대사를 더 짧게 줄여. 의미가 그림으로 전달되면 대사를 비워도 된다.',
-    expression: '대사·내레이션 대신 표정과 행동으로 전달되게 바꿔. dialogue는 최소화.',
+    expression: '대사·내레이션 대신 표정과 행동으로 전달되게 바꿔. 인물 대사는 최소화.',
     ending: `마지막 컷만 다시 써. 첫 장면과 연결되는 건조한 마무리로. 교훈·설명형 마무리 금지. ${request}`,
   }[op]
   return `${buildSystem(s)}
@@ -106,8 +213,9 @@ ${storyBlock(st)}
 전체 컷(참고용, 대상 외에는 바꾸지 말 것):
 ${all.map(panelLine).join('\n')}
 
-${task}${JSON_ONLY}
-{"panels":[{"id":"${target.id}","scene":"","action":"","dialogue":"","narration":"","productionNotes":"","adaptationNotes":""}]}`
+${task}
+인물별 위치·행동·대사는 cast에, 핵심 연출은 direction에 둬.${JSON_ONLY}
+{"panels":[${PANEL_SHAPE.replace('{', `{"id":"${target.id}",`)}]}`
 }
 
 export function publishPrompt(ep: Episode, st: StoryVersion | undefined, panels: Panel[], slides: Slide[], s: CharacterSettings) {
@@ -126,19 +234,29 @@ ${slides.map((sl, i) => `${i + 1}. ${sl.id} (${sl.kind === 'cover' ? '표지' : 
 {"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
 }
 
-export function sceneDescription(p: Panel, idx: number, s: CharacterSettings) {
+export function sceneDescription(p: Panel, idx: number, s: CharacterSettings, memo: ImageMemo) {
   const ref = s.referenceAssetIds.length ? `캐릭터 레퍼런스 ${s.referenceAssetIds.length}장 첨부 기준` : '캐릭터 레퍼런스 미등록 — 외형 임의 확정 금지'
-  return `[그림 설명 — ${s.seriesName} 컷 ${idx + 1}]
-화면: ${p.scene || '(미정)'}
-행동·표정: ${p.action || '(미정)'}
-캐릭터: ${s.characterName} (${ref})
-주변 인물: 단순한 익명 실루엣
-${s.styleNotes ? `그림체: ${s.styleNotes}\n` : ''}※ 그림에는 글자·말풍선 넣지 않기 (대사는 별도 레이어)
-
-[올릴 텍스트 — 말풍선/내레이션 레이어]
-대사: ${p.dialogue || '(없음)'}
-속마음·내레이션: ${p.narration || '(없음)'}
-${p.productionNotes ? `\n제작 메모: ${p.productionNotes}` : ''}`
+  const cast = (p.cast ?? []).map((c) => [castHead(c), ...bullets(c.action)].join('\n'))
+  const memoLines = IMAGE_MEMO_FIELDS.filter((f) => memo[f.k].trim()).map((f) => `${f.label(s)}: ${memo[f.k].trim()}`)
+  const d = dialogueLines(p)
+  return [
+    `[그림 설명 — ${s.seriesName} 컷 ${idx + 1}]`,
+    `화면 비율: ${RATIO_LABEL[memo.ratio] ?? memo.ratio}`,
+    `장면: ${p.scene || '(미정)'}`,
+    p.action && `행동·표정: ${p.action}`,
+    cast.length ? `\n${cast.join('\n\n')}\n` : '',
+    p.direction && `핵심 연출: ${p.direction}`,
+    `캐릭터: ${s.characterName} (${ref})`,
+    ...memoLines,
+    s.styleNotes && `그림체: ${s.styleNotes}`,
+    '※ 그림에는 글자·말풍선 넣지 않기 (대사는 별도 레이어)',
+    '\n[올릴 텍스트 — 말풍선/내레이션 레이어]',
+    `대사: ${d.length ? `\n${d.join('\n')}` : '(없음)'}`,
+    `속마음·내레이션: ${p.narration || '(없음)'}`,
+    p.productionNotes && `\n제작 메모: ${p.productionNotes}`,
+  ]
+    .filter((x): x is string => typeof x === 'string' && x !== '')
+    .join('\n')
 }
 
 /* ───────── 결과 파싱·검증 ───────── */
@@ -267,12 +385,14 @@ export function parsePanels(raw: unknown, expect?: { ids?: string[]; count?: num
   const items: PanelDraftItem[] = raw.panels.map((p, i) => {
     if (!isObj(p)) {
       errs.push(`panels[${i}]: 객체여야 해요.`)
-      return { scene: '', action: '', dialogue: '', narration: '', productionNotes: '', adaptationNotes: '' }
+      return { scene: '', action: '', cast: [], direction: '', dialogue: '', narration: '', productionNotes: '', adaptationNotes: '' }
     }
     const P = `panels[${i}]`
     const item: PanelDraftItem = {
       scene: str(p, 'scene', errs, true, `${P}.scene`),
       action: str(p, 'action', errs, false, `${P}.action`),
+      cast: parseCast(p.cast, P, errs),
+      direction: str(p, 'direction', errs, false, `${P}.direction`),
       dialogue: str(p, 'dialogue', errs, false, `${P}.dialogue`),
       narration: str(p, 'narration', errs, false, `${P}.narration`),
       productionNotes: str(p, 'productionNotes', errs, false, `${P}.productionNotes`),
@@ -291,6 +411,66 @@ export function parsePanels(raw: unknown, expect?: { ids?: string[]; count?: num
   if (expect?.count && !expect.ids && items.length !== expect.count) errs.push(`panels: ${expect.count}컷이어야 해요 (현재 ${items.length}컷). 그래도 적용하려면 형식을 바꿔 주세요.`)
   if (errs.length) throw new ParseError(errs)
   return items
+}
+
+function parseCast(v: unknown, P: string, errs: string[]): CastItem[] {
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v)) {
+    errs.push(`${P}.cast: 배열이어야 해요.`)
+    return []
+  }
+  return v.flatMap((c, j) => {
+    const C = `${P}.cast[${j}]`
+    if (!isObj(c)) {
+      errs.push(`${C}: 객체여야 해요.`)
+      return []
+    }
+    const pos = c.position ?? ''
+    if (pos !== '' && pos !== 'left' && pos !== 'center' && pos !== 'right') errs.push(`${C}.position: left/center/right 중 하나여야 해요.`)
+    // 줄 목록을 배열로 보내는 경우도 받아 준다
+    const action = Array.isArray(c.action) && c.action.every((x) => typeof x === 'string') ? (c.action as string[]).join('\n') : str(c, 'action', errs, false, `${C}.action`)
+    const item: CastItem = {
+      id: Math.random().toString(36).slice(2, 10),
+      position: pos === 'left' || pos === 'center' || pos === 'right' ? pos : '',
+      name: str(c, 'name', errs, false, `${C}.name`),
+      action,
+      dialogue: str(c, 'dialogue', errs, false, `${C}.dialogue`),
+    }
+    return [item]
+  })
+}
+
+export interface PanelsDoc {
+  title: string
+  imageMemo: Partial<ImageMemo>
+  items: PanelDraftItem[]
+}
+
+/** 콘티 전체 초안: 제목·컷·이미지 제작 메모 */
+export function parsePanelsDoc(raw: unknown, expect?: { count?: number }): PanelsDoc {
+  const items = parsePanels(raw, expect)
+  const o = raw as Record<string, unknown>
+  const errs: string[] = []
+  const title = typeof o.title === 'string' ? o.title.trim().replace(/^「|」$/g, '') : ''
+  const imageMemo: Partial<ImageMemo> = {}
+  if (o.imageMemo !== undefined) {
+    if (!isObj(o.imageMemo)) errs.push('imageMemo: 객체여야 해요.')
+    else {
+      const m = o.imageMemo
+      if (m.ratio !== undefined && m.ratio !== '') {
+        const r = String(m.ratio).replace(/\s/g, '')
+        if (r.startsWith('1:1')) imageMemo.ratio = '1:1'
+        else if (r.startsWith('4:5')) imageMemo.ratio = '4:5'
+        else errs.push('imageMemo.ratio: "1:1" 또는 "4:5"여야 해요.')
+      }
+      for (const f of IMAGE_MEMO_FIELDS) {
+        const v = str(m, f.k, errs, false, `imageMemo.${f.k}`).trim()
+        if (v) imageMemo[f.k] = v
+      }
+    }
+  }
+  if (errs.length) throw new ParseError(errs)
+  return { title, imageMemo, items }
 }
 
 export interface PublishOut {

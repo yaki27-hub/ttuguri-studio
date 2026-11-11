@@ -6,6 +6,7 @@ import type {
   Episode,
   Format,
   GenerationDraft,
+  ImageMemo,
   Metric,
   Panel,
   PanelSnapshot,
@@ -163,7 +164,7 @@ export async function getBundle(id: string): Promise<Bundle | null> {
   return {
     episode,
     stories: stories.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    panels: panels.sort((a, b) => a.order - b.order),
+    panels: panels.map(normPanel).sort((a, b) => a.order - b.order),
     slides: slides.sort((a, b) => a.order - b.order),
     publication: pubs[0],
     drafts: drafts.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -219,10 +220,17 @@ export async function addStoryVersion(
 
 /* ───────── Panels ───────── */
 
+/** 예전에 저장된 컷에는 cast·direction이 없다 */
+export function normPanel(p: Panel): Panel {
+  return { ...p, cast: p.cast ?? [], direction: p.direction ?? '' }
+}
+
 export function snapshotOf(p: Panel): PanelSnapshot {
   return {
     scene: p.scene,
     action: p.action,
+    cast: p.cast ?? [],
+    direction: p.direction ?? '',
     dialogue: p.dialogue,
     narration: p.narration,
     productionNotes: p.productionNotes,
@@ -237,6 +245,8 @@ export function newPanel(episodeId: string, order: number, s: Partial<PanelSnaps
     order,
     scene: '',
     action: '',
+    cast: [],
+    direction: '',
     dialogue: '',
     narration: '',
     productionNotes: '',
@@ -451,6 +461,11 @@ export async function confirmPanels(ep: Episode) {
   return next
 }
 
+/** 에피소드의 이미지 제작 메모 (없는 항목은 설정 기본값) */
+export function imageMemoOf(ep: Episode, s: CharacterSettings): ImageMemo {
+  return { ...s.imageDefaults, ...ep.imageMemo }
+}
+
 /* ───────── Assets ───────── */
 
 async function keepLoose(episodeId: string, assetIds: string[]) {
@@ -610,14 +625,28 @@ export function defaultSettings(): CharacterSettings {
       '한컷 또는 4컷. 한컷으로 충분한 이야기를 4컷으로 늘리지 않는다.\n짧은 대사, 건조한 유머, 작은 표정 변화, 시각적 반전. 한 컷에 대사 1~2문장.\n실제 한국 직장인이 쓰는 자연스럽고 짧은 구어체. 그림으로 보여줄 수 있는 것은 대사로 설명하지 않는다.\n4컷: 기(상황) → 승(진행) → 전(모순·반전 단서) → 결(공감·반전·허무한 결말). 각 컷에 핵심 행동 하나.',
     prohibitions:
       '실화에 없는 사건·대사를 사실처럼 쓰지 않기(각색은 표시)\n억지 교훈, 억지 감동, 과장된 악역, 설명형 마무리, 장황한 독백 금지\n결말 숨기기로 분량 늘리지 않기\n이미 만든 에피소드와 같은 농담 반복 금지\n회사·개인 식별 정보 익명화\n주변 인물은 얼굴·세부 특징을 생략한 익명 실루엣',
-    styleNotes: '화면 비율 4:5(1:1.25) 고정. 뚜구리는 화면 중심보다 약간 아래.\n이미지에는 글자·말풍선·제목을 넣지 않고 텍스트 여백을 확보.',
+    styleNotes: '뚜구리는 화면 중심보다 약간 아래.\n이미지에는 글자·말풍선·제목을 넣지 않고 텍스트 여백을 확보.',
+    imageDefaults: {
+      ratio: '4:5',
+      composition: '',
+      placement: '',
+      characterLook: 'Figma에서 확정한 기본 디자인 유지',
+      extras: '얼굴 없는 익명 실루엣',
+      background: '',
+      direction: '',
+      text: '이미지에는 넣지 않고 Figma에서 작업',
+    },
     referenceAssetIds: [],
     recurringExpressions: [],
   }
 }
 
 export async function getSettings(): Promise<CharacterSettings> {
-  return (await (await db()).get('settings', SETTINGS_ID)) ?? defaultSettings()
+  const saved = await (await db()).get('settings', SETTINGS_ID)
+  if (!saved) return defaultSettings()
+  // 나중에 추가된 항목은 기본값으로 채운다
+  const d = defaultSettings()
+  return { ...d, ...saved, imageDefaults: { ...d.imageDefaults, ...saved.imageDefaults } }
 }
 
 export async function saveSettings(s: CharacterSettings) {

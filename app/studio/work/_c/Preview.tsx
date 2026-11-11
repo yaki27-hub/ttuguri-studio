@@ -1,6 +1,7 @@
 'use client'
 
 import { FORMAT_LABEL } from '@/lib/work/format'
+import { dialogueLines } from '@/lib/work/prompts'
 import { AssetImage } from './ui'
 import { useWS } from './Workspace'
 
@@ -29,7 +30,8 @@ export default function Preview() {
   return (
     <div className="preview">
       <h2 className="small muted">콘티 미리보기 · {FORMAT_LABEL[ep.format]}</h2>
-      {story?.summary && <p className="pv-summary">{story.summary}</p>}
+      <p className="pv-summary">「{ep.title}」</p>
+      {story?.summary && <p className="small muted">{story.summary}</p>}
       {b.panels.length === 0 ? (
         <p className="muted small">아직 컷이 없어요.</p>
       ) : (
@@ -40,7 +42,11 @@ export default function Preview() {
                 {p.assetId ? <AssetImage id={p.assetId} alt={`컷 ${i + 1}`} className="slot-img" /> : <span className="pv-scene">{p.scene || '화면 미정'}</span>}
                 <span className="pv-no">{i + 1}</span>
               </div>
-              {p.dialogue && <p className="pv-dialogue">“{p.dialogue}”</p>}
+              {dialogueLines(p).map((d, k) => (
+                <p key={k} className="pv-dialogue">
+                  {d}
+                </p>
+              ))}
               {p.narration && <p className="small muted">{p.narration}</p>}
             </li>
           ))}

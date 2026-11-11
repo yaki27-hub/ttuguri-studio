@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { deleteAssetIfUnused, patchEpisode, patchPanelMeta, putAsset, setStatus } from '@/lib/work/repo'
-import { sceneDescription } from '@/lib/work/prompts'
+import { deleteAssetIfUnused, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
+import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import type { Panel } from '@/lib/work/types'
 import { AssetImage, CopyButton, FilePick, Lightbox, Notice } from './ui'
 import { useWS } from './Workspace'
@@ -126,9 +126,9 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
       <div className="image-info">
         <p className="panel-no">컷 {i + 1}</p>
         <p className="small clamp">{p.scene || '(화면 미정)'}</p>
-        <p className="small muted clamp">대사: {p.dialogue || '없음'}</p>
+        <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
         <div className="row-inline wraps">
-          <CopyButton text={() => sceneDescription(p, i, ws.settings)} label="장면 설명 복사" className="small" />
+          <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="장면 설명 복사" className="small" />
           <FilePick label={busy ? '확인 중…' : p.assetId ? '교체' : '이미지 첨부'} className="small" disabled={busy} onFile={attach} />
           {p.assetId && (
             <button
