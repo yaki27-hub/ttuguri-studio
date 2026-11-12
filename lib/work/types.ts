@@ -16,7 +16,9 @@ export interface Fact {
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
 /** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
 export type Format = 'single' | 'four' | 'captions'
-export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'
+export type Stage = 'quick' | 'source' | 'story' | 'panels' | 'images' | 'publish'
+/** 내보낼 모양: 캐러셀(4:5 여러 장) / 릴스(9:16 영상) */
+export type Output = 'carousel' | 'reels'
 export type Status =
   | 'idea'
   | 'story'
@@ -70,6 +72,8 @@ export interface Episode extends Base {
   imageMemo?: ImageMemo
   /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
   hookText?: string
+  /** 빠른 만들기에서 고른 내보내기 모양 (없으면 캐러셀) */
+  outputs?: Output[]
 }
 
 export type Ratio = '4:5' | '1:1'

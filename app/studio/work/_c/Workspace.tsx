@@ -15,6 +15,7 @@ import StoryStage from './StoryStage'
 import PanelsStage from './PanelsStage'
 import ImagesStage from './ImagesStage'
 import PublishStage from './PublishStage'
+import QuickStage from './QuickStage'
 import Preview from './Preview'
 
 type Flash = { msg: string; kind: 'info' | 'ok' | 'warn' | 'error' }
@@ -63,7 +64,7 @@ function syncServer(local: Episode, server: Episode): Episode {
 }
 
 const EP_EDITABLE: (keyof Episode)[] = [
-  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds',
+  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'hookText', 'imageMemo', 'outputs',
 ]
 
 export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {
@@ -295,7 +296,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
             <StageView stage={cur} />
           </section>
           <aside className="ws-preview" aria-label="미리보기">
-            <Preview />
+            <Preview stage={cur} />
           </aside>
         </div>
       </div>
@@ -305,6 +306,8 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
 
 function StageView({ stage }: { stage: Stage }): ReactNode {
   switch (stage) {
+    case 'quick':
+      return <QuickStage />
     case 'source':
       return <SourceStage />
     case 'story':

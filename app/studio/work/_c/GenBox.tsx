@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { saveDraft, updateDraft } from '@/lib/work/repo'
 import { ParseError, extractJSON } from '@/lib/work/prompts'
 import type { DraftTarget, GenerationDraft } from '@/lib/work/types'
@@ -22,6 +22,12 @@ interface Props<T> {
   applyLabel?: string
   blocked?: string
   compact?: boolean
+  /** 열리자마자 AI로 받기 (AI 키가 있을 때만) */
+  autoRun?: boolean
+  /** 받은 결과를 바로 적용 (덮어쓸 내용이 없을 때만 쓴다) */
+  autoApply?: boolean
+  /** AI 버튼 문구 */
+  runLabel?: string
 }
 
 /**
@@ -68,6 +74,17 @@ export default function GenBox<T>(p: Props<T>) {
       output: raw,
       status: 'pending',
     })
+    if (p.autoApply) {
+      try {
+        await p.apply(value)
+        await updateDraft({ ...draft, status: 'applied' })
+        setBase(undefined)
+      } catch (e) {
+        setErrors([`적용하지 못했어요: ${(e as Error).message}`])
+        setResult({ value, draft })
+      }
+      return
+    }
     setResult({ value, draft })
   }
 
@@ -88,6 +105,16 @@ export default function GenBox<T>(p: Props<T>) {
       if (my === reqId.current) setAiBusy(false)
     }
   }
+
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (p.autoRun && ws.aiReady && !p.blocked && !autoStarted.current) {
+      autoStarted.current = true
+      runAI()
+    }
+    // 처음 열릴 때 한 번만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.autoRun])
 
   async function doApply(force = false) {
     if (!result || applying) return
@@ -134,7 +161,7 @@ export default function GenBox<T>(p: Props<T>) {
           <div className="row-inline">
             {ws.aiReady && (
               <button type="button" className="btn primary small" disabled={aiBusy} onClick={runAI}>
-                {aiBusy ? 'AI 작성 중… (10~30초)' : 'AI로 초안 받기'}
+                {aiBusy ? 'AI 작성 중… (10~30초)' : p.runLabel ?? 'AI로 초안 받기'}
               </button>
             )}
             {aiBusy && (

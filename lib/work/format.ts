@@ -1,4 +1,4 @@
-import type { Format, Purpose, Stage, Status } from './types'
+import type { Format, Output, Purpose, Stage, Status } from './types'
 
 const dtf = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -38,13 +38,17 @@ export const STATUS_LABEL: Record<Status, string> = {
 export const STATUS_ORDER: Status[] = ['idea', 'story', 'confirmed_panels', 'illustrating', 'ready', 'published']
 
 export const STAGE_LABEL: Record<Stage, string> = {
+  quick: '빠른 시안',
   source: '소재',
   story: '이야기',
   panels: '콘티',
   images: '이미지',
   publish: '게시',
 }
-export const STAGES: Stage[] = ['source', 'story', 'panels', 'images', 'publish']
+export const STAGES: Stage[] = ['quick', 'source', 'story', 'panels', 'images', 'publish']
+
+export const OUTPUT_LABEL: Record<Output, string> = { carousel: '캐러셀', reels: '릴스' }
+export const outputsOf = (o?: Output[]): Output[] => (o?.length ? o : ['carousel'])
 
 export const FORMAT_LABEL: Record<Format, string> = { single: '한컷', four: '4컷', captions: '컷자막형' }
 export const FORMATS: Format[] = ['single', 'four', 'captions']
