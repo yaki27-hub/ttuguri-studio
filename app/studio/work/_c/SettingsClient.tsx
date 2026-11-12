@@ -74,6 +74,7 @@ export default function SettingsClient({ env }: { env: Env }) {
         <div className="grid2">
           <Field label="캐릭터 이름" single value={s.characterName} onChange={(v) => edit({ characterName: v })} />
           <Field label="툰 이름" single value={s.seriesName} onChange={(v) => edit({ seriesName: v })} />
+          <Field label="계정 아이디" single value={s.handle} onChange={(v) => edit({ handle: v })} hint="그림에 글자를 얹을 때 왼쪽 위에 들어가요" />
         </div>
         <Field label="소개 · 캐릭터 설정" value={s.introduction} rows={3} onChange={(v) => edit({ introduction: v })} />
         <Field label="말투 · 연출 규칙" value={s.voiceRules} rows={4} onChange={(v) => edit({ voiceRules: v })} />

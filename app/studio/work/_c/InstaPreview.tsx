@@ -33,7 +33,7 @@ export default function InstaPreview() {
   const outs = outputsOf(ep.outputs)
   const [view, setView] = useState<Output>(outs[0])
   const shown = outs.includes(view) ? view : outs[0]
-  const name = settings.seriesName || settings.characterName || '내 계정'
+  const name = settings.handle?.replace(/^@/, '') || settings.seriesName || settings.characterName || '내 계정'
 
   if (!b.panels.length)
     return (

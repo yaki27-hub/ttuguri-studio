@@ -526,7 +526,10 @@ export async function referencedAssetIds() {
   const d = await db()
   const ids = new Set<string>()
   for (const p of await d.getAll('panels')) if (p.assetId) ids.add(p.assetId)
-  for (const s of await d.getAll('slides')) if (s.assetId) ids.add(s.assetId)
+  for (const s of await d.getAll('slides')) {
+    if (s.assetId) ids.add(s.assetId)
+    if (s.sourceAssetId) ids.add(s.sourceAssetId)
+  }
   for (const e of await d.getAll('episodes')) {
     e.sourceAssetIds?.forEach((x) => ids.add(x))
     e.looseAssetIds?.forEach((x) => ids.add(x))
@@ -634,6 +637,7 @@ export function defaultSettings(): CharacterSettings {
     revision: 0,
     characterName: '뚜구리',
     seriesName: '뚜구리툰',
+    handle: '@ttuguri',
     introduction:
       '회사는 바뀌어도 별일은 계속된다. 여러 회사에서 직접 겪은 프리랜서 디자이너의 웃픈 실화.\n성격·고정 말투·시그니처 행동은 아직 미확정 — 임의로 만들지 않는다.',
     voiceRules:

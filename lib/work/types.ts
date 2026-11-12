@@ -158,6 +158,21 @@ export interface Slide extends Base {
   assetId?: string
   altText: string
   isFinalImage: boolean
+  /** 글자를 얹기 전 원본 그림 (다시 얹을 때 이 그림을 쓴다) */
+  sourceAssetId?: string
+  /** 앱에서 얹은 글자 설정 */
+  overlay?: Overlay
+}
+
+/** 그림 위에 얹는 글자: 계정·번호 머리줄, 제목, 말풍선, 자막 */
+export interface Overlay {
+  showHeader: boolean
+  title: string
+  /** 말풍선 하나에 한 줄 */
+  bubbles: string[]
+  caption: string
+  bubbleAt: 'top' | 'bottom'
+  align: 'left' | 'center'
 }
 
 export interface Asset extends Base {
@@ -193,6 +208,8 @@ export interface CharacterSettings extends Base {
   revision: number
   characterName: string
   seriesName: string
+  /** 그림 위에 얹을 계정 아이디 (예: @ttuguri) */
+  handle: string
   introduction: string
   voiceRules: string
   prohibitions: string

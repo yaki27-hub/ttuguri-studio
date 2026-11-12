@@ -269,3 +269,15 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .reel-foot .muted { color: rgba(255, 255, 255, 0.7); }
 .reel-paused { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); font-weight: 700; z-index: 3; }
 @media (prefers-reduced-motion: reduce) { .reel-bars i.run::after { animation: none; transform: scaleX(1); } }
+
+/* 글자 얹기 */
+.overlay-edit { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.overlay-canvas canvas { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+.overlay-fields { display: grid; gap: 4px; }
+@media (max-width: 767px) {
+  .overlay-edit { grid-template-columns: minmax(0, 1fr); }
+  .overlay-canvas canvas { max-width: 320px; margin: 0 auto; }
+}
+.modal:has(.overlay-edit) { width: min(880px, calc(100vw - 24px)); }
+.modal-body > .overlay-edit { flex-shrink: 0; }
+.overlay-fields textarea { min-height: 76px; }
