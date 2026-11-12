@@ -123,6 +123,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
               <option value="">모든 형식</option>
               <option value="single">한컷</option>
               <option value="four">4컷</option>
+              <option value="captions">컷자막형</option>
             </select>
             <select aria-label="정렬" value={sort} onChange={(e) => setSort(e.target.value as 'updated' | 'scheduled')}>
               <option value="updated">최근 수정순</option>

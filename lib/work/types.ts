@@ -14,7 +14,8 @@ export interface Fact {
 }
 
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
-export type Format = 'single' | 'four'
+/** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
+export type Format = 'single' | 'four' | 'captions'
 export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'
 export type Status =
   | 'idea'
@@ -67,6 +68,8 @@ export interface Episode extends Base {
   notionPageId?: string
   /** 이번 편 이미지 제작 메모. 없으면 설정의 기본값을 쓴다 */
   imageMemo?: ImageMemo
+  /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
+  hookText?: string
 }
 
 export type Ratio = '4:5' | '1:1'
@@ -91,6 +94,8 @@ export interface CastItem {
   name: string
   action: string
   dialogue: string
+  /** “이 대사 그대로” — 초안을 다시 받아도 바뀌지 않는다 */
+  fixed?: boolean
 }
 
 export interface StoryVersion extends Base {

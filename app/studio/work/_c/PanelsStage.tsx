@@ -5,11 +5,12 @@ import {
   addPanel, applyPanelDraft, confirmPanels, imageMemoOf, patchEpisode, patchPanelMeta, removePanel, reorderPanels, savePanel, snapshotOf, newPanel, type PanelDraftItem,
 } from '@/lib/work/repo'
 import {
-  IMAGE_MEMO_FIELDS, PANEL_OP_LABEL, POSITION_LABEL, RATIO_LABEL, dialogueLines, importKontiPrompt, kontiDocument, panelOpPrompt, panelsPrompt, parsePanels, parsePanelsDoc,
+  IMAGE_MEMO_FIELDS, PANEL_OP_LABEL, POSITION_LABEL, RATIO_LABEL, cutName, dialogueLines, importKontiPrompt, kontiDocument, panelOpPrompt, panelsPrompt, parsePanels, parsePanelsDoc,
+  sceneSheet, screenTextSheet, textLabel,
   type PanelOp, type PanelsDoc,
 } from '@/lib/work/prompts'
 import { uid } from '@/lib/work/db'
-import { fmtDateTime, FORMAT_LABEL } from '@/lib/work/format'
+import { FORMATS, FORMAT_LABEL, countRange, fitCount, fmtDateTime, fmtDuration } from '@/lib/work/format'
 import type { CastItem, CastPosition, Episode, Format, ImageMemo, Panel, Ratio } from '@/lib/work/types'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
@@ -20,7 +21,8 @@ export default function PanelsStage() {
   const { ep, b, story } = ws
   const panels = b.panels
   const target: Format = ep.format
-  const n = target === 'single' ? 1 : 4
+  const range = countRange(target)
+  const n = fitCount(target, 0)
   const [dragId, setDragId] = useState<string>()
   const [fmtPreview, setFmtPreview] = useState<Format>()
   const [importText, setImportText] = useState('')
@@ -49,7 +51,12 @@ export default function PanelsStage() {
         if (imported || !now[k].trim()) (next as unknown as Record<string, string>)[k] = v
       }
       if (JSON.stringify(next) !== JSON.stringify(now)) patch.imageMemo = next
-      if (imported && (doc.items.length === 1 || doc.items.length === 4)) patch.format = doc.items.length === 1 ? 'single' : 'four'
+      if (doc.hook && (imported || doc.hook !== cur.hookText)) patch.hookText = doc.hook
+      if (imported) {
+        const k = doc.items.length
+        const f = doc.format && k >= countRange(doc.format)[0] && k <= countRange(doc.format)[1] ? doc.format : k === 1 ? 'single' : k === 4 ? 'four' : k <= 4 ? 'captions' : undefined
+        if (f) patch.format = f
+      }
       if (Object.keys(patch).length) await patchEpisode(ep.id, patch)
       return res
     })
@@ -71,12 +78,25 @@ export default function PanelsStage() {
             {ep.confirmedPanelRevision !== undefined && ` · 확정 r${ep.confirmedPanelRevision}`}
           </span>
         </div>
+        <Timing />
         <Field label="상단 제목" single value={ep.title} onChange={(v) => ws.editEp({ title: v, titleIsAuto: false })} />
+        <Field
+          label="첫 화면 문구"
+          single
+          value={ep.hookText ?? ''}
+          onChange={(v) => ws.editEp({ hookText: v })}
+          placeholder={target === 'single' ? '그림 안 자막으로 들어갈 한 줄' : '첫 장에 올릴 짧은 문구'}
+          hint={target === 'single' ? '한컷에서는 그림 안 자막으로 써도 돼요.' : undefined}
+        />
         <div className="field">
           <label htmlFor="pfmt">형식</label>
           <select id="pfmt" value={target} onChange={(e) => (panels.length ? setFmtPreview(e.target.value as Format) : ws.editEp({ format: e.target.value as Format }))}>
-            <option value="four">4컷</option>
-            <option value="single">한컷</option>
+            {FORMATS.map((f) => (
+              <option key={f} value={f}>
+                {FORMAT_LABEL[f]}
+                {f === 'captions' ? ' (2~4장)' : ''}
+              </option>
+            ))}
           </select>
         </div>
         {fmtPreview && fmtPreview !== target && (
@@ -88,10 +108,14 @@ export default function PanelsStage() {
         )}
         {storyStale && <Notice kind="warn">이 콘티를 만든 뒤 이야기가 수정됐어요. 자동으로 다시 만들지 않으니 내용을 확인해 주세요.</Notice>}
         {panels.length > 0 && (
-          <div className="row-inline">
-            <CopyButton text={() => kontiDocument(ep, panels, ws.settings, memo)} label="콘티 문서 복사" className="small" />
-            <span className="hint">제목·장면·인물별·핵심 연출·이미지 제작 메모·최종 대사 순서로 복사돼요.</span>
-          </div>
+          <>
+            <div className="row-inline wraps">
+              <CopyButton text={() => sceneSheet(ep, panels, ws.settings, memo)} label="장면 설명만 복사" className="small" />
+              <CopyButton text={() => screenTextSheet(ep, panels)} label="화면 문구만 복사" className="small" />
+              <CopyButton text={() => kontiDocument(ep, panels, ws.settings, memo)} label="콘티 문서 전체" className="small" />
+            </div>
+            <p className="hint">피그마에는 ‘장면 설명’을 그림 작업 옆에, ‘화면 문구’를 말풍선·자막 레이어에 붙이면 돼요.</p>
+          </>
         )}
         {panels.length === 0 && (
           <div className="row-inline">
@@ -116,8 +140,18 @@ export default function PanelsStage() {
             targetIds={panels.map((p) => p.id)}
             operation="콘티 초안"
             compact={panels.length > 0}
-            buildPrompt={() => panelsPrompt(ep, story, target, ws.settings, panels.filter((p) => p.locked), memo)}
-            parse={(raw) => parsePanelsDoc(raw, { count: n })}
+            buildPrompt={() =>
+              panelsPrompt(
+                ep,
+                story,
+                target,
+                ws.settings,
+                panels.filter((p) => p.locked),
+                memo,
+                panels.flatMap((p, i) => (p.locked ? [] : p.cast.filter((c) => c.fixed && c.dialogue.trim()).map((c) => `${cutName(ep, panels.length, i)} ${c.name || '인물'}: "${c.dialogue}"`))),
+              )
+            }
+            parse={(raw) => parsePanelsDoc(raw, { range })}
             getBase={() => ep.panelsRevision}
             preview={(doc) => <DocPreview doc={doc} panels={panels} imported={false} />}
             applyLabel={panels.length ? '변경안 적용 (잠긴 컷 유지)' : '콘티에 적용'}
@@ -243,7 +277,7 @@ function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: b
   return (
     <>
       <div className="panel-head">
-        <span className="panel-no">컷 {i + 1}</span>
+        <span className="panel-no">{cutName(ep, count, i)}</span>
         {p.locked && <span className="tag">🔒 잠금</span>}
         {p.adaptationNotes && <span className="tag warn">각색 있음</span>}
         <span className="spacer" />
@@ -268,7 +302,7 @@ function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: b
         <CastEditor p={p} />
         <Field label="핵심 연출" value={p.direction} readOnly={p.locked} rows={1} onChange={(v) => edit({ direction: v })} className="wide" placeholder="예) 두 캐릭터 사이의 거리와 대비를 강조" />
         <Field label={p.cast.length ? '기타 대사·효과음' : '대사'} value={p.dialogue} readOnly={p.locked} rows={1} onChange={(v) => edit({ dialogue: v })} />
-        <Field label="속마음·내레이션" value={p.narration} readOnly={p.locked} rows={1} onChange={(v) => edit({ narration: v })} />
+        <Field label={textLabel(ep.format)} value={p.narration} readOnly={p.locked} rows={1} onChange={(v) => edit({ narration: v })} className={ep.format === 'captions' ? 'dialogue' : ''} />
         <Field label="제작 메모" value={p.productionNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ productionNotes: v })} />
         <Field label="각색 표시" value={p.adaptationNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ adaptationNotes: v })} />
       </div>
@@ -359,7 +393,31 @@ function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: b
 }
 
 const castSummary = (cast: CastItem[] = []) =>
-  cast.map((c) => `${[POSITION_LABEL[c.position], c.name || '인물'].filter(Boolean).join(' ')}: ${c.action.split('\n').filter(Boolean).join(' / ')}`)
+  cast.map((c) => `${[POSITION_LABEL[c.position], c.name || '인물'].filter(Boolean).join(' ')}: ${c.action.split('\n').filter(Boolean).join(' / ')}${c.fixed ? ' (📌 고정 대사)' : ''}`)
+
+/** 검증용: 메모 → 첫 콘티 초안 → 첫 확정까지 걸린 시간 */
+function Timing() {
+  const { ep, b } = useWS()
+  const first = (xs: string[]) => xs.sort()[0]
+  const draftAt = first([
+    ...b.drafts.filter((d) => d.targetType === 'panels').map((d) => d.createdAt),
+    ...b.activities.filter((a) => /^콘티 (초안 적용|가져오기)/.test(a.operation)).map((a) => a.timestamp),
+  ])
+  const confirmAt = first(b.activities.filter((a) => a.operation.startsWith('콘티 확정')).map((a) => a.timestamp))
+  if (!draftAt && !confirmAt) return null
+  const span = (from?: string, to?: string) => (from && to && to >= from ? fmtDuration(Date.parse(to) - Date.parse(from)) : '—')
+  return (
+    <p className="timing small">
+      ⏱ 메모 → 첫 초안 <b>{span(ep.createdAt, draftAt)}</b>
+      {' · '}첫 초안 → 확정 <b>{confirmAt ? span(draftAt, confirmAt) : '아직'}</b>
+      {confirmAt && (
+        <>
+          {' · '}전체 <b>{span(ep.createdAt, confirmAt)}</b>
+        </>
+      )}
+    </p>
+  )
+}
 
 /** 컷의 인물(위치·이름·행동·대사)을 편집 */
 function CastEditor({ p }: { p: Panel }) {
@@ -389,7 +447,22 @@ function CastEditor({ p }: { p: Panel }) {
             )}
           </div>
           <Field label="차림·행동·표정·소품 (한 줄에 하나)" value={c.action} readOnly={p.locked} rows={2} onChange={(v) => upd(c.id, { action: v })} />
-          <Field label="대사" single value={c.dialogue} readOnly={p.locked} onChange={(v) => upd(c.id, { dialogue: v })} className="dialogue" />
+          <div className="field dialogue">
+            <label htmlFor={`dlg-${c.id}`}>대사{c.fixed && ' · 📌 고정'}</label>
+            <div className="pin-row">
+              <input id={`dlg-${c.id}`} value={c.dialogue} readOnly={p.locked || c.fixed} onChange={(e) => upd(c.id, { dialogue: e.target.value })} />
+              <button
+                type="button"
+                className={`btn small ${c.fixed ? 'on' : ''}`}
+                aria-pressed={!!c.fixed}
+                disabled={p.locked || (!c.fixed && !c.dialogue.trim())}
+                title="이 대사 그대로 — 초안을 다시 받아도 바뀌지 않아요"
+                onClick={() => upd(c.id, { fixed: !c.fixed })}
+              >
+                {c.fixed ? '고정 해제' : '📌 고정'}
+              </button>
+            </div>
+          </div>
         </div>
       ))}
       {!p.locked && (
@@ -417,6 +490,16 @@ function DocPreview({ doc, panels, imported }: { doc: PanelsDoc; panels: Panel[]
   ]
   return (
     <div className="stack">
+      {doc.hook && (
+        <p className="small">
+          <b>첫 화면 문구</b> {doc.hook}
+        </p>
+      )}
+      {imported && doc.format && (
+        <p className="small">
+          <b>형식</b> {FORMAT_LABEL[doc.format]}
+        </p>
+      )}
       {doc.title && (
         <p className="small">
           <b>상단 제목</b> 「{doc.title}」
@@ -487,7 +570,7 @@ function FormatChange({ to, onCancel, onDone }: { to: Format; onCancel: () => vo
   const ws = useWS()
   const { ep, b } = ws
   const panels = b.panels
-  const n = to === 'single' ? 1 : 4
+  const n = fitCount(to, panels.length)
   const keep = panels.slice(0, n)
   const out = panels.slice(n)
   const add = Math.max(0, n - panels.length)

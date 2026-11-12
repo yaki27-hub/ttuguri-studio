@@ -36,7 +36,7 @@ export function storyboardMarkdown(b: Bundle) {
   ]
   if (st) {
     lines.push('## 이야기', '', `- 한 줄 요약: ${st.summary}`, `- 도입: ${st.opening}`)
-    if (ep.format === 'four' || st.development) lines.push(`- 전개: ${st.development}`)
+    if (ep.format !== 'single' || st.development) lines.push(`- 전개: ${st.development}`)
     lines.push(`- 웃음 지점: ${st.humor}`, `- 마무리: ${st.ending}`, '')
   }
   lines.push('## 콘티', '', '| 컷 | 장면 | 인물별 | 대사 | 핵심 연출 | 속마음·내레이션 | 제작 메모 | 각색 |', '|---|---|---|---|---|---|---|---|')

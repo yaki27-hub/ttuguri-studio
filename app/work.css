@@ -202,3 +202,10 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .pv-dialogue { margin: 6px 0 0; font-weight: 600; font-size: 14px; }
 .preview p { margin: 4px 0 0; }
 .tabs { max-width: 100%; overflow-x: auto; }
+
+.pin-row { display: flex; gap: 6px; align-items: center; }
+.pin-row input { flex: 1; min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; background: var(--surface); font: inherit; font-weight: 600; }
+.pin-row input[readonly] { background: var(--surface-2); }
+.pin-row .btn { flex: none; }
+.timing { color: var(--muted); margin: 0 0 8px; }
+.timing b { color: var(--text, inherit); font-variant-numeric: tabular-nums; }

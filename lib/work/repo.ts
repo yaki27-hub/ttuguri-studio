@@ -352,6 +352,21 @@ export async function removePanel(panel: Panel) {
   return bumpPanels(panel.episodeId)
 }
 
+/** 초안을 적용할 때 기존 컷의 고정 대사(📌)를 그대로 남긴다 */
+export function keepFixed(cur: Panel, snap: PanelSnapshot): PanelSnapshot {
+  const fixed = (cur.cast ?? []).filter((c) => c.fixed && c.dialogue.trim())
+  if (!fixed.length) return snap
+  const cast = [...(snap.cast ?? [])]
+  for (const f of fixed) {
+    const same = cast.findIndex((c) => c.dialogue.trim() === f.dialogue.trim())
+    const byName = cast.findIndex((c) => c.name.trim() && c.name.trim() === f.name.trim())
+    const i = same >= 0 ? same : byName
+    if (i >= 0) cast[i] = { ...cast[i], dialogue: f.dialogue, fixed: true }
+    else cast.push(f)
+  }
+  return { ...snap, cast }
+}
+
 export interface PanelDraftItem extends PanelSnapshot {
   id?: string
 }
@@ -390,7 +405,7 @@ export async function applyPanelDraft(
       }
       await writeVersion(cur)
       const { id: _id, ...snap } = it
-      await pstore.put({ ...cur, ...snap, revision: cur.revision + 1, updatedAt: t })
+      await pstore.put({ ...cur, ...keepFixed(cur, snap), revision: cur.revision + 1, updatedAt: t })
     }
   } else {
     // 교체: 순서대로 기존 컷 슬롯에 대응. 잠긴 컷은 그대로 두고 그 자리를 건너뜀.
@@ -410,7 +425,7 @@ export async function applyPanelDraft(
       keep.add(cur.id)
       await writeVersion(cur)
       const { id: _id, ...snap } = it
-      await pstore.put({ ...cur, ...snap, order: order++, revision: cur.revision + 1, updatedAt: t })
+      await pstore.put({ ...cur, ...keepFixed(cur, snap), order: order++, revision: cur.revision + 1, updatedAt: t })
     }
     for (const it of queue) {
       const { id: _id, ...snap } = it
