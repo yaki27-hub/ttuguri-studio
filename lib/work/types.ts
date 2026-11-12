@@ -14,7 +14,8 @@ export interface Fact {
 }
 
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
-export type Format = 'single' | 'four'
+/** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
+export type Format = 'single' | 'four' | 'captions'
 export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'
 export type Status =
   | 'idea'
@@ -65,6 +66,36 @@ export interface Episode extends Base {
   isSample?: boolean
   /** 노션 🎬 에피소드 DB 페이지와 연결 */
   notionPageId?: string
+  /** 이번 편 이미지 제작 메모. 없으면 설정의 기본값을 쓴다 */
+  imageMemo?: ImageMemo
+  /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
+  hookText?: string
+}
+
+export type Ratio = '4:5' | '1:1'
+
+export interface ImageMemo {
+  ratio: Ratio
+  composition: string
+  placement: string
+  characterLook: string
+  extras: string
+  background: string
+  direction: string
+  text: string
+}
+
+export type CastPosition = 'left' | 'center' | 'right' | ''
+
+/** 컷 안의 인물 한 명: 위치·차림·행동·소품과 대사 */
+export interface CastItem {
+  id: string
+  position: CastPosition
+  name: string
+  action: string
+  dialogue: string
+  /** “이 대사 그대로” — 초안을 다시 받아도 바뀌지 않는다 */
+  fixed?: boolean
 }
 
 export interface StoryVersion extends Base {
@@ -87,6 +118,11 @@ export interface Panel extends Base {
   order: number
   scene: string
   action: string
+  /** 인물별 위치·행동·대사 */
+  cast: CastItem[]
+  /** 핵심 연출 (대비·거리감 등) */
+  direction: string
+  /** 인물에 속하지 않는 대사·효과음 (예전 콘티의 대사도 여기에 남아 있다) */
   dialogue: string
   narration: string
   productionNotes: string
@@ -99,7 +135,7 @@ export interface Panel extends Base {
 
 export type PanelSnapshot = Pick<
   Panel,
-  'scene' | 'action' | 'dialogue' | 'narration' | 'productionNotes' | 'adaptationNotes'
+  'scene' | 'action' | 'cast' | 'direction' | 'dialogue' | 'narration' | 'productionNotes' | 'adaptationNotes'
 >
 
 export interface PanelVersion extends Base {
@@ -157,6 +193,8 @@ export interface CharacterSettings extends Base {
   voiceRules: string
   prohibitions: string
   styleNotes: string
+  /** 새 에피소드의 이미지 제작 메모 기본값 */
+  imageDefaults: ImageMemo
   referenceAssetIds: string[]
   recurringExpressions: string[]
 }

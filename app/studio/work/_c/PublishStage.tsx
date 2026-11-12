@@ -323,7 +323,7 @@ export default function PublishStage() {
               setBusy('zip')
               try {
                 await saver.flush()
-                downloadBlob(await buildPublishZip({ ...b, slides: slidesRef.current }, pubRef.current), `${ep.title.slice(0, 30)}-게시패키지.zip`)
+                downloadBlob(await buildPublishZip({ ...b, slides: slidesRef.current }, pubRef.current, ws.settings), `${ep.title.slice(0, 30)}-게시패키지.zip`)
                 await logActivity(ep.id, '게시 패키지 다운로드')
               } catch (e) {
                 ws.flash((e as Error).message, 'error')
@@ -340,7 +340,7 @@ export default function PublishStage() {
             className="btn block"
             onClick={async () => {
               await saver.flush()
-              downloadBlob(await buildTextDraftZip({ ...b, slides: slidesRef.current }, pubRef.current), `${ep.title.slice(0, 30)}-텍스트초안.zip`)
+              downloadBlob(await buildTextDraftZip({ ...b, slides: slidesRef.current }, pubRef.current, ws.settings), `${ep.title.slice(0, 30)}-텍스트초안.zip`)
             }}
           >
             텍스트 초안만 다운로드

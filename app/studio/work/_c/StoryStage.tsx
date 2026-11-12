@@ -2,7 +2,7 @@
 
 import { addStoryVersion, emptyStory, patchEpisode, type StoryFields } from '@/lib/work/repo'
 import { parseStory, storyPrompt, type StoryOut } from '@/lib/work/prompts'
-import { FORMAT_LABEL, fmtDateTime } from '@/lib/work/format'
+import { FORMATS, FORMAT_LABEL, fmtDateTime } from '@/lib/work/format'
 import type { Format, StoryVersion } from '@/lib/work/types'
 import { Field } from './ui'
 import GenBox from './GenBox'
@@ -50,14 +50,17 @@ export default function StoryStage() {
                 ws.editEp({ format: f })
               }}
             >
-              <option value="four">4컷</option>
-              <option value="single">한컷</option>
+              {FORMATS.map((f) => (
+                <option key={f} value={f}>
+                  {FORMAT_LABEL[f]}
+                </option>
+              ))}
             </select>
             {story.reason && <p className="hint">추천 이유: {story.reason}</p>}
           </div>
           <Field label="한 줄 요약" value={story.summary} onChange={(v) => ws.editStory({ summary: v })} />
           <Field label="도입 — 첫 장면" value={story.opening} onChange={(v) => ws.editStory({ opening: v })} />
-          {story.format === 'four' && <Field label="전개" value={story.development} onChange={(v) => ws.editStory({ development: v })} />}
+          {story.format !== 'single' && <Field label="전개" value={story.development} onChange={(v) => ws.editStory({ development: v })} />}
           <Field label="웃음 지점" value={story.humor} onChange={(v) => ws.editStory({ humor: v })} />
           <Field label="마무리 — 마지막 한 줄" value={story.ending} onChange={(v) => ws.editStory({ ending: v })} hint="첫 장면과 이어지는지 확인해 보세요." />
         </section>

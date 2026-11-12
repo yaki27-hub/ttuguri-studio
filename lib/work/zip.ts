@@ -1,9 +1,10 @@
 import JSZip from 'jszip'
 import { ALL_STORES, SCHEMA_VERSION, db, uid, type StoreName } from './db'
 import { extOf, fmtDateTime, FORMAT_LABEL } from './format'
-import { getAsset, cleanupOrphanAssets } from './repo'
+import { getAsset, cleanupOrphanAssets, imageMemoOf } from './repo'
+import { dialogueLines, kontiDocument } from './prompts'
 import type { Bundle } from './repo'
-import type { Asset, Publication, Slide } from './types'
+import type { Asset, CharacterSettings, Publication, Slide } from './types'
 
 /* ───────── 게시 패키지 ───────── */
 
@@ -35,14 +36,18 @@ export function storyboardMarkdown(b: Bundle) {
   ]
   if (st) {
     lines.push('## 이야기', '', `- 한 줄 요약: ${st.summary}`, `- 도입: ${st.opening}`)
-    if (ep.format === 'four' || st.development) lines.push(`- 전개: ${st.development}`)
+    if (ep.format !== 'single' || st.development) lines.push(`- 전개: ${st.development}`)
     lines.push(`- 웃음 지점: ${st.humor}`, `- 마무리: ${st.ending}`, '')
   }
-  lines.push('## 콘티', '', '| 컷 | 화면 | 행동·표정 | 대사 | 속마음·내레이션 | 제작 메모 | 각색 |', '|---|---|---|---|---|---|---|')
+  lines.push('## 콘티', '', '| 컷 | 장면 | 인물별 | 대사 | 핵심 연출 | 속마음·내레이션 | 제작 메모 | 각색 |', '|---|---|---|---|---|---|---|---|')
   const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, '<br>')
-  b.panels.forEach((p, i) =>
-    lines.push(`| ${i + 1} | ${cell(p.scene)} | ${cell(p.action)} | ${cell(p.dialogue)} | ${cell(p.narration)} | ${cell(p.productionNotes)} | ${cell(p.adaptationNotes)} |`),
-  )
+  b.panels.forEach((p, i) => {
+    const scene = [p.scene, p.action].filter(Boolean).join('\n')
+    const cast = (p.cast ?? []).map((c) => `${c.name || '인물'}: ${c.action}`).join('\n')
+    lines.push(
+      `| ${i + 1} | ${cell(scene)} | ${cell(cast)} | ${cell(dialogueLines(p).join('\n'))} | ${cell(p.direction ?? '')} | ${cell(p.narration)} | ${cell(p.productionNotes)} | ${cell(p.adaptationNotes)} |`,
+    )
+  })
   return lines.join('\n') + '\n'
 }
 
@@ -78,7 +83,7 @@ export async function checkSlides(slides: Slide[]): Promise<PackageIssue[]> {
   return issues
 }
 
-export async function buildPublishZip(b: Bundle, pub: Publication) {
+export async function buildPublishZip(b: Bundle, pub: Publication, settings?: CharacterSettings) {
   const zip = new JSZip()
   for (const [i, s] of b.slides.entries()) {
     const a = s.assetId ? await getAsset(s.assetId) : undefined
@@ -88,13 +93,15 @@ export async function buildPublishZip(b: Bundle, pub: Publication) {
   zip.file('caption.txt', finalCaption(pub) + '\n')
   zip.file('alt-text.txt', altTextFile(b.slides))
   zip.file('storyboard.md', storyboardMarkdown(b))
+  if (settings) zip.file('konti.txt', kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
   return zip.generateAsync({ type: 'blob' })
 }
 
-export async function buildTextDraftZip(b: Bundle, pub?: Publication) {
+export async function buildTextDraftZip(b: Bundle, pub?: Publication, settings?: CharacterSettings) {
   const zip = new JSZip()
   zip.file('README.txt', '텍스트 초안입니다. 게시용 이미지가 포함되지 않았습니다.\n')
   zip.file('storyboard.md', storyboardMarkdown(b))
+  if (settings) zip.file('konti.txt', kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
   if (pub) zip.file('caption.txt', finalCaption(pub) + '\n')
   if (b.slides.length) zip.file('alt-text.txt', altTextFile(b.slides))
   return zip.generateAsync({ type: 'blob' })

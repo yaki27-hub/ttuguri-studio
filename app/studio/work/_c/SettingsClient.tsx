@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
-import { buildSystem } from '@/lib/work/prompts'
+import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
-import type { CharacterSettings } from '@/lib/work/types'
+import type { CharacterSettings, Ratio } from '@/lib/work/types'
 import { AssetImage, CopyButton, Field, FilePick, Lightbox, ListField, Notice } from './ui'
 import { BackupButtons, SaveIndicator } from './Backup'
 
@@ -78,7 +78,13 @@ export default function SettingsClient({ env }: { env: Env }) {
         <Field label="소개 · 캐릭터 설정" value={s.introduction} rows={3} onChange={(v) => edit({ introduction: v })} />
         <Field label="말투 · 연출 규칙" value={s.voiceRules} rows={4} onChange={(v) => edit({ voiceRules: v })} />
         <Field label="금지사항 (한 줄에 하나)" value={s.prohibitions} rows={5} onChange={(v) => edit({ prohibitions: v })} />
-        <Field label="그림체 · 이미지 제작 메모" value={s.styleNotes} rows={3} onChange={(v) => edit({ styleNotes: v })} />
+        <Field
+          label="그림체 · 이미지 제작 메모"
+          value={s.styleNotes}
+          rows={3}
+          onChange={(v) => edit({ styleNotes: v })}
+          hint={/4:5[^\n]*고정/.test(s.styleNotes) ? '‘4:5 고정’ 문구가 있어요. 화면 비율은 이제 아래 ‘이미지 제작 기본값’과 편마다의 콘티에서 정하니 이 문구는 지우는 걸 권해요.' : undefined}
+        />
         <ListField label="반복 표현" value={s.recurringExpressions} onChange={(v) => edit({ recurringExpressions: v })} placeholder="쉼표로 구분" />
         <button
           type="button"
@@ -91,6 +97,26 @@ export default function SettingsClient({ env }: { env: Env }) {
         >
           기본값으로 되돌리기
         </button>
+      </section>
+
+      <section className="card">
+        <h2>이미지 제작 기본값</h2>
+        <p className="muted small">새 콘티의 ‘이미지 제작 메모’ 처음 값이에요. 편마다 콘티 단계에서 따로 바꿀 수 있고, 콘티 문서 복사·장면 설명에 표로 들어가요.</p>
+        <div className="memo-grid">
+          <div className="field">
+            <label htmlFor="def-ratio">화면 비율</label>
+            <select id="def-ratio" value={s.imageDefaults.ratio} onChange={(e) => edit({ imageDefaults: { ...s.imageDefaults, ratio: e.target.value as Ratio } })}>
+              {Object.entries(RATIO_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+          {IMAGE_MEMO_FIELDS.map((f) => (
+            <Field key={f.k} label={f.label(s)} single value={s.imageDefaults[f.k]} placeholder={f.placeholder} onChange={(v) => edit({ imageDefaults: { ...s.imageDefaults, [f.k]: v } })} />
+          ))}
+        </div>
       </section>
 
       <section className="card">
