@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  deleteAssetIfUnused, deleteMetric, logActivity, newMetric, newPublication, newSlide, putAsset, saveMetric, savePublication, saveSlides, setStatus,
+  deleteAssetIfUnused, deleteMetric, logActivity, newMetric, newPublication, newSlide, putAsset, saveMetric, savePublication, saveSlides, setStatus, imageMemoOf,
 } from '@/lib/work/repo'
 import { parsePublish, publishPrompt, type PublishOut } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
@@ -12,6 +12,7 @@ import { METRIC_KEYS, type Metric, type MetricKey, type Publication, type Slide 
 import { AssetImage, CopyButton, Field, FilePick, ListField, Modal, Notice } from './ui'
 import GenBox from './GenBox'
 import { hashText } from './SourceStage'
+import OverlayEditor, { bakeSlide, saveBaked } from './OverlayEditor'
 import { useWS } from './Workspace'
 
 export const METRIC_LABEL: Record<MetricKey, string> = {
@@ -33,6 +34,8 @@ export default function PublishStage() {
   const [issues, setIssues] = useState<PackageIssue[]>()
   const [busy, setBusy] = useState('')
   const [publishOpen, setPublishOpen] = useState(false)
+  const [overlayAt, setOverlayAt] = useState<number>()
+  const [baking, setBaking] = useState('')
   const slidesRef = useRef(slides)
   const pubRef = useRef(pub)
   slidesRef.current = slides
@@ -109,7 +112,34 @@ export default function PublishStage() {
           <button type="button" className="btn small" onClick={() => editSlides([...slides, newSlide(ep.id, slides.length + 1, 'content')], true)}>
             + 빈 슬라이드
           </button>
+          {slides.length > 0 && (
+            <button
+              type="button"
+              className="btn small primary"
+              disabled={!!baking}
+              onClick={async () => {
+                if (slides.some((s) => s.isFinalImage && !s.sourceAssetId) && !confirm('직접 올린 완성 이미지가 있는 장은 그 위에 또 글자가 얹혀요. 계속할까요?')) return
+                setBaking('준비 중…')
+                try {
+                  const ratio = imageMemoOf(ep, ws.settings).ratio
+                  const done: Slide[] = []
+                  for (const [i, s] of slidesRef.current.entries()) {
+                    setBaking(`${i + 1}/${slidesRef.current.length}장 만드는 중…`)
+                    done.push(await bakeSlide({ ep, slide: s, index: i, panels: b.panels, settings: ws.settings, ratio }))
+                  }
+                  await ws.act(() => saveBaked(ep.id, slidesRef.current, done), `${done.length}장 모두 글자를 얹었어요. 장마다 [글자 고치기]로 다듬을 수 있어요.`)
+                } catch (e) {
+                  ws.flash(`글자를 얹지 못했어요: ${(e as Error).message}`, 'error')
+                } finally {
+                  setBaking('')
+                }
+              }}
+            >
+              {baking || '모든 장에 글자 얹기'}
+            </button>
+          )}
         </div>
+        <p className="hint">글자 얹기는 콘티의 첫 화면 문구·대사·자막을 그림 위에 넣어 새 이미지로 저장해요. 원본 그림은 그대로 보관돼요.</p>
 
         <ol className="slide-list">
           {slides.map((s, i) => (
@@ -172,6 +202,9 @@ export default function PublishStage() {
                         컷 {panelNo(p!.id)} 이미지 사용
                       </button>
                     ))}
+                  <button type="button" className="btn small" onClick={() => setOverlayAt(i)}>
+                    {s.overlay ? '글자 고치기' : '글자 얹기'}
+                  </button>
                   <FilePick
                     label={s.assetId ? '최종 이미지 교체' : '최종 이미지 첨부'}
                     className="small"
@@ -180,7 +213,7 @@ export default function PublishStage() {
                         const a = await putAsset(f, 'slide')
                         const old = s.assetId
                         await ws.act(async () => {
-                          await saveSlides(ep.id, slidesRef.current.map((x) => (x.id === s.id ? { ...x, assetId: a.id, isFinalImage: true } : x)))
+                          await saveSlides(ep.id, slidesRef.current.map((x) => (x.id === s.id ? { ...x, assetId: a.id, isFinalImage: true, sourceAssetId: undefined, overlay: undefined } : x)))
                           if (old) await deleteAssetIfUnused(old)
                         })
                       } catch (e) {
@@ -210,6 +243,7 @@ export default function PublishStage() {
             </li>
           ))}
         </ol>
+        {overlayAt !== undefined && slides[overlayAt] && <OverlayEditor slide={slides[overlayAt]} index={overlayAt} onClose={() => setOverlayAt(undefined)} />}
       </section>
 
       <section className="card">

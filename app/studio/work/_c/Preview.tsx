@@ -4,10 +4,13 @@ import { FORMAT_LABEL } from '@/lib/work/format'
 import { dialogueLines } from '@/lib/work/prompts'
 import { AssetImage } from './ui'
 import { useWS } from './Workspace'
+import InstaPreview from './InstaPreview'
+import type { Stage } from '@/lib/work/types'
 
 /** 오른쪽(모바일은 ‘미리보기’ 탭): 슬라이드가 있으면 게시 순서, 없으면 콘티 */
-export default function Preview() {
+export default function Preview({ stage }: { stage?: Stage }) {
   const { ep, b, story } = useWS()
+  if (stage === 'quick') return <InstaPreview />
   if (b.slides.length)
     return (
       <div className="preview">

@@ -1,5 +1,5 @@
-import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
-import { FORMAT_LABEL, countRange } from './format'
+import type { CastItem, CastPosition, Category, CharacterSettings, ClassCandidate, Classification, Episode, FactStatus, Format, ImageMemo, Output, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
+import { CATEGORY, CATEGORIES, FORMAT_LABEL, countRange } from './format'
 import type { PanelDraftItem } from './repo'
 
 /* ───────── 프롬프트 ───────── */
@@ -564,4 +564,122 @@ export function parsePublish(raw: unknown, slideIds: string[]): PublishOut {
   }
   if (errs.length) throw new ParseError(errs)
   return out
+}
+
+/* ───────── 빠른 시안: 메모 하나로 콘티 + 캡션까지 한 번에 ───────── */
+
+export type QuickFormat = Format | 'auto'
+
+export function quickPrompt(ep: Episode, s: CharacterSettings, format: QuickFormat, memo: ImageMemo, reels: boolean, pick?: ClassCandidate, series?: Classification['series']) {
+  const formatLine =
+    format === 'auto'
+      ? `형식은 소재에 가장 어울리는 하나를 골라 format에 적어:\n${(['single', 'four', 'captions'] as Format[]).map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`).join('\n')}`
+      : `형식: ${FORMAT_GUIDE[format]} (format에는 "${format}")`
+  const [a, b] = format === 'auto' ? [1, 4] : countRange(format)
+  const n = a === b ? `${a}개` : `${a}~${b}개`
+  return `${buildSystem(s)}
+
+[작업: 빠른 시안 — 메모 하나로 콘티와 게시 문구까지]
+${sourceBlock(ep)}
+
+${formatLine}
+${pick ? `\n작가가 고른 분류: ${CATEGORY[pick.category].label} — ${pick.reason}\n후킹 제목 후보: ${pick.hook} (hook과 title에 살려서 쓰기)` : ''}${
+    pick?.category === 'series' && series
+      ? `\n연재 「${series.name}」 ${series.episodes.length}편 중 1편: ${series.episodes[0]?.title ?? ''} — ${series.episodes[0]?.summary ?? ''}\n이 편만 봐도 웃기게 끝내고, 마지막 컷 narration에 다음 편이 궁금해지는 한 줄을 넣어.`
+      : ''
+  }
+
+${memoBlock(memo, s)}
+
+컷 ${n}를 만들어. 컷마다 핵심 행동 하나, 대사는 짧게. 그림으로 읽히는 건 대사로 설명하지 마.
+- 컷에 나오는 인물마다 cast 항목을 하나씩(위치·차림·행동·표정·소품은 한 줄에 하나, 대사는 dialogue).
+- direction에는 웃음이 전달되는 핵심 연출을 짧게. 원문에 없는 대사·장치는 adaptationNotes에 "각색 제안".
+- hook은 첫 화면에 올릴 짧은 문구(처음 보는 사람이 2초 안에 이해할 것). title은 짧은 상단 제목.${
+    reels ? '\n- 릴스로도 만든다. 컷 하나가 1.5~3초 동안 보이니 대사·자막은 한 줄로 읽히게.' : ''
+  }
+- caption: 인스타 캡션. 첫 줄은 피드에서 잘리지 않게 짧게, 마지막 결말은 캡션에서 미리 말하지 마. 행동 유도(댓글이나 공유)는 하나만. 해시태그는 넣지 마.
+- hashtags: 검색될 만한 해시태그 정확히 5개(# 없이). 아무도 검색하지 않는 계정 이름 태그는 빼.
+- imageMemo는 비어 있지 않은 현재 값은 그대로 두고, 화면 비율은 넣지 마.${JSON_ONLY}
+{"format":"single|four|captions","title":"상단 제목","hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}},"caption":"","hashtags":[""]}`
+}
+
+export interface QuickOut extends PanelsDoc {
+  format: Format
+  caption: string
+  hashtags: string[]
+}
+
+export function parseQuick(raw: unknown, format: QuickFormat): QuickOut {
+  if (!isObj(raw)) throw new ParseError(['최상위가 객체({})여야 해요.'])
+  const errs: string[] = []
+  const picked = raw.format === 'single' || raw.format === 'four' || raw.format === 'captions' ? raw.format : undefined
+  const fmt: Format | undefined = format === 'auto' ? picked : format
+  if (!fmt) errs.push('format: single/four/captions 중 하나여야 해요.')
+  let doc: PanelsDoc | undefined
+  try {
+    doc = parsePanelsDoc(raw, fmt ? { range: countRange(fmt) } : undefined)
+  } catch (e) {
+    if (e instanceof ParseError) errs.push(...e.errors)
+    else throw e
+  }
+  const caption = str(raw, 'caption', errs)
+  const hashtags = strArr(raw, 'hashtags', errs).map((t) => t.replace(/^#/, ''))
+  if (errs.length || !doc || !fmt) throw new ParseError(errs)
+  return { ...doc, format: fmt, caption, hashtags }
+}
+
+/* ───────── AI 콘텐츠 분류 ───────── */
+
+export function classifyPrompt(ep: Episode, s: CharacterSettings) {
+  return `${buildSystem(s)}
+
+[작업: 콘텐츠 분류 — 이 소재를 어떤 방식으로 만들지]
+${sourceBlock(ep)}
+
+분류 기준:
+${s.classifyRules}
+
+분류 코드: ${CATEGORIES.map((c) => `${c}=${CATEGORY[c].label}`).join(', ')}
+- candidates에 가장 어울리는 분류 1순위와 2순위를 넣어(정말 하나뿐이면 1개). 결정은 작가가 한다.
+- reason: 왜 이 분류인지 원문의 어떤 점 때문인지 한 문장.
+- hook: 처음 보는 사람이 2초 안에 멈출 후킹 제목. 원문에 없는 사건을 지어내지 마.
+- outputs: 성과 메모를 참고해 "reels", "carousel" 중 추천(둘 다 가능).
+- 웃음 포인트나 핵심이 불명확하면 1순위를 hold로 하고, questions에 작가에게 물을 짧은 질문 2개(예: 가장 웃겼던 순간은? 그다음에 어떻게 됐어?). 아니면 questions는 빈 배열.
+- series가 후보에 있으면 series에 시리즈 이름과 편 구성(2~7편, 편마다 제목과 한 줄 요약). 아니면 series는 null.${JSON_ONLY}
+{"candidates":[{"category":"gag|real4|mood|series|hold","reason":"","hook":"","outputs":["reels","carousel"]}],"questions":[],"series":null}`
+}
+
+const isCategory = (v: unknown): v is Category => typeof v === 'string' && (CATEGORIES as string[]).includes(v)
+
+export function parseClassify(raw: unknown): Omit<Classification, 'at' | 'chosen'> {
+  const errs: string[] = []
+  if (!isObj(raw)) throw new ParseError(['최상위가 객체({})여야 해요.'])
+  if (!Array.isArray(raw.candidates) || raw.candidates.length === 0) throw new ParseError(['candidates: 분류 후보가 하나 이상 있어야 해요.'])
+  const candidates: ClassCandidate[] = []
+  raw.candidates.slice(0, 2).forEach((c, i) => {
+    const P = `candidates[${i}]`
+    if (!isObj(c)) return errs.push(`${P}: 객체여야 해요.`)
+    if (!isCategory(c.category)) return errs.push(`${P}.category: ${CATEGORIES.join('/')} 중 하나여야 해요.`)
+    const outs = Array.isArray(c.outputs) ? (c.outputs.filter((o) => o === 'reels' || o === 'carousel') as Output[]) : []
+    candidates.push({
+      category: c.category,
+      reason: str(c, 'reason', errs, false, `${P}.reason`).trim(),
+      hook: str(c, 'hook', errs, false, `${P}.hook`).trim(),
+      outputs: outs.length ? [...new Set(outs)] : ['carousel'],
+    })
+  })
+  const questions = strArr(raw, 'questions', errs).slice(0, 3)
+  let series: Classification['series']
+  if (isObj(raw.series)) {
+    const name = str(raw.series, 'name', errs, false, 'series.name').trim()
+    const eps = Array.isArray(raw.series.episodes) ? raw.series.episodes : []
+    const episodes = eps
+      .filter(isObj)
+      .map((e) => ({ title: typeof e.title === 'string' ? e.title.trim() : '', summary: typeof e.summary === 'string' ? e.summary.trim() : '' }))
+      .filter((e) => e.title || e.summary)
+      .slice(0, 7)
+    if (episodes.length) series = { name: name || '새 연재', episodes }
+  }
+  if (errs.length) throw new ParseError(errs)
+  return { candidates, questions, series }
 }

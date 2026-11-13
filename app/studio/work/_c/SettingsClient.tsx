@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
+import { DEFAULT_CLASSIFY_RULES, cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
 import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
@@ -74,6 +74,7 @@ export default function SettingsClient({ env }: { env: Env }) {
         <div className="grid2">
           <Field label="캐릭터 이름" single value={s.characterName} onChange={(v) => edit({ characterName: v })} />
           <Field label="툰 이름" single value={s.seriesName} onChange={(v) => edit({ seriesName: v })} />
+          <Field label="계정 아이디" single value={s.handle} onChange={(v) => edit({ handle: v })} hint="그림에 글자를 얹을 때 왼쪽 위에 들어가요" />
         </div>
         <Field label="소개 · 캐릭터 설정" value={s.introduction} rows={3} onChange={(v) => edit({ introduction: v })} />
         <Field label="말투 · 연출 규칙" value={s.voiceRules} rows={4} onChange={(v) => edit({ voiceRules: v })} />
@@ -96,6 +97,15 @@ export default function SettingsClient({ env }: { env: Env }) {
           }}
         >
           기본값으로 되돌리기
+        </button>
+      </section>
+
+      <section className="card">
+        <h2>콘텐츠 분류 기준</h2>
+        <p className="muted small">빠른 시안의 ‘AI가 분류’가 이 기준으로 한 컷 개그·4컷 실화툰·컷자막형 공감툰·연재 사연툰·보류 중 1·2순위를 골라요. 성과를 보면서 기준과 성과 메모를 계속 고쳐 주세요.</p>
+        <Field label="분류 기준 · 성과 메모" value={s.classifyRules} rows={9} onChange={(v) => edit({ classifyRules: v })} />
+        <button type="button" className="btn ghost small" onClick={() => edit({ classifyRules: DEFAULT_CLASSIFY_RULES })}>
+          분류 기준만 기본값으로
         </button>
       </section>
 

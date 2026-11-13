@@ -16,7 +16,32 @@ export interface Fact {
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
 /** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
 export type Format = 'single' | 'four' | 'captions'
-export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'
+export type Stage = 'quick' | 'source' | 'story' | 'panels' | 'images' | 'publish'
+/** 내보낼 모양: 캐러셀(4:5 여러 장) / 릴스(9:16 영상) */
+export type Output = 'carousel' | 'reels'
+
+/** 콘텐츠 분류: 한 컷 개그 / 4컷 실화툰 / 컷자막형 공감툰 / 연재 사연툰 / 보류 */
+export type Category = 'gag' | 'real4' | 'mood' | 'series' | 'hold'
+
+export interface ClassCandidate {
+  category: Category
+  reason: string
+  /** 후킹 제목 */
+  hook: string
+  outputs: Output[]
+}
+
+export interface Classification {
+  /** 1순위·2순위 */
+  candidates: ClassCandidate[]
+  /** 보류일 때 작가에게 물어볼 질문 */
+  questions: string[]
+  /** 연재일 때 편 구성 */
+  series?: { name: string; episodes: { title: string; summary: string }[] }
+  /** 작가가 고른 분류 */
+  chosen?: Category
+  at: ISO
+}
 export type Status =
   | 'idea'
   | 'story'
@@ -70,6 +95,10 @@ export interface Episode extends Base {
   imageMemo?: ImageMemo
   /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
   hookText?: string
+  /** 빠른 만들기에서 고른 내보내기 모양 (없으면 캐러셀) */
+  outputs?: Output[]
+  /** AI 콘텐츠 분류 결과와 작가의 선택 */
+  classification?: Classification
 }
 
 export type Ratio = '4:5' | '1:1'
@@ -154,6 +183,21 @@ export interface Slide extends Base {
   assetId?: string
   altText: string
   isFinalImage: boolean
+  /** 글자를 얹기 전 원본 그림 (다시 얹을 때 이 그림을 쓴다) */
+  sourceAssetId?: string
+  /** 앱에서 얹은 글자 설정 */
+  overlay?: Overlay
+}
+
+/** 그림 위에 얹는 글자: 계정·번호 머리줄, 제목, 말풍선, 자막 */
+export interface Overlay {
+  showHeader: boolean
+  title: string
+  /** 말풍선 하나에 한 줄 */
+  bubbles: string[]
+  caption: string
+  bubbleAt: 'top' | 'bottom'
+  align: 'left' | 'center'
 }
 
 export interface Asset extends Base {
@@ -189,12 +233,16 @@ export interface CharacterSettings extends Base {
   revision: number
   characterName: string
   seriesName: string
+  /** 그림 위에 얹을 계정 아이디 (예: @ttuguri) */
+  handle: string
   introduction: string
   voiceRules: string
   prohibitions: string
   styleNotes: string
   /** 새 에피소드의 이미지 제작 메모 기본값 */
   imageDefaults: ImageMemo
+  /** AI 콘텐츠 분류 기준 (성과를 보며 계속 고친다) */
+  classifyRules: string
   referenceAssetIds: string[]
   recurringExpressions: string[]
 }

@@ -5,15 +5,24 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { onBroadcast } from '@/lib/work/db'
 import { createEpisode, deleteEpisode, getEpisode, listEpisodes, toggleHold } from '@/lib/work/repo'
-import { FORMAT_LABEL, STATUS_LABEL, fmtDate, fmtDateTime } from '@/lib/work/format'
-import type { Episode, Format, Status } from '@/lib/work/types'
+import { FORMATS, FORMAT_LABEL, OUTPUT_LABEL, STATUS_LABEL, fmtDate, fmtDateTime } from '@/lib/work/format'
+import type { Episode, Format, Output, Status } from '@/lib/work/types'
 import { addNotionMemo } from '../actions'
-import { Modal, Notice } from './ui'
+import { Chips, Modal, Notice } from './ui'
 import { SaveIndicator } from './Backup'
 
 const SAMPLE = '새 프로젝트에 들어갔는데 앞자리, 뒷자리, 옆자리 사람이 다 나가고 나 혼자 남았다.'
 
-export default function WorkHome({ notionReady }: { notionReady: boolean }) {
+type FormatPick = Format | 'auto'
+type OutputPick = 'carousel' | 'reels' | 'both'
+const OUTPUT_PICKS: [OutputPick, string][] = [
+  ['carousel', OUTPUT_LABEL.carousel],
+  ['reels', OUTPUT_LABEL.reels],
+  ['both', '둘 다'],
+]
+const toOutputs = (o: OutputPick): Output[] => (o === 'both' ? ['carousel', 'reels'] : [o])
+
+export default function WorkHome({ notionReady, aiReady }: { notionReady: boolean; aiReady: boolean }) {
   const router = useRouter()
   const [eps, setEps] = useState<Episode[] | null>(null)
   const [memo, setMemo] = useState('')
@@ -26,6 +35,8 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
   const [scheduled, setScheduled] = useState(false)
   const [sort, setSort] = useState<'updated' | 'scheduled'>('updated')
   const [del, setDel] = useState<Episode>()
+  const [pickFormat, setPickFormat] = useState<FormatPick>('auto')
+  const [pickOut, setPickOut] = useState<OutputPick>('both')
 
   const load = () => listEpisodes().then(setEps, (e) => setErr(`불러오지 못했어요: ${e.message}`))
   useEffect(() => {
@@ -33,7 +44,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
     return onBroadcast(() => load())
   }, [])
 
-  async function save(text: string, extra: Partial<Episode> = {}) {
+  async function save(text: string, extra: Partial<Episode> = {}, query = '') {
     if (!text.trim()) return setErr('메모를 입력해 주세요.')
     setBusy(true)
     setErr('')
@@ -47,7 +58,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
       }
       const ep = await createEpisode(text, { ...extra, notionPageId })
       if (notionMsg) sessionStorage.setItem('work-flash', notionMsg)
-      router.push(`/studio/work/${ep.id}`)
+      router.push(`/studio/work/${ep.id}${query}`)
     } catch (e) {
       setErr(`저장하지 못했어요: ${(e as Error).message}`)
       setBusy(false)
@@ -79,25 +90,36 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
 
       <section className="card">
         <h2>있었던 일 한두 문장</h2>
-        <p className="muted small">원문은 그대로 보관되고, 정리는 작업실에서 이어서 해요.</p>
+        <p className="muted small">메모만 쓰고 고르면 컷 대사와 캡션까지 한 번에 만들어요. 원문은 그대로 보관돼요.</p>
         <form
           className="memo-form"
           onSubmit={(e) => {
             e.preventDefault()
-            save(memo)
+            const fmtQ = pickFormat === 'auto' ? 'auto' : pickFormat
+            save(memo, { stage: 'quick', outputs: toOutputs(pickOut), ...(pickFormat === 'auto' ? {} : { format: pickFormat }) }, `?stage=quick&fmt=${fmtQ}${aiReady ? '&auto=1' : ''}`)
           }}
         >
           <label className="sr-only" htmlFor="memo">
             소재 메모
           </label>
           <textarea id="memo" rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={`예) ${SAMPLE}`} />
+          <Chips
+            legend="형식"
+            value={pickFormat}
+            options={[['auto', 'AI가 분류'], ...FORMATS.map((f) => [f, FORMAT_LABEL[f]] as [FormatPick, string])]}
+            onChange={setPickFormat}
+          />
+          <Chips legend="내보내기" value={pickOut} options={OUTPUT_PICKS} onChange={setPickOut} />
           {notionReady && (
             <label className="check">
               <input type="checkbox" checked={toNotion} onChange={(e) => setToNotion(e.target.checked)} /> 노션 에피소드 DB에도 ‘아이디어’로 남기기
             </label>
           )}
           <button type="submit" className="btn primary block" disabled={busy || !memo.trim()}>
-            {busy ? '저장 중…' : '소재 저장'}
+            {busy ? '만드는 중…' : aiReady ? '시안 만들기' : '시안 만들러 가기'}
+          </button>
+          <button type="button" className="btn ghost small" disabled={busy || !memo.trim()} onClick={() => save(memo)}>
+            메모만 저장하고 단계별로 정리하기
           </button>
         </form>
         {err && <p className="flash bad">{err}</p>}

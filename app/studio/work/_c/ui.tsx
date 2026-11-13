@@ -200,3 +200,18 @@ export function Notice({ kind = 'info', children }: { kind?: 'info' | 'warn' | '
 export function Badge({ children, tone = '' }: { children: ReactNode; tone?: string }) {
   return <span className={`badge ${tone}`}>{children}</span>
 }
+
+/** 하나만 고르는 칩 줄 */
+export function Chips<T extends string>({ legend, value, options, onChange }: { legend: string; value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  return (
+    <fieldset className="chips">
+      <legend className="small muted">{legend}</legend>
+      {options.map(([v, label]) => (
+        <label key={v} className={`chip${v === value ? ' on' : ''}`}>
+          <input type="radio" name={legend} value={v} checked={v === value} onChange={() => onChange(v)} />
+          {label}
+        </label>
+      ))}
+    </fieldset>
+  )
+}
