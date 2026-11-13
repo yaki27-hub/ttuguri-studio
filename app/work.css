@@ -281,3 +281,13 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .modal:has(.overlay-edit) { width: min(880px, calc(100vw - 24px)); }
 .modal-body > .overlay-edit { flex-shrink: 0; }
 .overlay-fields textarea { min-height: 76px; }
+
+/* 콘텐츠 분류 */
+.classify { display: grid; gap: 10px; margin-top: 10px; }
+.class-cards { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.class-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface); }
+.class-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.class-card p { margin: 6px 0; }
+.class-hook { font-weight: 800; font-size: 17px; }
+.class-series, .class-questions { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; }
+.class-series ol { padding-left: 18px; margin: 6px 0; display: grid; gap: 4px; }

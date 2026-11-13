@@ -3,14 +3,14 @@
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  applyPanelDraft, deleteAssetIfUnused, imageMemoOf, newPublication, patchEpisode, patchPanelMeta, putAsset, savePublication,
+  applyPanelDraft, createEpisode, deleteAssetIfUnused, imageMemoOf, newPublication, patchEpisode, patchPanelMeta, putAsset, savePublication,
 } from '@/lib/work/repo'
-import { FORMATS, FORMAT_LABEL, OUTPUT_LABEL, outputsOf } from '@/lib/work/format'
-import { cutName, dialogueLines, parseQuick, quickPrompt, textLabel, type QuickFormat, type QuickOut } from '@/lib/work/prompts'
+import { CATEGORY, FORMATS, FORMAT_LABEL, OUTPUT_LABEL, outputsOf } from '@/lib/work/format'
+import { classifyPrompt, cutName, dialogueLines, parseClassify, parseQuick, quickPrompt, textLabel, type QuickFormat, type QuickOut } from '@/lib/work/prompts'
 import { finalCaption } from '@/lib/work/zip'
 import { checkCaption } from '@/lib/work/caption'
 import { saver } from '@/lib/work/saver'
-import type { Episode, ImageMemo, Output, Panel, Publication } from '@/lib/work/types'
+import type { ClassCandidate, Classification, Episode, ImageMemo, Output, Panel, Publication } from '@/lib/work/types'
 import GenBox from './GenBox'
 import { AssetImage, Chips, CopyButton, Field, FilePick, ListField, Notice } from './ui'
 import { useWS } from './Workspace'
@@ -29,8 +29,24 @@ export default function QuickStage() {
   const sp = useSearchParams()
   const panels = b.panels
   const outputs = outputsOf(ep.outputs)
-  const [fmt, setFmt] = useState<QuickFormat>(() => (sp.get('fmt') === 'auto' && !panels.length ? 'auto' : ep.format))
-  const autoRun = sp.get('auto') === '1' && panels.length === 0
+  const cls = ep.classification
+  const [fmt, setFmt] = useState<QuickFormat>(() =>
+    !panels.length && (sp.get('fmt') === 'auto' || (cls && !cls.chosen)) ? 'auto' : cls?.chosen && CATEGORY[cls.chosen].format && !panels.length ? CATEGORY[cls.chosen].format! : ep.format,
+  )
+  /** 분류에서 하나를 고르면 바로 시안을 만든다 */
+  const [go, setGo] = useState(false)
+  const [reclass, setReclass] = useState(0)
+  const autoRun = (sp.get('auto') === '1' || go) && panels.length === 0
+  const needsClassify = !panels.length && fmt === 'auto'
+  const pick = cls?.chosen ? cls.candidates.find((c) => c.category === cls.chosen) : undefined
+
+  function choose(c: ClassCandidate) {
+    const f = CATEGORY[c.category].format
+    if (!f || !cls) return
+    setFmt(f)
+    ws.editEp({ outputs: c.outputs, hookText: c.hook || ep.hookText, classification: { ...cls, chosen: c.category } })
+    setGo(true)
+  }
   const memo = imageMemoOf(ep, ws.settings)
 
   const pub = b.publication ?? newPublication(ep.id, ep.panelsRevision)
@@ -85,7 +101,7 @@ export default function QuickStage() {
         <Chips
           legend="형식"
           value={fmt}
-          options={[...(panels.length ? [] : [['auto', 'AI 추천'] as [QuickFormat, string]]), ...FORMATS.map((f) => [f, FORMAT_LABEL[f]] as [QuickFormat, string])]}
+          options={[...(panels.length ? [] : [['auto', 'AI가 분류'] as [QuickFormat, string]]), ...FORMATS.map((f) => [f, FORMAT_LABEL[f]] as [QuickFormat, string])]}
           onChange={setFmt}
         />
         <Chips
@@ -98,8 +114,30 @@ export default function QuickStage() {
           ]}
           onChange={(v) => ws.editEp({ outputs: toOutputs(v) })}
         />
+        {needsClassify && (
+          <>
+            {cls && <ClassifyResult cls={cls} onChoose={choose} onAnswered={() => setReclass((n) => n + 1)} />}
+            <GenBox<Omit<Classification, 'at' | 'chosen'>>
+              key={`classify-${reclass}-${cls ? 'again' : 'first'}`}
+              title={cls ? '다시 분류하기' : '어떤 방식으로 만들까?'}
+              runLabel={cls ? 'AI로 다시 분류' : 'AI로 분류하기'}
+              target="source"
+              targetIds={[ep.id]}
+              operation="콘텐츠 분류"
+              compact={!!cls && reclass === 0}
+              autoRun={reclass > 0 || (!cls && sp.get('auto') === '1')}
+              autoApply
+              getBase={() => ep.revision}
+              buildPrompt={() => classifyPrompt(ep, ws.settings)}
+              parse={parseClassify}
+              preview={() => null}
+              apply={async (o) => ws.editEp({ classification: { ...o, at: new Date().toISOString() } })}
+            />
+          </>
+        )}
+        {!needsClassify && (
         <GenBox<QuickOut>
-          key={panels.length ? 'again' : 'first'}
+          key={panels.length ? 'again' : `first-${cls?.chosen ?? fmt}`}
           title={panels.length ? '시안 다시 만들기' : '시안 만들기'}
           runLabel={panels.length ? 'AI로 다시 만들기' : 'AI로 시안 만들기'}
           target="panels"
@@ -109,12 +147,18 @@ export default function QuickStage() {
           autoRun={autoRun}
           autoApply={panels.length === 0}
           getBase={() => ep.panelsRevision}
-          buildPrompt={() => quickPrompt(ep, ws.settings, fmt, memo, outputs.includes('reels'))}
+          buildPrompt={() => quickPrompt(ep, ws.settings, fmt, memo, outputs.includes('reels'), pick, cls?.series)}
           parse={(raw) => parseQuick(raw, fmt)}
           preview={(o) => <QuickDraft out={o} />}
           applyLabel="이 시안으로 바꾸기"
           apply={apply}
         />
+        )}
+        {pick && (
+          <p className="hint">
+            분류: {CATEGORY[pick.category].label} (직접 고름)
+          </p>
+        )}
         {panels.length > 0 && <p className="hint">다시 만들면 잠그지 않은 컷이 바뀌어요. 직접 고친 캡션은 그대로 둬요.</p>}
       </section>
 
@@ -244,6 +288,99 @@ function QuickDraft({ out }: { out: QuickOut }) {
       </ol>
       {out.caption && <p className="small pre">{out.caption}</p>}
       {out.hashtags.length > 0 && <p className="small muted">{out.hashtags.map((t) => `#${t}`).join(' ')}</p>}
+    </div>
+  )
+}
+
+/** 분류 결과: 1·2순위 카드에서 작가가 고른다. 보류면 질문에 답하고, 연재면 다음 편을 소재함에 남긴다. */
+function ClassifyResult({ cls, onChoose, onAnswered }: { cls: Classification; onChoose: (c: ClassCandidate) => void; onAnswered: () => void }) {
+  const ws = useWS()
+  const { ep } = ws
+  const [answers, setAnswers] = useState<string[]>(() => cls.questions.map(() => ''))
+  const [saved, setSaved] = useState(false)
+  const holdFirst = cls.candidates[0]?.category === 'hold'
+
+  async function saveSeries() {
+    if (!cls.series) return
+    const s = cls.series
+    await ws.act(async () => {
+      for (const [i, e] of s.episodes.entries()) {
+        if (i === 0) continue
+        await createEpisode(`「${s.name}」 ${i + 1}편: ${e.title}\n${e.summary}`, { tags: [s.name] })
+      }
+    }, `「${s.name}」 2~${s.episodes.length}편을 소재함에 메모로 남겼어요.`)
+    setSaved(true)
+  }
+
+  return (
+    <div className="classify">
+      <ol className="class-cards">
+        {cls.candidates.map((c, i) => (
+          <li key={c.category} className={`class-card${cls.chosen === c.category ? ' on' : ''}`}>
+            <div className="card-head">
+              <b>
+                {i + 1}순위 · {CATEGORY[c.category].label}
+              </b>
+              <span className="muted small">{CATEGORY[c.category].result}</span>
+            </div>
+            {c.hook && c.category !== 'hold' && <p className="class-hook">“{c.hook}”</p>}
+            <p className="small">{c.reason}</p>
+            {c.category !== 'hold' && (
+              <div className="row-inline">
+                <span className="muted small">추천: {c.outputs.map((o) => OUTPUT_LABEL[o]).join(' + ')}</span>
+                <span className="spacer" />
+                <button type="button" className={`btn small${i === 0 ? ' primary' : ''}`} onClick={() => onChoose(c)}>
+                  이걸로 만들기
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      {cls.series && cls.candidates.some((c) => c.category === 'series') && (
+        <div className="class-series">
+          <p className="small">
+            <b>연재 「{cls.series.name}」</b> {cls.series.episodes.length}편 구성
+          </p>
+          <ol className="small">
+            {cls.series.episodes.map((e, i) => (
+              <li key={i}>
+                <b>{e.title}</b> {e.summary && <span className="muted">— {e.summary}</span>}
+              </li>
+            ))}
+          </ol>
+          <p className="hint">처음 보는 사람은 한 편만 보고 지나가요. 편마다 혼자 읽어도 웃기게 만들어요.</p>
+          {cls.series.episodes.length > 1 && (
+            <button type="button" className="btn small" disabled={saved} onClick={saveSeries}>
+              {saved ? '소재함에 남겼어요' : '2편부터 소재함에 메모로 남기기'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {cls.questions.length > 0 && (
+        <div className="class-questions">
+          <p className="small">
+            <b>{holdFirst ? '아직 방향이 애매해요.' : '더 알면 좋을 것'}</b> 답을 적으면 원문은 그대로 두고 추가 메모에 붙여서 다시 분류해요.
+          </p>
+          {cls.questions.map((q, i) => (
+            <Field key={i} label={q} single value={answers[i] ?? ''} onChange={(v) => setAnswers((a) => a.map((x, k) => (k === i ? v : x)))} />
+          ))}
+          <button
+            type="button"
+            className="btn small primary"
+            disabled={!answers.some((a) => a.trim())}
+            onClick={() => {
+              const qa = cls.questions.map((q, i) => (answers[i]?.trim() ? `Q. ${q}\nA. ${answers[i].trim()}` : '')).filter(Boolean).join('\n')
+              ws.editEp({ notes: [ep.notes.trim(), qa].filter(Boolean).join('\n\n') })
+              onAnswered()
+            }}
+          >
+            답 저장하고 다시 분류
+          </button>
+        </div>
+      )}
     </div>
   )
 }

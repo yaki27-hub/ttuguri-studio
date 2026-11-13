@@ -1,4 +1,4 @@
-import type { Format, Output, Purpose, Stage, Status } from './types'
+import type { Category, Format, Output, Purpose, Stage, Status } from './types'
 
 const dtf = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -48,6 +48,15 @@ export const STAGE_LABEL: Record<Stage, string> = {
 export const STAGES: Stage[] = ['quick', 'source', 'story', 'panels', 'images', 'publish']
 
 export const OUTPUT_LABEL: Record<Output, string> = { carousel: '캐러셀', reels: '릴스' }
+
+export const CATEGORY: Record<Category, { label: string; format?: Format; result: string }> = {
+  gag: { label: '한 컷 개그', format: 'single', result: '한 장면 + 짧은 대사' },
+  real4: { label: '4컷 실화툰', format: 'four', result: '4컷 콘티' },
+  mood: { label: '컷자막형 공감툰', format: 'captions', result: '2~4장, 장마다 자막 한 줄' },
+  series: { label: '연재 사연툰', format: 'four', result: '여러 편 시리즈 (이번 편은 4컷)' },
+  hold: { label: '보류', result: '질문에 답하고 다시 분류' },
+}
+export const CATEGORIES = Object.keys(CATEGORY) as Category[]
 export const outputsOf = (o?: Output[]): Output[] => (o?.length ? o : ['carousel'])
 
 export const FORMAT_LABEL: Record<Format, string> = { single: '한컷', four: '4컷', captions: '컷자막형' }

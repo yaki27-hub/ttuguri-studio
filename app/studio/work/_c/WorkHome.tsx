@@ -106,7 +106,7 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
           <Chips
             legend="형식"
             value={pickFormat}
-            options={[['auto', 'AI 추천'], ...FORMATS.map((f) => [f, FORMAT_LABEL[f]] as [FormatPick, string])]}
+            options={[['auto', 'AI가 분류'], ...FORMATS.map((f) => [f, FORMAT_LABEL[f]] as [FormatPick, string])]}
             onChange={setPickFormat}
           />
           <Chips legend="내보내기" value={pickOut} options={OUTPUT_PICKS} onChange={setPickOut} />

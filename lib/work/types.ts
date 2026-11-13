@@ -19,6 +19,29 @@ export type Format = 'single' | 'four' | 'captions'
 export type Stage = 'quick' | 'source' | 'story' | 'panels' | 'images' | 'publish'
 /** 내보낼 모양: 캐러셀(4:5 여러 장) / 릴스(9:16 영상) */
 export type Output = 'carousel' | 'reels'
+
+/** 콘텐츠 분류: 한 컷 개그 / 4컷 실화툰 / 컷자막형 공감툰 / 연재 사연툰 / 보류 */
+export type Category = 'gag' | 'real4' | 'mood' | 'series' | 'hold'
+
+export interface ClassCandidate {
+  category: Category
+  reason: string
+  /** 후킹 제목 */
+  hook: string
+  outputs: Output[]
+}
+
+export interface Classification {
+  /** 1순위·2순위 */
+  candidates: ClassCandidate[]
+  /** 보류일 때 작가에게 물어볼 질문 */
+  questions: string[]
+  /** 연재일 때 편 구성 */
+  series?: { name: string; episodes: { title: string; summary: string }[] }
+  /** 작가가 고른 분류 */
+  chosen?: Category
+  at: ISO
+}
 export type Status =
   | 'idea'
   | 'story'
@@ -74,6 +97,8 @@ export interface Episode extends Base {
   hookText?: string
   /** 빠른 만들기에서 고른 내보내기 모양 (없으면 캐러셀) */
   outputs?: Output[]
+  /** AI 콘텐츠 분류 결과와 작가의 선택 */
+  classification?: Classification
 }
 
 export type Ratio = '4:5' | '1:1'
@@ -216,6 +241,8 @@ export interface CharacterSettings extends Base {
   styleNotes: string
   /** 새 에피소드의 이미지 제작 메모 기본값 */
   imageDefaults: ImageMemo
+  /** AI 콘텐츠 분류 기준 (성과를 보며 계속 고친다) */
+  classifyRules: string
   referenceAssetIds: string[]
   recurringExpressions: string[]
 }

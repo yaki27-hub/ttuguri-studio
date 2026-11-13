@@ -655,10 +655,19 @@ export function defaultSettings(): CharacterSettings {
       direction: '',
       text: '이미지에는 넣지 않고 Figma에서 작업',
     },
+    classifyRules: DEFAULT_CLASSIFY_RULES,
     referenceAssetIds: [],
     recurringExpressions: [],
   }
 }
+
+export const DEFAULT_CLASSIFY_RULES = `한 컷 개그: 하나의 상황만으로 웃기거나 공감 가능 → 한 장면 + 짧은 대사
+4컷 실화툰: 사건의 시작·전개·반전이 있음 → 4컷 콘티
+컷자막형 공감툰: 반전보다 공감·여운, 분위기 있는 이야기 → 2~4장, 장마다 자막 한 줄
+연재 사연툰: 인물 관계나 갈등이 복잡하고 다음 이야기가 궁금함 → 2~7편 시리즈. 편마다 혼자 읽어도 웃겨야 함(대부분 처음 보는 사람이 한 편만 봄)
+보류: 웃음 포인트나 핵심 메시지가 불명확 → 작가에게 질문 2개
+
+성과 메모 (11/10 감사): 일상 속 몸으로 느끼는 불편함(추위·피곤·쉬고 싶음) 소재를 릴스로 올린 편이 평균 대비 7~12배 도달. 캐러셀·이미지는 1배 안팎. 공유는 친구에게 보내고 싶은 일상 소재에서만 나옴.`
 
 export async function getSettings(): Promise<CharacterSettings> {
   const saved = await (await db()).get('settings', SETTINGS_ID)

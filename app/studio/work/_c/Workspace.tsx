@@ -64,7 +64,7 @@ function syncServer(local: Episode, server: Episode): Episode {
 }
 
 const EP_EDITABLE: (keyof Episode)[] = [
-  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'hookText', 'imageMemo', 'outputs',
+  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'hookText', 'imageMemo', 'outputs', 'classification',
 ]
 
 export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {

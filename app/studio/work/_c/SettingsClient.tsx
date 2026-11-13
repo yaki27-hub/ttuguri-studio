@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
+import { DEFAULT_CLASSIFY_RULES, cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
 import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
@@ -97,6 +97,15 @@ export default function SettingsClient({ env }: { env: Env }) {
           }}
         >
           기본값으로 되돌리기
+        </button>
+      </section>
+
+      <section className="card">
+        <h2>콘텐츠 분류 기준</h2>
+        <p className="muted small">빠른 시안의 ‘AI가 분류’가 이 기준으로 한 컷 개그·4컷 실화툰·컷자막형 공감툰·연재 사연툰·보류 중 1·2순위를 골라요. 성과를 보면서 기준과 성과 메모를 계속 고쳐 주세요.</p>
+        <Field label="분류 기준 · 성과 메모" value={s.classifyRules} rows={9} onChange={(v) => edit({ classifyRules: v })} />
+        <button type="button" className="btn ghost small" onClick={() => edit({ classifyRules: DEFAULT_CLASSIFY_RULES })}>
+          분류 기준만 기본값으로
         </button>
       </section>
 
