@@ -146,6 +146,8 @@ export function sceneSheet(ep: Episode, panels: Panel[], s: CharacterSettings, m
     if (p.action) lines.push(...bullets(p.action))
     for (const c of p.cast ?? []) lines.push(`${castHead(c)}: ${c.action.split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(' / ') || '(행동 미정)'}`)
     if (p.direction?.trim()) lines.push(`핵심 연출: ${p.direction.trim().replace(/\n/g, ' / ')}`)
+    if (p.productionNotes?.trim()) lines.push(`제작 메모: ${p.productionNotes.trim().replace(/\n/g, ' / ')}`)
+    if (p.adaptationNotes?.trim()) lines.push(`각색: ${p.adaptationNotes.trim().replace(/\n/g, ' / ')}`)
     lines.push('')
   })
   lines.push('이미지 제작 메모', `화면 비율\t${RATIO_LABEL[memo.ratio] ?? memo.ratio}`)
@@ -156,12 +158,16 @@ export function sceneSheet(ep: Episode, panels: Panel[], s: CharacterSettings, m
 /** 피그마용 ② 화면에 올릴 글자만: 첫 화면 문구·대사·자막 */
 export function screenTextSheet(ep: Episode, panels: Panel[]) {
   const lines: string[] = [`「${ep.title}」 화면 문구`, '']
-  if (ep.hookText?.trim()) lines.push('[첫 화면 문구]', ep.hookText.trim(), '')
+  const hook = ep.hookText?.trim() ?? ''
+  // 한컷에서 첫 화면 문구를 그림 안 자막으로 쓰면 같은 줄이 두 번 나오지 않게 한 번만 적는다
+  const hookInPicture = ep.format === 'single' && panels.length === 1 && hook !== '' && panels[0].narration.trim() === hook
+  if (hook) lines.push(hookInPicture ? '[첫 화면 문구 = 그림 안 자막]' : '[첫 화면 문구]', hook, '')
   panels.forEach((p, i) => {
     lines.push(`[${cutName(ep, panels.length, i)}]`)
     const d = dialogueLines(p)
-    const txt = p.narration.trim()
-    if (!d.length && !txt) lines.push('(글자 없음 — 그림으로만)')
+    const txt = hookInPicture ? '' : p.narration.trim()
+    if (hookInPicture) lines.push('(자막: 위 첫 화면 문구)')
+    else if (!d.length && !txt) lines.push('(글자 없음 — 그림으로만)')
     lines.push(...d)
     if (txt) lines.push(`${textLabel(ep.format)}: ${txt}`)
     lines.push('')
