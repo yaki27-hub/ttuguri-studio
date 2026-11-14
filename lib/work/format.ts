@@ -38,13 +38,14 @@ export const STATUS_LABEL: Record<Status, string> = {
 export const STATUS_ORDER: Status[] = ['idea', 'story', 'confirmed_panels', 'illustrating', 'ready', 'published']
 
 export const STAGE_LABEL: Record<Stage, string> = {
-  source: '소재',
-  story: '이야기',
+  source: '메모',
+  story: '메모',
   panels: '콘티',
   images: '이미지',
   publish: '게시',
 }
-export const STAGES: Stage[] = ['source', 'story', 'panels', 'images', 'publish']
+/** 화면에 보이는 단계. 'story'는 예전 데이터 호환용으로만 남아 있고 '메모'로 합쳐 보여준다. */
+export const STAGES: Stage[] = ['source', 'panels', 'images', 'publish']
 
 export const FORMAT_LABEL: Record<Format, string> = { single: '한컷', four: '4컷', captions: '컷자막형' }
 export const FORMATS: Format[] = ['single', 'four', 'captions']

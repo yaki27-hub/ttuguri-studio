@@ -8,6 +8,7 @@ import { PURPOSE_LABEL } from '@/lib/work/format'
 import type { Fact, FactStatus, Purpose } from '@/lib/work/types'
 import { AssetImage, Field, FilePick, Lightbox, ListField } from './ui'
 import GenBox from './GenBox'
+import StoryStage from './StoryStage'
 import { useWS } from './Workspace'
 
 const FACT_LABEL: Record<FactStatus, string> = { confirmed: '확인한 사실', proposed: '추정·제안', unknown: '모름' }
@@ -23,12 +24,24 @@ export default function SourceStage() {
   const ep = ws.ep
   const [big, setBig] = useState<string>()
   const setFacts = (facts: Fact[]) => ws.editEp({ facts })
+  const hasSource = !!(ep.situation || ep.facts.length || ep.humorPoint || ep.emotions.length || ep.unknowns.length || ep.links.length || ep.sourceAssetIds.length)
 
   return (
     <div className="stack">
       <section className="card">
-        <h2>소재 정리</h2>
-        <p className="muted small">비워 둬도 괜찮아요. 직접 쓰거나 아래 생성 보조를 써서 채우세요.</p>
+        <h2>메모</h2>
+        <p className="muted small">왼쪽 원문 메모와 추가 메모만으로 바로 콘티를 뽑을 수 있어요. 형식(한컷·4컷·컷자막형)도 콘티 단계에서 AI가 골라 줘요.</p>
+        <button type="button" className="btn primary block" onClick={() => ws.goStage('panels')}>
+          콘티 뽑기 →
+        </button>
+        <p className="hint">더 다듬고 싶을 때만 아래 칸을 펼치세요. 채워 두면 콘티 초안에 함께 반영돼요.</p>
+      </section>
+
+      <details className="card fold" open={hasSource || undefined}>
+        <summary>
+          <b>소재 정리</b> <span className="muted small">선택 · 사실·감정·태그·참고 자료</span>
+        </summary>
+        <div className="sub">
         <Field label="한 줄 상황" single value={ep.situation} onChange={(v) => ws.editEp({ situation: v })} placeholder="예) 새 프로젝트 첫 주, 주변 자리가 다 비었다" />
 
         <fieldset className="facts">
@@ -123,9 +136,9 @@ export default function SourceStage() {
             />
           </div>
         </fieldset>
-      </section>
+        </div>
 
-      <section className="card">
+        <div className="sub">
         <GenBox<SourceOut>
           title="소재 정리 초안"
           target="source"
@@ -177,11 +190,15 @@ export default function SourceStage() {
           }}
           applyLabel="소재 정리에 적용"
         />
-      </section>
+        </div>
+      </details>
 
-      <button type="button" className="btn primary block" onClick={() => ws.goStage('story')}>
-        이야기로 정리하기 →
-      </button>
+      <details className="card fold" open={ws.story ? true : undefined}>
+        <summary>
+          <b>이야기 방향</b> <span className="muted small">선택 · 도입·전개·마무리 정리</span>
+        </summary>
+        <StoryStage embedded />
+      </details>
       {big && <Lightbox id={big} alt="참고 이미지" onClose={() => setBig(undefined)} />}
     </div>
   )

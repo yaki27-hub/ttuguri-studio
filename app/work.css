@@ -209,3 +209,9 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .pin-row .btn { flex: none; }
 .timing { color: var(--muted); margin: 0 0 8px; }
 .timing b { color: var(--text, inherit); font-variant-numeric: tabular-nums; }
+
+.fold > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.fold[open] > summary { margin-bottom: 4px; }
+.sub + .sub { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+.sub { padding-top: 10px; }
+.original-peek { display: block; font-weight: 400; color: var(--muted); font-size: 13px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

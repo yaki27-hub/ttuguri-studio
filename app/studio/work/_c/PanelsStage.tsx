@@ -26,6 +26,9 @@ export default function PanelsStage() {
   const [dragId, setDragId] = useState<string>()
   const [fmtPreview, setFmtPreview] = useState<Format>()
   const [importText, setImportText] = useState('')
+  // 아직 컷도 이야기도 없으면 형식은 AI가 고르게 둔다
+  const [autoPick, setAutoPick] = useState(panels.length === 0 && !story)
+  const auto = autoPick && panels.length === 0
   const memo = imageMemoOf(ep, ws.settings)
   const storyStale = panels.length > 0 && ep.panelsBaseStoryRevision !== undefined && ep.storyRevision > ep.panelsBaseStoryRevision
 
@@ -38,7 +41,7 @@ export default function PanelsStage() {
   }
 
   /** 콘티 초안 적용: 컷 교체(잠긴 컷 유지) + 제목·이미지 메모. imported면 붙여넣은 콘티를 그대로 따른다. */
-  async function applyDoc(doc: PanelsDoc, operation: string, imported: boolean) {
+  async function applyDoc(doc: PanelsDoc, operation: string, imported: boolean, pickFormat = imported) {
     const r = await ws.act(async () => {
       const res = await applyPanelDraft(ep.id, doc.items, 'replace', operation, ep.storyRevision)
       const cur = res.episode
@@ -52,7 +55,7 @@ export default function PanelsStage() {
       }
       if (JSON.stringify(next) !== JSON.stringify(now)) patch.imageMemo = next
       if (doc.hook && (imported || doc.hook !== cur.hookText)) patch.hookText = doc.hook
-      if (imported) {
+      if (pickFormat) {
         const k = doc.items.length
         const f = doc.format && k >= countRange(doc.format)[0] && k <= countRange(doc.format)[1] ? doc.format : k === 1 ? 'single' : k === 4 ? 'four' : k <= 4 ? 'captions' : undefined
         if (f) patch.format = f
@@ -74,7 +77,7 @@ export default function PanelsStage() {
         <div className="card-head">
           <h2>콘티</h2>
           <span className="muted small">
-            {panels.length}컷 · 목표 {FORMAT_LABEL[target]}
+            {panels.length}컷 · 목표 {auto ? '자동 추천' : FORMAT_LABEL[target]}
             {ep.confirmedPanelRevision !== undefined && ` · 확정 r${ep.confirmedPanelRevision}`}
           </span>
         </div>
@@ -90,7 +93,18 @@ export default function PanelsStage() {
         />
         <div className="field">
           <label htmlFor="pfmt">형식</label>
-          <select id="pfmt" value={target} onChange={(e) => (panels.length ? setFmtPreview(e.target.value as Format) : ws.editEp({ format: e.target.value as Format }))}>
+          <select
+            id="pfmt"
+            value={auto ? 'auto' : target}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === 'auto') return setAutoPick(true)
+              setAutoPick(false)
+              if (panels.length) setFmtPreview(v as Format)
+              else ws.editEp({ format: v as Format })
+            }}
+          >
+            {panels.length === 0 && <option value="auto">자동 추천 (AI가 골라요)</option>}
             {FORMATS.map((f) => (
               <option key={f} value={f}>
                 {FORMAT_LABEL[f]}
@@ -132,10 +146,9 @@ export default function PanelsStage() {
         )}
       </section>
 
-      {panels.length > 0 || story ? (
-        <section className="card">
+      <section className="card">
           <GenBox<PanelsDoc>
-            title={panels.length ? `새 ${FORMAT_LABEL[target]} 콘티 초안 (변경안 비교)` : `${FORMAT_LABEL[target]} 콘티 초안 받기`}
+            title={panels.length ? `새 ${FORMAT_LABEL[target]} 콘티 초안 (변경안 비교)` : auto ? '콘티 뽑기 — 형식은 AI가 골라요' : `${FORMAT_LABEL[target]} 콘티 뽑기`}
             target="panels"
             targetIds={panels.map((p) => p.id)}
             operation="콘티 초안"
@@ -144,27 +157,24 @@ export default function PanelsStage() {
               panelsPrompt(
                 ep,
                 story,
-                target,
+                auto ? 'auto' : target,
                 ws.settings,
                 panels.filter((p) => p.locked),
                 memo,
                 panels.flatMap((p, i) => (p.locked ? [] : p.cast.filter((c) => c.fixed && c.dialogue.trim()).map((c) => `${cutName(ep, panels.length, i)} ${c.name || '인물'}: "${c.dialogue}"`))),
               )
             }
-            parse={(raw) => parsePanelsDoc(raw, { range })}
+            parse={(raw) => parsePanelsDoc(raw, { range: auto ? [1, 4] : range })}
             getBase={() => ep.panelsRevision}
             preview={(doc) => <DocPreview doc={doc} panels={panels} imported={false} />}
             applyLabel={panels.length ? '변경안 적용 (잠긴 컷 유지)' : '콘티에 적용'}
             apply={async (doc) => {
-              await applyDoc(doc, '콘티 초안 적용', false)
+              await applyDoc(doc, '콘티 초안 적용', false, auto)
             }}
           />
         </section>
-      ) : (
-        <p className="muted small">이야기를 먼저 정리하거나 빈 콘티로 바로 시작하세요.</p>
-      )}
 
-      <details className="card" open={panels.length === 0 && !story ? true : undefined}>
+      <details className="card">
         <summary>
           <b>다른 곳에서 만든 콘티 가져오기</b>
         </summary>
@@ -495,7 +505,7 @@ function DocPreview({ doc, panels, imported }: { doc: PanelsDoc; panels: Panel[]
           <b>첫 화면 문구</b> {doc.hook}
         </p>
       )}
-      {imported && doc.format && (
+      {doc.format && (
         <p className="small">
           <b>형식</b> {FORMAT_LABEL[doc.format]}
         </p>

@@ -204,13 +204,19 @@ ${ep.situation ? `\n한 줄 상황: ${ep.situation}` : ''}${ep.humorPoint ? `\n�
 {"summary":"","opening":"","development":"","humor":"","ending":"","recommendedFormat":"single|four|captions","reason":""}`
 }
 
-export function panelsPrompt(ep: Episode, st: StoryVersion | undefined, format: Format, s: CharacterSettings, locked: Panel[], memo: ImageMemo, fixedLines: string[] = []) {
-  const [a, b] = countRange(format)
-  const n = a === b ? `${a}개` : `${a}~${b}개(이야기에 맞게, 보통 3장)`
+export function panelsPrompt(ep: Episode, st: StoryVersion | undefined, format: Format | 'auto', s: CharacterSettings, locked: Panel[], memo: ImageMemo, fixedLines: string[] = []) {
+  const auto = format === 'auto'
+  const [a, b] = auto ? [1, 4] : countRange(format)
+  const n = auto ? '고른 형식에 맞는 수(한컷 1개, 4컷 4개, 컷자막형 2~4개)' : a === b ? `${a}개` : `${a}~${b}개(이야기에 맞게, 보통 3장)`
+  const fmtHead = auto
+    ? `[작업: 콘티 — 형식 자동 추천]
+이야기의 결을 보고 아래 셋 중 가장 어울리는 형식 하나를 골라 format에 적어. 한컷으로 충분한 이야기를 늘리지 마.
+${(Object.keys(FORMAT_GUIDE) as Format[]).map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`).join('\n')}`
+    : `[작업: ${FORMAT_LABEL[format]} 콘티]
+형식: ${FORMAT_GUIDE[format]}`
   return `${buildSystem(s)}
 
-[작업: ${FORMAT_LABEL[format]} 콘티]
-형식: ${FORMAT_GUIDE[format]}
+${fmtHead}
 ${sourceBlock(ep)}
 
 ${storyBlock(st)}
@@ -221,13 +227,13 @@ ${memoBlock(memo, s)}
 - 컷에 나오는 인물마다 cast 항목을 하나씩 만들고, 화면 위치(left/center/right)와 차림·행동·표정·소품을 한 줄에 하나씩 적어.
 - 대사는 그 인물의 dialogue에. 인물당 짧은 한 문장, 빈 대사도 가능.
 - direction에는 웃음이 전달되는 핵심 연출(대비, 거리감, 소품)을 짧게.
-- ${format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}
+- ${auto ? 'narration은 컷자막형이면 그 장에 올릴 자막 한 줄, 아니면 속마음·내레이션이 꼭 필요할 때만.' : format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}
 - 원문에 없는 대사나 시각적 장치는 adaptationNotes에 "각색 제안"이라고 적어.
-- hook은 첫 화면(첫 장)에 올릴 짧은 문구.${format === 'single' ? ' 한컷이면 그림 안 자막으로 쓰인다.' : ''}
+- hook은 첫 화면(첫 장)에 올릴 짧은 문구.${format === 'single' || auto ? ' 한컷이면 그림 안 자막으로 쓰인다.' : ''}
 - title은 짧은 상단 제목 제안. imageMemo는 이번 편에 맞게 채우되, 비어 있지 않은 현재 값은 그대로 두고 화면 비율은 넣지 마.${
     locked.length ? `\n다음 컷은 잠겨 있어 바뀌지 않으니 흐름만 맞춰:\n${locked.map(panelLine).join('\n')}` : ''
   }${fixedLines.length ? `\n다음 대사는 고정이야. 글자 그대로 넣고 그 cast의 fixed를 true로:\n${fixedLines.join('\n')}` : ''}${JSON_ONLY}
-{"title":"상단 제목","hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}}}`
+{"title":"상단 제목",${auto ? '"format":"single|four|captions",' : ''}"hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}}}`
 }
 
 /** 다른 곳(ChatGPT 등)에서 만든 콘티 글을 앱 형식으로 옮긴다. 내용은 바꾸지 않는다. */

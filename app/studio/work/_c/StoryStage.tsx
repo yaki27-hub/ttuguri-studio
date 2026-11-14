@@ -10,9 +10,10 @@ import { useWS } from './Workspace'
 
 const SOURCE_LABEL: Record<StoryVersion['source'], string> = { manual: '직접', import: '붙여넣기', provider: 'AI' }
 
-export default function StoryStage() {
+export default function StoryStage({ embedded = false }: { embedded?: boolean }) {
   const ws = useWS()
   const { ep, story } = ws
+  const box = embedded ? 'sub' : 'card'
 
   async function addVersion(fields: StoryFields, source: StoryVersion['source'], msg: string) {
     await ws.act(async () => {
@@ -24,19 +25,19 @@ export default function StoryStage() {
   }
 
   return (
-    <div className="stack">
+    <div className={embedded ? undefined : 'stack'}>
       {!story ? (
-        <section className="card">
-          <h2>이야기</h2>
-          <p className="muted small">원문만 보고 바로 써도 되고, 초안을 받아 고쳐도 돼요.</p>
+        <section className={box}>
+          {!embedded && <h2>이야기</h2>}
+          <p className="muted small">콘티를 뽑기 전에 흐름을 먼저 잡고 싶을 때만 쓰세요. 비워 둬도 콘티는 메모만으로 만들어져요.</p>
           <button type="button" className="btn" onClick={() => addVersion(emptyStory(ep.format), 'manual', '빈 이야기를 만들었어요.')}>
             직접 쓰기
           </button>
         </section>
       ) : (
-        <section className="card">
+        <section className={box}>
           <div className="card-head">
-            <h2>이야기</h2>
+            <h2>{embedded ? '이야기 방향' : '이야기'}</h2>
             <span className="muted small">버전 {ws.b.stories.length}</span>
           </div>
           <div className="field">
@@ -66,7 +67,7 @@ export default function StoryStage() {
         </section>
       )}
 
-      <section className="card">
+      <section className={box}>
         <GenBox<StoryOut>
           title={story ? '다른 방향 초안 받기' : '이야기 초안 받기'}
           target="story"
@@ -110,7 +111,7 @@ export default function StoryStage() {
       </section>
 
       {ws.b.stories.length > 1 && (
-        <details className="card">
+        <details className={box}>
           <summary>이전 버전 {ws.b.stories.length - 1}개</summary>
           <ul className="versions">
             {ws.b.stories
@@ -137,7 +138,7 @@ export default function StoryStage() {
         </details>
       )}
 
-      {story && (
+      {story && !embedded && (
         <button type="button" className="btn primary block" onClick={() => ws.goStage('panels')}>
           이 방향으로 콘티 만들기 →
         </button>

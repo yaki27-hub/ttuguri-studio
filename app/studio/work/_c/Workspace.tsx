@@ -11,7 +11,6 @@ import type { CharacterSettings, Episode, Panel, Stage, StoryVersion } from '@/l
 import { CopyButton, Field, Notice } from './ui'
 import { SaveIndicator } from './Backup'
 import SourceStage from './SourceStage'
-import StoryStage from './StoryStage'
 import PanelsStage from './PanelsStage'
 import ImagesStage from './ImagesStage'
 import PublishStage from './PublishStage'
@@ -69,7 +68,8 @@ const EP_EDITABLE: (keyof Episode)[] = [
 export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {
   const router = useRouter()
   const sp = useSearchParams()
-  const stage = (STAGES.includes(sp.get('stage') as Stage) ? sp.get('stage') : null) as Stage | null
+  const q = sp.get('stage') === 'story' ? 'source' : sp.get('stage')
+  const stage = (STAGES.includes(q as Stage) ? q : null) as Stage | null
   const [b, setB] = useState<Bundle | null | 'missing'>(null)
   const [settings, setSettings] = useState<CharacterSettings>()
   const [flash, setFlash] = useState<Flash>()
@@ -191,7 +191,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
   if (!ws) return <p className="muted small loading-line">불러오는 중…</p>
 
   const ep = ws.ep
-  const cur = stage ?? ep.stage
+  const cur: Stage = stage ?? (ep.stage === 'story' ? 'source' : ep.stage)
   const unsaved = () =>
     JSON.stringify(
       { 제목: ep.title, 추가메모: ep.notes, 한줄상황: ep.situation, 이야기: ws.story, 컷: ws.b.panels.map((p, i) => ({ 컷: i + 1, ...snapshotOf(p) })) },
@@ -289,7 +289,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
 
         <div className={`ws-grid show-${mobileTab}`}>
           <aside className="ws-source" aria-label="원문">
-            <Original />
+            <Original key={cur === 'source' ? 'memo' : 'later'} expanded={cur === 'source'} />
           </aside>
           <section className="ws-main" aria-label={`${STAGE_LABEL[cur]} 편집`}>
             <StageView stage={cur} />
@@ -306,9 +306,8 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
 function StageView({ stage }: { stage: Stage }): ReactNode {
   switch (stage) {
     case 'source':
-      return <SourceStage />
     case 'story':
-      return <StoryStage />
+      return <SourceStage />
     case 'panels':
       return <PanelsStage />
     case 'images':
@@ -318,15 +317,18 @@ function StageView({ stage }: { stage: Stage }): ReactNode {
   }
 }
 
-function Original() {
+function Original({ expanded }: { expanded: boolean }) {
   const ws = useWS()
   const ep = ws.ep
-  // 휴대폰에서는 접어 두고, 넓은 화면에서는 항상 펼친다
-  const [open, setOpen] = useState(true)
-  useEffect(() => setOpen(!window.matchMedia('(max-width: 767px)').matches), [])
+  // 메모 단계에서만 펼친다(휴대폰은 늘 접음). 콘티부터는 한 줄 미리보기로 접어 두고, 누르면 펼친다.
+  const [open, setOpen] = useState(expanded)
+  useEffect(() => setOpen(expanded && !window.matchMedia('(max-width: 767px)').matches), [expanded])
+  const firstLine = ep.originalMemo.split('\n').find((l) => l.trim())?.trim() ?? ''
   return (
     <details className="original" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>원문 메모</summary>
+      <summary>
+        원문 메모{!open && firstLine && <span className="original-peek">{firstLine}</span>}
+      </summary>
       <blockquote className="memo-quote">{ep.originalMemo}</blockquote>
       <p className="muted small">{fmtDateTime(ep.createdAt)} 저장 · 원문은 바뀌지 않아요</p>
       <Field
