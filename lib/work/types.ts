@@ -16,6 +16,8 @@ export interface Fact {
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
 /** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
 export type Format = 'single' | 'four' | 'captions'
+/** instatoon: 인스타툰, cardnews: 카드뉴스 */
+export type ContentType = 'instatoon' | 'cardnews'
 export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'
 export type Status =
   | 'idea'
@@ -70,6 +72,10 @@ export interface Episode extends Base {
   imageMemo?: ImageMemo
   /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
   hookText?: string
+  /** 없으면 인스타툰 */
+  contentType?: ContentType
+  /** 레퍼런스 보드에서 연결한 레퍼런스 */
+  referenceIds?: string[]
 }
 
 export type Ratio = '4:5' | '1:1'
@@ -230,4 +236,31 @@ export interface Metric extends Base {
   values: Partial<Record<MetricKey, number>>
   source: string
   note: string
+}
+
+export const REF_FORMATS = ['one', 'three', 'four', 'carousel', 'other'] as const
+export type RefFormat = (typeof REF_FORMATS)[number]
+export const REF_POST_TYPES = ['feed', 'reel', 'carousel'] as const
+export type RefPostType = (typeof REF_POST_TYPES)[number]
+export type RefPlatform = 'instagram' | 'youtube' | 'etc'
+
+/** 레퍼런스 보드: 참고할 다른 계정 게시물 */
+export interface Reference extends Base {
+  /** 쿼리·# 를 뗀 링크 (중복 확인 기준) */
+  url: string
+  platform: RefPlatform
+  account: string
+  postType?: RefPostType
+  format?: RefFormat
+  tags: string[]
+  likes?: number
+  comments?: number
+  views?: number
+  metricsAt?: ISO
+  /** 직접 확인 / 추정치 등 */
+  metricsSource: string
+  /** 이 소재를 뚜구리 개그로 바꾼 한 줄 */
+  take: string
+  note: string
+  caption: string
 }

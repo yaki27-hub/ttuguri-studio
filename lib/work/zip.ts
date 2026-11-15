@@ -228,7 +228,7 @@ export async function importBackup(b: BackupContents, mode: ImportMode, policy: 
     if (policy === 'copy') {
       // 복사본에 속한 모든 하위 엔티티 id도 새로 발급
       for (const s of stores) {
-        if (s === 'episodes' || s === 'settings' || s === 'assets') continue
+        if (s === 'episodes' || s === 'settings' || s === 'assets' || s === 'references') continue
         for (const r of b.data[s]) if (r.episodeId && idMap.has(r.episodeId)) idMap.set(r.id, uid())
       }
     }

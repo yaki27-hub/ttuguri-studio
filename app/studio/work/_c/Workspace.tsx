@@ -15,6 +15,7 @@ import PanelsStage from './PanelsStage'
 import ImagesStage from './ImagesStage'
 import PublishStage from './PublishStage'
 import Preview from './Preview'
+import EpisodeRefs from './EpisodeRefs'
 
 type Flash = { msg: string; kind: 'info' | 'ok' | 'warn' | 'error' }
 
@@ -62,7 +63,7 @@ function syncServer(local: Episode, server: Episode): Episode {
 }
 
 const EP_EDITABLE: (keyof Episode)[] = [
-  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds',
+  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'contentType',
 ]
 
 export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {
@@ -290,6 +291,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
         <div className={`ws-grid show-${mobileTab}`}>
           <aside className="ws-source" aria-label="원문">
             <Original key={cur === 'source' ? 'memo' : 'later'} expanded={cur === 'source'} />
+            <EpisodeRefs />
           </aside>
           <section className="ws-main" aria-label={`${STAGE_LABEL[cur]} 편집`}>
             <StageView stage={cur} />

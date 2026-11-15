@@ -9,11 +9,12 @@ import type {
   Panel,
   PanelVersion,
   Publication,
+  Reference,
   Slide,
   StoryVersion,
 } from './types'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 interface ByEpisode<T> {
   key: string
@@ -33,6 +34,7 @@ interface DDDB extends DBSchema {
   metrics: ByEpisode<Metric>
   assets: { key: string; value: Asset }
   settings: { key: string; value: CharacterSettings }
+  references: { key: string; value: Reference; indexes: { url: string } }
 }
 
 export const EPISODE_STORES = [
@@ -46,22 +48,31 @@ export const EPISODE_STORES = [
   'metrics',
 ] as const
 export type EpisodeStore = (typeof EPISODE_STORES)[number]
-export const ALL_STORES = ['episodes', ...EPISODE_STORES, 'assets', 'settings'] as const
+export const ALL_STORES = ['episodes', ...EPISODE_STORES, 'assets', 'settings', 'references'] as const
 export type StoreName = (typeof ALL_STORES)[number]
 
 let dbp: Promise<IDBPDatabase<DDDB>> | null = null
 
 export function db() {
   if (!dbp) {
-    dbp = openDB<DDDB>('dduguri-studio', 1, {
-      upgrade(d) {
-        d.createObjectStore('episodes', { keyPath: 'id' })
-        for (const s of EPISODE_STORES) {
-          const store = d.createObjectStore(s, { keyPath: 'id' })
-          store.createIndex('episodeId', 'episodeId')
+    dbp = openDB<DDDB>('dduguri-studio', 2, {
+      upgrade(d, oldVersion) {
+        if (oldVersion < 1) {
+          d.createObjectStore('episodes', { keyPath: 'id' })
+          for (const s of EPISODE_STORES) {
+            const store = d.createObjectStore(s, { keyPath: 'id' })
+            store.createIndex('episodeId', 'episodeId')
+          }
+          d.createObjectStore('assets', { keyPath: 'id' })
+          d.createObjectStore('settings', { keyPath: 'id' })
         }
-        d.createObjectStore('assets', { keyPath: 'id' })
-        d.createObjectStore('settings', { keyPath: 'id' })
+        if (oldVersion < 2) {
+          d.createObjectStore('references', { keyPath: 'id' }).createIndex('url', 'url')
+        }
+      },
+      // 다른 탭이 옛 버전으로 열고 있으면 새로고침 전까지 기다린다
+      blocked() {
+        console.warn('다른 탭을 닫거나 새로고침해 주세요.')
       },
     })
   }

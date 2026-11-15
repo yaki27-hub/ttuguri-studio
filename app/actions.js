@@ -7,7 +7,7 @@ import { fetchInsights } from '@/lib/instagram';
 import { listEpisodes, updatePage, P, num, rich, url, date, select } from '@/lib/notion';
 import { metricProperties, runSync, kstDate } from '@/lib/sync';
 
-const back = (msg) => redirect(`/?msg=${encodeURIComponent(msg)}`);
+const back = (msg) => redirect(`/stats?msg=${encodeURIComponent(msg)}`);
 
 export async function login(formData) {
   if (!passwordMatches(String(formData.get('password') || ''))) {
