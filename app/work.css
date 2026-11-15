@@ -74,7 +74,7 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .status.s-ready { background: var(--warn-soft); color: var(--warn); }
 
 /* 작업실 레이아웃 */
-.ws { max-width: 1480px; margin: 0 auto; padding: 16px 16px 80px; }
+.ws { max-width: 1480px; margin: 0 auto; padding: 16px 16px 80px; container-type: inline-size; }
 .ws-top { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .ws-title { flex: 1; min-width: 0; }
 .ws-title input { width: 100%; font: inherit; font-size: 18px; font-weight: 700; border: 1px solid transparent; background: transparent; color: var(--text); border-radius: 8px; padding: 4px 6px; margin-left: -6px; }
@@ -92,7 +92,8 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .original summary { font-weight: 700; color: var(--text); margin: 0; }
 .memo-quote { margin: 10px 0 6px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 10px 10px 0; white-space: pre-wrap; font-size: 14px; }
 
-@media (max-width: 1199px) {
+/* 왼쪽 메뉴가 있어도 실제 남은 폭으로 판단 */
+@container (max-width: 1120px) {
   .ws-grid { grid-template-columns: minmax(0, 1fr) 300px; }
   .ws-source { grid-column: 1 / -1; position: static; max-height: none; }
 }

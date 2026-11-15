@@ -5,6 +5,7 @@ import Login from '../../../Login';
 import SubmitButton from '../../../SubmitButton';
 import { setStatus } from '../../actions';
 import KontiEditor from './KontiEditor';
+import Nav from '../../../Nav';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,6 +32,7 @@ export default async function EpisodePage({ params, searchParams }) {
 
   return (
     <main className="wrap narrow">
+      <Nav active="work" mobile={false} />
       <header className="sub-top">
         <Link href="/studio" className="back" aria-label="제작 홈으로">←</Link>
         <h1>에피소드</h1>

@@ -2,6 +2,7 @@ import { isAuthed } from '@/lib/auth';
 import { getEpisode, getPageText } from '@/lib/notion';
 import Login from '../../../Login';
 import OpenFromNotion from '../_c/OpenFromNotion';
+import Nav from '../../../Nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ export default async function OpenPage({ searchParams }) {
   }
   return (
     <main className="wrap narrow">
+      <Nav active="work" mobile={false} />
       <OpenFromNotion
         pageId={pageId}
         error={error}

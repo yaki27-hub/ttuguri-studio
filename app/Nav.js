@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SideEpisodes from './SideEpisodes';
 
 const ICONS = {
   work: 'M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4',
@@ -14,10 +15,10 @@ const ITEMS = [
 ];
 
 /** 메뉴: 폰은 위쪽 탭, 넓은 화면은 왼쪽 사이드 */
-export default function Nav({ active }) {
+export default function Nav({ active, mobile = true }) {
   const on = active === 'studio' ? 'work' : active;
   return (
-    <aside className="side-nav">
+    <aside className={`side-nav${mobile ? '' : ' no-mobile'}`}>
       <Link href="/studio/work" className="side-brand">
         <span className="brand-mark" aria-hidden>뚜</span>
         뚜구리 스튜디오
@@ -32,6 +33,7 @@ export default function Nav({ active }) {
           </Link>
         ))}
       </nav>
+      <SideEpisodes />
       <div className="side-foot">
         <b>빠른 저장</b>
         <p>작업 화면 입력칸에 인스타 링크를 붙여넣으면 레퍼런스로 저장돼요.</p>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { isAuthed } from '@/lib/auth';
 import Login from '../../Login';
 import RecommendClient from './RecommendClient';
+import Nav from '../../Nav';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,6 +13,7 @@ export default async function RecommendPage({ searchParams }) {
 
   return (
     <main className="wrap narrow">
+      <Nav active="work" mobile={false} />
       <header className="sub-top">
         <Link href="/studio" className="back" aria-label="제작 홈으로">←</Link>
         <h1>소재 추천</h1>
