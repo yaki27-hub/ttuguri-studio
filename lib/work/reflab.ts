@@ -2,6 +2,7 @@ import { ParseError } from './prompts'
 import { uid } from './db'
 import { REF_FORMAT_LABEL, REF_POST_TYPE_LABEL, fmtCount } from './refs'
 import type { CharacterSettings, Episode, RefBreakdown, RefVariant, Reference } from './types'
+import { cardSystem } from './cards'
 
 /*
  * 레퍼런스 연구실
@@ -51,7 +52,8 @@ export function breakdownPrompt(r: Reference, seen: string) {
   )
 }
 
-export function variantsPrompt(r: Reference, s: CharacterSettings, recent: Episode[], count = 5) {
+export function variantsPrompt(r: Reference, s: CharacterSettings, recent: Episode[], count = 5, channel: 'toon' | 'card' = 'toon') {
+  if (channel === 'card') return cardVariantsPrompt(r, s, recent, count)
   const b = r.breakdown
   const mine = recent
     .filter((e) => !e.isSample)
@@ -76,6 +78,33 @@ export function variantsPrompt(r: Reference, s: CharacterSettings, recent: Episo
       '- premise: 상황 한두 문장. 사실처럼 단정하지 말고 "~하는 상황"처럼 쓴다.',
       '- hook: 첫 컷에 넣을 짧은 문구 (20자 안팎).',
       '- question: 작가에게 묻는 질문 하나. 비슷한 일을 실제로 겪었는지, 그때 무슨 말을 들었는지처럼 구체적으로.',
+    ]
+      .filter(Boolean)
+      .join('\n') +
+    JSON_ONLY +
+    '\n{"variants":[{"title":"","premise":"","hook":"","question":""}]}'
+  )
+}
+
+/** 카드뉴스 채널: 틀만 빌려 다른 AI 활용·소식 주제로 */
+function cardVariantsPrompt(r: Reference, s: CharacterSettings, recent: Episode[], count: number) {
+  const b = r.breakdown
+  const mine = recent.filter((e) => e.contentType === 'cardnews').slice(0, 12).map((e) => `- ${e.title}`).join('\n')
+  return (
+    [
+      cardSystem(s),
+      '아래 카드뉴스 레퍼런스에서 "틀"만 빌려, 주제를 바꾼 카드뉴스 기획안을 만든다.',
+      refFacts(r),
+      b && `뜯어본 결과:\n후킹: ${b.hook}\n흐름:\n${b.flow.join('\n')}\n반응 이유: ${b.why}\n틀: ${b.formula}`,
+      r.take && `작가가 생각한 내 버전: ${r.take}`,
+      mine && `최근 만든 카드뉴스 (겹치지 않게):\n${mine}`,
+      '규칙:',
+      `- ${count}개. 서로 다른 주제로. 틀(장 흐름·후킹 방식·마무리 방식)은 유지하고 주제만 바꾼다.`,
+      '- 원본의 문장·예시를 그대로 가져오지 않는다. 특정 캐릭터를 넣지 않는다.',
+      '- 직장인이 AI를 실제로 쓰는 상황이나 새 기능·소식 중심으로.',
+      '- premise: 이 카드뉴스가 알려 줄 내용 한두 문장. 확인되지 않은 수치·사실을 단정하지 않는다.',
+      '- hook: 표지 후킹 제목 (22자 안팎).',
+      '- question: 작가에게 묻는 질문 하나. 직접 써 봤는지, 확인한 출처가 있는지처럼 구체적으로.',
     ]
       .filter(Boolean)
       .join('\n') +

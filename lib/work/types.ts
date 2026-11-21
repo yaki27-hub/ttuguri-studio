@@ -222,6 +222,9 @@ export interface CardNewsSettings {
   imageRules: string
   /** 그림체 참고 이미지 (캐릭터가 아니라 색감·스타일 참고) */
   styleRefIds: string[]
+  /** 소재 찾기 토픽·워치리스트 (카드뉴스 채널용) */
+  topics?: Topic[]
+  watchlist?: string[]
 }
 
 export interface Topic {
@@ -292,6 +295,8 @@ export interface Reference extends Base {
   breakdown?: RefBreakdown
   /** 구조만 빌려 뚜구리 소재로 바꾼 변주안 */
   variants?: RefVariant[]
+  /** 어느 채널의 레퍼런스인지 (없으면 뚜구리툰) */
+  channel?: 'toon' | 'card'
 }
 
 export interface RefBreakdown {

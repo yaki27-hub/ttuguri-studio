@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import SideEpisodes from './SideEpisodes';
+import ChannelSwitch from './ChannelSwitch';
+import { getChannel } from '@/lib/channel-server';
+import { CHANNELS } from '@/lib/channel';
 
 const ICONS = {
   work: 'M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4',
@@ -17,14 +20,16 @@ const ITEMS = [
 ];
 
 /** 메뉴: 폰은 위쪽 탭, 넓은 화면은 왼쪽 사이드 */
-export default function Nav({ active, mobile = true }) {
+export default async function Nav({ active, mobile = true }) {
   const on = active === 'studio' ? 'work' : active;
+  const channel = await getChannel();
   return (
     <aside className={`side-nav${mobile ? '' : ' no-mobile'}`}>
       <Link href="/studio/work" className="side-brand">
-        <span className="brand-mark" aria-hidden>뚜</span>
-        뚜구리 스튜디오
+        <span className={`brand-mark ${channel === 'card' ? 'card' : ''}`} aria-hidden>{CHANNELS[channel].mark}</span>
+        {channel === 'card' ? 'AI 카드뉴스' : '뚜구리 스튜디오'}
       </Link>
+      <ChannelSwitch channel={channel} />
       <nav className="tabs" aria-label="메뉴">
         {ITEMS.map(([key, href, label]) => (
           <Link key={key} href={href} className={on === key ? 'on' : ''} aria-current={on === key ? 'page' : undefined}>
@@ -35,7 +40,7 @@ export default function Nav({ active, mobile = true }) {
           </Link>
         ))}
       </nav>
-      <SideEpisodes />
+      <SideEpisodes channel={channel} />
       <div className="side-foot">
         <b>빠른 저장</b>
         <p>작업 화면 입력칸에 인스타 링크를 붙여넣으면 레퍼런스로 저장돼요.</p>

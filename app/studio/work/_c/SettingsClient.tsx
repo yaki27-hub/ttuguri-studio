@@ -16,11 +16,13 @@ interface Env {
   ai: { provider: string; ready: boolean; model: string }
   notion: { ready: boolean }
   instagram: { ready: boolean; expires: string; daysLeft: number | null; since: string }
+  instagramCard: { ready: boolean; expires: string; daysLeft: number | null; since: string; tokenVar: string }
   cron: boolean
   password: boolean
 }
 
-export default function SettingsClient({ env }: { env: Env }) {
+export default function SettingsClient({ env, channel = 'toon' }: { env: Env; channel?: 'toon' | 'card' }) {
+  const card = channel === 'card'
   const [s, setS] = useState<CharacterSettings>()
   const ref = useRef<CharacterSettings>(undefined)
   const [big, setBig] = useState<string>()
@@ -65,6 +67,8 @@ export default function SettingsClient({ env }: { env: Env }) {
         <SaveIndicator />
       </header>
 
+      {!card && (
+        <>
       <section className="card">
         <div className="card-head">
           <h2>인스타툰 캐릭터 · 작품</h2>
@@ -162,8 +166,6 @@ export default function SettingsClient({ env }: { env: Env }) {
         {msg && <p className="error">{msg}</p>}
       </section>
 
-      <CardNewsSettingsBox s={s} edit={edit} onBig={setBig} setMsg={setMsg} />
-
       <section className="card">
         <div className="card-head">
           <h2>AI 지시문 미리보기</h2>
@@ -174,6 +176,11 @@ export default function SettingsClient({ env }: { env: Env }) {
           <pre className="body-text">{buildSystem(s)}</pre>
         </details>
       </section>
+
+        </>
+      )}
+
+      {card && <CardNewsSettingsBox s={s} edit={edit} onBig={setBig} setMsg={setMsg} />}
 
       <section className="card">
         <h2>연결 상태</h2>
@@ -187,10 +194,16 @@ export default function SettingsClient({ env }: { env: Env }) {
           </li>
           <li className={env.notion.ready ? 'ok' : 'bad'}>{env.notion.ready ? '✓ 노션 에피소드 DB 연결됨' : '✕ NOTION_TOKEN / NOTION_DATA_SOURCE_ID 없음'}</li>
           <li className={!env.instagram.ready ? 'bad' : days !== null && days <= 14 ? 'warn' : 'ok'}>
-            {env.instagram.ready ? '✓' : '✕'} 인스타그램 성과 —{' '}
+            {env.instagram.ready ? '✓' : '✕'} 인스타그램 (뚜구리툰 계정) —{' '}
             {env.instagram.ready
               ? `토큰 만료 ${env.instagram.expires || '미입력'}${days !== null ? ` (${days > 0 ? `${days}일 남음` : '만료됨'})` : ''}${env.instagram.since ? ` · ${env.instagram.since} 이후 게시물` : ''}`
               : 'IG_ACCESS_TOKEN / IG_USER_ID 없음'}
+          </li>
+          <li className={!env.instagramCard.ready ? 'bad' : env.instagramCard.daysLeft !== null && env.instagramCard.daysLeft <= 14 ? 'warn' : 'ok'}>
+            {env.instagramCard.ready ? '✓' : '✕'} 인스타그램 (AI 카드뉴스 계정) —{' '}
+            {env.instagramCard.ready
+              ? `토큰 만료 ${env.instagramCard.expires || '미입력'}${env.instagramCard.daysLeft !== null ? ` (${env.instagramCard.daysLeft > 0 ? `${env.instagramCard.daysLeft}일 남음` : '만료됨'})` : ''}`
+              : 'CARD_IG_ACCESS_TOKEN / CARD_IG_USER_ID 없음 (CARD_TOKEN_EXPIRES_AT, CARD_SINCE_DATE 도 함께)'}
           </li>
           <li className={env.cron ? 'ok' : 'bad'}>{env.cron ? '✓ 매일 09:00 자동 동기화 보호값 있음' : '✕ CRON_SECRET 없음'}</li>
         </ul>

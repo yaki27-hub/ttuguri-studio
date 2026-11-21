@@ -33,7 +33,7 @@ function accountFromUrl(url: string) {
   }
 }
 
-export function RefForm({ url, onSaved, onCancel, onExisting }: { url: string; onSaved: (r: Reference) => void; onCancel: () => void; onExisting: (r: Reference) => void }) {
+export function RefForm({ url, onSaved, onCancel, onExisting, channel = 'toon' }: { url: string; onSaved: (r: Reference) => void; onCancel: () => void; onExisting: (r: Reference) => void; channel?: 'toon' | 'card' }) {
   const [account, setAccount] = useState(() => accountFromUrl(url))
   const [postType, setPostType] = useState<RefPostType | ''>(() => postTypeOf(url) ?? '')
   const [format, setFormat] = useState<RefFormat | ''>('four')
@@ -73,6 +73,7 @@ export function RefForm({ url, onSaved, onCancel, onExisting }: { url: string; o
         take: take.trim(),
         note: note.trim(),
         caption: caption.trim(),
+        channel,
       })
       onSaved(r)
     } catch (e) {
@@ -133,7 +134,7 @@ export function RefForm({ url, onSaved, onCancel, onExisting }: { url: string; o
       {[likes, comments, views].some((v) => v.trim()) && (
         <Field single label="지표 출처" value={metricsSource} onChange={setMetricsSource} hint="예: 직접 확인, 추정치" />
       )}
-      <Field single label="뚜구리 버전 (한 줄)" value={take} onChange={(v) => setTake(v.slice(0, 100))} placeholder="이 소재를 뚜구리 개그로 바꾼 한 줄" hint={`${take.length}/100`} />
+      <Field single label={channel === 'card' ? '내 버전 (한 줄)' : '뚜구리 버전 (한 줄)'} value={take} onChange={(v) => setTake(v.slice(0, 100))} placeholder={channel === 'card' ? '이 주제를 내 카드뉴스로 바꾼 한 줄' : '이 소재를 뚜구리 개그로 바꾼 한 줄'} hint={`${take.length}/100`} />
       <Field label="참고 메모" value={note} onChange={setNote} placeholder="연출, 후킹, 컷 구성에서 참고할 점" />
       <details className="fold-mini">
         <summary>캡션 붙여넣기 (선택)</summary>

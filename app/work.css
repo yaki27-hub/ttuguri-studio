@@ -282,14 +282,14 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .chip-in { padding: 6px 4px 6px 12px; }
 .chip-x { padding: 6px 6px; font-size: 11px; opacity: .6; }
 .chip-x:hover { opacity: 1; }
-.post-grid { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-.post { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-.post-thumb { position: relative; display: grid; width: 100%; place-items: center; aspect-ratio: 4 / 5; overflow: hidden; background: var(--surface-2); }
-.post-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.post-thumb .new { position: absolute; top: 8px; left: 8px; }
-.post-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
-.post-body .btn { margin-top: auto; width: 100%; }
-.post-body .clamp { margin-bottom: 8px; }
+.wl-grid { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.wl-post { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.wl-thumb { position: relative; display: grid; width: 100%; place-items: center; aspect-ratio: 4 / 5; overflow: hidden; background: var(--surface-2); }
+.wl-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.wl-thumb .new { position: absolute; top: 8px; left: 8px; }
+.wl-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.wl-body .btn { margin-top: auto; width: 100%; }
+.wl-body .clamp { margin-bottom: 8px; }
 .summary-head { cursor: pointer; list-style: none; }
 .summary-head::-webkit-details-marker { display: none; }
 .topic-edit { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -307,7 +307,7 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
   .finder-trend { grid-area: trend; }
   .finder-topics { grid-area: topics; }
   .finder-watch { grid-area: watch; }
-  .finder .post-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .finder .wl-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 }
 
 /* ───────── 카드뉴스 장 구성 ───────── */

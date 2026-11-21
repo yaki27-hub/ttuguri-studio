@@ -17,7 +17,10 @@ import { SaveIndicator } from './Backup'
 
 const SAMPLE = '새 프로젝트에 들어갔는데 앞자리, 뒷자리, 옆자리 사람이 다 나가고 나 혼자 남았다.'
 
-export default function WorkHome({ notionReady, aiReady }: { notionReady: boolean; aiReady: boolean }) {
+export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 'toon' }: { notionReady: boolean; aiReady: boolean; channel?: 'toon' | 'card' }) {
+  const card = channel === 'card'
+  // 노션 에피소드 DB는 뚜구리툰 것이라 카드뉴스 채널에서는 쓰지 않는다
+  const notionReady = notionEnv && !card
   const router = useRouter()
   const [eps, setEps] = useState<Episode[] | null>(null)
   const [memo, setMemo] = useState('')
@@ -30,7 +33,7 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
   const [scheduled, setScheduled] = useState(false)
   const [sort, setSort] = useState<'updated' | 'scheduled'>('updated')
   const [del, setDel] = useState<Episode>()
-  const [ctype, setCtype] = useState<ContentType>('instatoon')
+  const ctype: ContentType = card ? 'cardnews' : 'instatoon'
   const [refs, setRefs] = useState<Reference[] | null>(null)
   const [openRef, setOpenRef] = useState<Reference>()
   const [delRef, setDelRef] = useState<Reference>()
@@ -39,13 +42,14 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
   const link = onlyUrl(memo)
 
   const load = () => {
-    listEpisodes().then(setEps, (e) => setErr(`불러오지 못했어요: ${e.message}`))
-    listReferences().then(setRefs, (e) => setErr(`레퍼런스를 불러오지 못했어요: ${e.message}`))
+    listEpisodes().then((x) => setEps(x.filter((e) => card === (e.contentType === 'cardnews'))), (e) => setErr(`불러오지 못했어요: ${e.message}`))
+    listReferences().then((x) => setRefs(x.filter((r) => (r.channel ?? 'toon') === channel)), (e) => setErr(`레퍼런스를 불러오지 못했어요: ${e.message}`))
   }
   useEffect(() => {
     load()
     return onBroadcast(() => load())
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel])
 
   async function save(text: string, extra: Partial<Episode> = {}, after?: (ep: Episode) => Promise<unknown>) {
     if (!text.trim()) return setErr('메모를 입력해 주세요.')
@@ -89,12 +93,12 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
   return (
     <>
       <header className="sub-top">
-        <h1>작업</h1>
+        <h1>{card ? 'AI 카드뉴스 작업' : '작업'}</h1>
         <SaveIndicator />
       </header>
 
       <section className="card">
-        <h2>있었던 일 한두 문장, 또는 링크</h2>
+        <h2>{card ? '알려 줄 내용 메모, 또는 링크' : '있었던 일 한두 문장, 또는 링크'}</h2>
         <p className="muted small">글을 쓰면 소재 메모로, 게시물 링크를 붙이면 레퍼런스로 저장해요.</p>
         <form
           className="memo-form"
@@ -106,11 +110,12 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
           <label className="sr-only" htmlFor="memo">
             소재 메모
           </label>
-          <textarea id="memo" rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={`예) ${SAMPLE}`} />
+          <textarea id="memo" rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={card ? '예) 제미나이에 GIF 만들기 기능이 생김. 무료 사용자도 하루 몇 번까지 되는지 확인해서 정리' : `예) ${SAMPLE}`} />
           {link ? (
             <RefForm
               key={link}
               url={link}
+              channel={channel}
               onCancel={() => setMemo('')}
               onExisting={(r) => setOpenRef(r)}
               onSaved={(r) => {
@@ -121,18 +126,6 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
             />
           ) : (
             <>
-          <fieldset className="seg" aria-label="콘텐츠 유형">
-            {(
-              [
-                ['instatoon', '인스타툰'],
-                ['cardnews', '카드뉴스'],
-              ] as const
-            ).map(([v, l]) => (
-              <label key={v} className={ctype === v ? 'on' : ''}>
-                <input type="radio" name="ctype" value={v} checked={ctype === v} onChange={() => setCtype(v)} /> {l}
-              </label>
-            ))}
-          </fieldset>
           {notionReady && (
             <label className="check">
               <input type="checkbox" checked={toNotion} onChange={(e) => setToNotion(e.target.checked)} /> 노션 에피소드 DB에도 ‘아이디어’로 남기기
@@ -197,7 +190,8 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
           </div>
         )}
 
-        {eps && eps.length === 0 && (
+        {eps && eps.length === 0 && card && <p className="muted small">아직 카드뉴스가 없어요. 위에 메모를 남기거나 소재 찾기의 AI 소식에서 골라 보세요.</p>}
+        {eps && eps.length === 0 && !card && (
           <div className="empty-box">
             <p className="muted small">아직 소재가 없어요. 위에 첫 메모를 남기거나 예시로 흐름을 체험해 보세요.</p>
             <button type="button" className="btn" disabled={busy} onClick={() => save(SAMPLE, { isSample: true, title: `[샘플] ${SAMPLE.slice(0, 22)}…`, titleIsAuto: false })}>
@@ -319,6 +313,7 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
         >
           <RefLab
             r={openRef}
+            channel={channel}
             aiReady={aiReady}
             busy={busy}
             onSaved={load}

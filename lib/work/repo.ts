@@ -669,8 +669,16 @@ export function defaultCardNews(): CardNewsSettings {
     imageStyle: '깔끔한 플랫 일러스트. 밝은 단색 배경과 넓은 여백, 포인트 색은 1~2개. 사람은 특정 캐릭터 없이 단순한 형태로. 사진처럼 사실적인 묘사는 피한다.',
     imageRules: '실제 회사 로고·상표를 그리지 않기\n실존 인물 얼굴 금지\n화면·종이 속 글씨는 선이나 빈칸으로만',
     styleRefIds: [],
+    topics: CARD_TOPICS.map((t) => ({ ...t, keywords: [...t.keywords] })),
+    watchlist: [],
   }
 }
+
+export const CARD_TOPICS = [
+  { id: 'ai-service', name: 'AI 서비스', keywords: ['AI', '인공지능', '챗GPT', 'ChatGPT', 'OpenAI', '오픈AI', '제미나이', 'Gemini', '클로드', 'Claude', '앤트로픽', '그록', '퍼플렉시티', '코파일럿', '딥시크', '엔비디아', '하이퍼클로바', '뤼튼'] },
+  { id: 'ai-tools', name: '생성 AI 도구', keywords: ['미드저니', '나노바나나', '소라', 'Sora', '비오', 'Veo', '런웨이', '클링', '히그스필드', '수노', '일레븐랩스', '캔바', '노트북LM'] },
+  { id: 'ai-issue', name: 'AI 이슈', keywords: ['AI 규제', 'AI 기본법', '딥페이크', '저작권', '일자리', '반도체', '데이터센터', '개인정보'] },
+]
 
 export const DEFAULT_TOPICS = [
   { id: 'office', name: '회사생활', keywords: ['회사', '직장', '출근', '퇴근', '회식', '연차', '월급', '연봉', '상사', '야근', '재택', '보너스', '성과급', '이직'] },

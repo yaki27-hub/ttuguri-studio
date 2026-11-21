@@ -5,6 +5,8 @@ import { logout, syncNow, linkEpisode, unlinkEpisode } from '../actions';
 import Login from '../Login';
 import Nav from '../Nav';
 import UnlinkButton from '../UnlinkButton';
+import { getChannel } from '@/lib/channel-server';
+import { igAccount } from '@/lib/channel';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -23,8 +25,8 @@ function firstLine(caption) {
   return (caption || '').split('\n').map((s) => s.trim()).find(Boolean) || '(캡션 없음)';
 }
 
-function tokenDaysLeft() {
-  const raw = process.env.TOKEN_EXPIRES_AT;
+function tokenDaysLeft(channel) {
+  const raw = igAccount(channel).expires;
   if (!raw) return null;
   const ms = new Date(`${raw}T00:00:00+09:00`) - new Date();
   return Math.ceil(ms / 86400000);
@@ -52,7 +54,7 @@ function LinkForm({ post, candidates }) {
 }
 
 /* ---------- 게시물 카드 ---------- */
-function PostRow({ post, candidates, maxViews }) {
+function PostRow({ post, candidates, maxViews, card }) {
   const i = post.insights || {};
   const shareRate = pct(i.shares, i.reach);
   const saveRate = pct(i.saved, i.reach);
@@ -61,7 +63,7 @@ function PostRow({ post, candidates, maxViews }) {
   const barW = maxViews ? Math.max(2, Math.round(((i.views || 0) / maxViews) * 100)) : 0;
 
   return (
-    <article className="post">
+    <article className={`post ${card ? 'no-ep' : ''}`}>
       <a className="thumb" href={post.permalink} target="_blank" rel="noreferrer">
         {thumb ? <img src={thumb} alt="" referrerPolicy="no-referrer" loading="lazy" /> : <span>{post.media_product_type === 'REELS' ? '릴스' : '게시물'}</span>}
       </a>
@@ -91,7 +93,7 @@ function PostRow({ post, candidates, maxViews }) {
         </dl>
       </div>
 
-      <div className="post-episode">
+      {!card && <div className="post-episode">
         {post.episode ? (
           <>
             <p className="label linked">노션 연결됨</p>
@@ -112,7 +114,7 @@ function PostRow({ post, candidates, maxViews }) {
             <LinkForm post={post} candidates={candidates} />
           </>
         )}
-      </div>
+      </div>}
     </article>
   );
 }
@@ -122,8 +124,12 @@ export default async function Page({ searchParams }) {
   const params = await searchParams;
   if (!(await isAuthed())) return <Login error={params?.error} />;
 
-  // 인스타와 노션을 따로 불러와서, 한쪽이 실패해도 다른 쪽은 보이게 한다
-  const [igRes, notionRes] = await Promise.allSettled([collectPosts(), listEpisodes()]);
+  const channel = await getChannel();
+  const card = channel === 'card';
+  const acct = igAccount(channel);
+  // 인스타와 노션을 따로 불러와서, 한쪽이 실패해도 다른 쪽은 보이게 한다.
+  // 노션 에피소드 DB는 뚜구리툰 것이라 카드뉴스 채널에서는 읽지 않는다.
+  const [igRes, notionRes] = await Promise.allSettled([collectPosts(channel), card ? Promise.resolve([]) : listEpisodes()]);
   const posts = igRes.status === 'fulfilled' ? igRes.value : [];
   const episodes = notionRes.status === 'fulfilled' ? notionRes.value : [];
   const loadError = [
@@ -142,20 +148,20 @@ export default async function Page({ searchParams }) {
   const totalReach = sum('reach');
   const maxViews = Math.max(0, ...rows.map((r) => r.insights?.views || 0));
   const linkedCount = rows.filter((r) => r.episode).length;
-  const daysLeft = tokenDaysLeft();
+  const daysLeft = tokenDaysLeft(channel);
 
   return (
     <main className="wrap">
       <header className="top">
         <div className="brand">
-          <div className="brand-mark" aria-hidden>뚜</div>
+          <div className={`brand-mark ${card ? 'card' : ''}`} aria-hidden>{card ? 'AI' : '뚜'}</div>
           <div>
-            <h1>뚜구리 스튜디오</h1>
-            <p className="muted">@ttuguri 게시물 성과 · 매일 오전 9시 노션 자동 동기화</p>
+            <h1>{card ? 'AI 카드뉴스 성과' : '뚜구리 스튜디오'}</h1>
+            <p className="muted">{card ? '카드뉴스 계정 게시물 성과 · 저장률이 핵심 지표' : '@ttuguri 게시물 성과 · 매일 오전 9시 노션 자동 동기화'}</p>
           </div>
         </div>
         <div className="top-actions">
-          <form action={syncNow}><button className="btn primary" type="submit">지금 노션에 동기화</button></form>
+          {!card && <form action={syncNow}><button className="btn primary" type="submit">지금 노션에 동기화</button></form>}
           <form action={logout}><button className="btn ghost" type="submit">로그아웃</button></form>
         </div>
       </header>
@@ -164,10 +170,15 @@ export default async function Page({ searchParams }) {
       {params?.msg && <p className="flash">{params.msg}</p>}
       {daysLeft != null && daysLeft <= 14 && (
         <p className={`flash ${daysLeft <= 3 ? 'bad' : 'warn'}`}>
-          인스타 토큰이 {daysLeft > 0 ? `${daysLeft}일 후` : '이미'} 만료돼요. 토큰 디버거에서 연장한 뒤 Vercel 환경변수 IG_ACCESS_TOKEN 을 바꿔 주세요.
+          인스타 토큰이 {daysLeft > 0 ? `${daysLeft}일 후` : '이미'} 만료돼요. 토큰 디버거에서 연장한 뒤 Vercel 환경변수 {acct.tokenVar} 를 바꿔 주세요.
         </p>
       )}
-      {loadError && <p className="flash bad">데이터를 불러오지 못했어요: {loadError}</p>}
+      {card && !acct.token && (
+        <p className="flash warn">
+          카드뉴스 인스타 계정이 아직 연결되지 않았어요. Vercel 환경변수에 CARD_IG_ACCESS_TOKEN, CARD_IG_USER_ID(필요하면 CARD_TOKEN_EXPIRES_AT, CARD_SINCE_DATE)를 넣고 Redeploy해 주세요.
+        </p>
+      )}
+      {loadError && !(card && !acct.token) && <p className="flash bad">데이터를 불러오지 못했어요: {loadError}</p>}
 
       <section className="kpis">
         <div className="kpi"><span>게시물</span><strong>{rows.length}</strong></div>
@@ -175,12 +186,12 @@ export default async function Page({ searchParams }) {
         <div className="kpi"><span>총 도달</span><strong>{fmt(totalReach)}</strong></div>
         <div className="kpi"><span>평균 공유율</span><strong>{fmtPct(pct(sum('shares'), totalReach))}</strong></div>
         <div className="kpi"><span>평균 저장률</span><strong>{fmtPct(pct(sum('saved'), totalReach))}</strong></div>
-        <div className="kpi"><span>노션 연결</span><strong>{linkedCount}<small>/{rows.length}</small></strong></div>
+        {!card && <div className="kpi"><span>노션 연결</span><strong>{linkedCount}<small>/{rows.length}</small></strong></div>}
       </section>
 
       <section className="list">
         {rows.map((post) => (
-          <PostRow key={post.id} post={post} candidates={candidates} maxViews={maxViews} />
+          <PostRow key={post.id} post={post} candidates={candidates} maxViews={maxViews} card={card} />
         ))}
         {!rows.length && !loadError && <p className="muted empty">표시할 게시물이 없어요.</p>}
       </section>

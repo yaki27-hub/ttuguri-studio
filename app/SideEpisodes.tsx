@@ -11,15 +11,16 @@ import type { Episode } from '@/lib/work/types'
 const MAX = 12
 
 /** 왼쪽 메뉴: 진행 중인 에피소드 바로가기 (넓은 화면에서만 보임) */
-export default function SideEpisodes() {
+export default function SideEpisodes({ channel = 'toon' }: { channel?: 'toon' | 'card' }) {
   const path = usePathname()
   const [eps, setEps] = useState<Episode[] | null>(null)
 
   useEffect(() => {
-    const load = () => listEpisodes().then(setEps, () => setEps([]))
+    const mine = (e: Episode) => (channel === 'card') === (e.contentType === 'cardnews')
+    const load = () => listEpisodes().then((x) => setEps(x.filter(mine)), () => setEps([]))
     load()
     return onBroadcast((m) => (m.kind === 'episode' || m.kind === 'episodes') && load())
-  }, [])
+  }, [channel])
 
   const active = (eps ?? []).filter((e) => e.status !== 'published' && e.status !== 'on_hold')
   const done = (eps ?? []).length - active.length
@@ -37,7 +38,6 @@ export default function SideEpisodes() {
               <Link href={`${href}?stage=${e.stage}`} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}>
                 <span className="side-ep-title">{e.title}</span>
                 <span className="side-ep-meta">
-                  {e.contentType === 'cardnews' ? '카드뉴스 · ' : ''}
                   {STATUS_LABEL[e.status]}
                 </span>
               </Link>

@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth';
 import { fetchTrending } from '@/lib/trends';
 import { fetchAiNews } from '@/lib/ainews';
 import { discoverAccount } from '@/lib/instagram';
+import { igAccount } from '@/lib/channel';
 
 /** 오늘 급상승 검색어 (30분 캐시) */
 export async function loadTrending(geo = 'KR') {
@@ -19,9 +20,13 @@ const USERNAME = /^[A-Za-z0-9._]{1,30}$/;
 const MAX_ACCOUNTS = 20;
 
 /** 워치리스트 계정들의 최근 게시물. 계정별 오류는 따로 돌려준다. */
-export async function loadWatchlist(usernames) {
+export async function loadWatchlist(usernames, channel = 'toon') {
   await requireAuth();
-  if (!process.env.IG_ACCESS_TOKEN || !process.env.IG_USER_ID) return { error: '인스타 토큰이 연결되지 않았어요.', accounts: [] };
+  // 그 채널 계정 토큰으로 조회하고, 없으면 다른 채널 계정으로 (business_discovery는 어느 계정으로든 된다)
+  const mine = igAccount(channel === 'card' ? 'card' : 'toon');
+  const other = igAccount(channel === 'card' ? 'toon' : 'card');
+  const acct = mine.token && mine.userId ? mine : other.token && other.userId ? other : null;
+  if (!acct) return { error: '인스타 토큰이 연결되지 않았어요.', accounts: [] };
   const list = [...new Set((Array.isArray(usernames) ? usernames : []).map((u) => String(u).trim().replace(/^@/, '').toLowerCase()))]
     .filter((u) => USERNAME.test(u))
     .slice(0, MAX_ACCOUNTS);
@@ -32,7 +37,7 @@ export async function loadWatchlist(usernames) {
       const idx = i++;
       const u = list[idx];
       try {
-        const a = await discoverAccount(u);
+        const a = await discoverAccount(u, 12, acct);
         accounts[idx] = {
           ...a,
           media: a.media.map((m) => ({
@@ -71,4 +76,45 @@ export async function loadAiNews(group, terms = {}) {
   } catch (e) {
     return { items: [], errors: [e.message] };
   }
+}
+
+const SERVICE_KR = ['챗GPT', '제미나이', '클로드', '오픈AI', '앤트로픽', '퍼플렉시티', 'AI 기능', 'AI 출시', 'AI 에이전트'];
+const HOWTO_KR = ['AI 활용', '생성형 AI 활용', '업무 자동화', 'AI 툴', '프롬프트'];
+
+/**
+ * 카드뉴스 소재 추천용 프롬프트를 만든다 (오늘 AI 소식 + 최근에 만든 카드뉴스 + 토픽).
+ * AI 호출은 브라우저가 aiDraft 로 하거나, 키가 없으면 프롬프트를 복사해 쓴다.
+ * @param {{ system?: string, recent?: string[], topics?: { keywords?: string[] }[] }} [opts]
+ */
+export async function cardRecommendPrompt({ system = '', recent = [], topics = [] } = {}) {
+  await requireAuth();
+  const [kr, howto, global, official] = await Promise.all([
+    fetchAiNews('kr', { kr: SERVICE_KR }),
+    fetchAiNews('kr', { kr: HOWTO_KR }),
+    fetchAiNews('global'),
+    fetchAiNews('official'),
+  ]);
+  const pick = (r, n) => r.items.slice(0, n);
+  const news = [...pick(kr, 12), ...pick(howto, 6), ...pick(global, 8), ...pick(official, 4)].map((x, i) => ({ i: i + 1, title: x.title, source: x.source, url: x.url, at: x.at }));
+  const kw = (Array.isArray(topics) ? topics : []).flatMap((t) => (Array.isArray(t?.keywords) ? t.keywords : [])).filter((k) => typeof k === 'string').slice(0, 40);
+  const prompt = `${String(system).slice(0, 3000)}
+
+[작업: 카드뉴스 소재 추천]
+오늘 날짜: ${new Date().toISOString().slice(0, 10)}
+
+[오늘 AI 소식 — 번호로 인용할 것]
+${news.map((n) => `${n.i}. ${n.title} (${n.source}${n.at ? `, ${n.at.slice(0, 10)}` : ''})`).join('\n')}
+
+[최근에 만든 카드뉴스 — 겹치지 않게]
+${(Array.isArray(recent) ? recent : []).slice(0, 15).map((t) => `- ${String(t).slice(0, 80)}`).join('\n') || '(없음)'}
+${kw.length ? `\n[관심 키워드]\n${kw.join(', ')}\n` : ''}
+위 소식을 바탕으로 저장하고 싶어지는 정보 카드뉴스 소재 3개를 추천해라.
+- 직장인이 바로 써먹을 수 있는 것(새 기능 사용법, 무료 한도, 업무 활용)을 우선. 투자·정치 뉴스는 직장인 생활과 직접 이어질 때만.
+- 서로 다른 형식으로: 새 소식 정리 / 사용법·활용 / 비교·체크리스트 중에서.
+- sources에는 근거가 된 소식 번호만. 소식에 없는 사실·수치를 지어내지 말 것.
+- check에는 카드뉴스로 만들기 전에 작가가 직접 확인해야 할 것(요금, 한국 출시 여부 등).
+
+출력은 아래 형식의 JSON 하나만.
+{"topics":[{"title":"작업 제목","hook":"표지 후킹 제목(22자 안팎)","angle":"무엇을 어떤 흐름으로 알려 줄지 한두 문장","format":"새 소식 정리|사용법·활용|비교·체크리스트","sources":[1],"check":"확인할 것","why":"왜 지금 이 소재인지"}]}`;
+  return { prompt, news };
 }

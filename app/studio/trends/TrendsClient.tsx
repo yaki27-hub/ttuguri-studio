@@ -43,14 +43,17 @@ const DAY = 864e5
 
 const matchTopics = (text: string, topics: Topic[]): Topic[] => matchAny(text, topics)
 
-export default function TrendsClient({ igReady }: { igReady: boolean }) {
+export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: boolean; channel?: 'toon' | 'card' }) {
+  const card = channel === 'card'
   const [settings, setSettings] = useState<CharacterSettings>()
-  const topics = settings?.topics ?? []
-  const watch = settings?.watchlist ?? []
+  // 채널마다 토픽·워치리스트를 따로 둔다 (카드뉴스는 settings.cardnews 안에)
+  const topics = (card ? settings?.cardnews?.topics : settings?.topics) ?? []
+  const watch = (card ? settings?.cardnews?.watchlist : settings?.watchlist) ?? []
 
-  async function patchSettings(patch: Partial<CharacterSettings>) {
+  async function patchSettings(patch: { topics?: Topic[]; watchlist?: string[] }) {
     const cur = await getSettings()
-    setSettings(await saveSettings({ ...cur, ...patch }))
+    const next = card ? { ...cur, cardnews: { ...cur.cardnews!, ...patch } } : { ...cur, ...patch }
+    setSettings(await saveSettings(next))
   }
 
   useEffect(() => {
@@ -65,7 +68,7 @@ export default function TrendsClient({ igReady }: { igReady: boolean }) {
         <h1>소재 찾기</h1>
       </header>
       <p className="muted small intro">
-        오늘 뜨는 검색어, AI 소식, 지켜보는 계정의 새 게시물을 한곳에서 봐요. 마음에 드는 게시물은 ⭐로 레퍼런스 보드에 담고, 거기서 뜯어보기 → 변주로 이어가세요.
+        {card ? '오늘 AI 소식, 뜨는 검색어, 지켜보는 AI 계정의 새 게시물을 한곳에서 봐요.' : '오늘 뜨는 검색어와 지켜보는 인스타툰 계정의 새 게시물을 한곳에서 봐요.'} 마음에 드는 게시물은 ⭐로 레퍼런스 보드에 담고, 거기서 뜯어보기 → 변주로 이어가세요.
       </p>
       {settings && (
         <>
@@ -74,8 +77,8 @@ export default function TrendsClient({ igReady }: { igReady: boolean }) {
             <TrendingSection topics={topics} />
           </div>
           <div className="finder-watch">
-            <AiNews topics={topics} />
-            <WatchSection igReady={igReady} watch={watch} topics={topics} onWatch={(w) => patchSettings({ watchlist: w })} />
+            {card && <AiNews topics={topics} />}
+            <WatchSection igReady={igReady} watch={watch} topics={topics} channel={channel} onWatch={(w) => patchSettings({ watchlist: w })} />
           </div>
           <div className="finder-topics">
             <TopicEditor topics={topics} onSave={(t) => patchSettings({ topics: t })} />
@@ -187,7 +190,7 @@ function TrendingSection({ topics }: { topics: Topic[] }) {
 
 /* ───────── 워치리스트 ───────── */
 
-function WatchSection({ igReady, watch, topics, onWatch }: { igReady: boolean; watch: string[]; topics: Topic[]; onWatch: (w: string[]) => void }) {
+function WatchSection({ igReady, watch, topics, onWatch, channel }: { igReady: boolean; watch: string[]; topics: Topic[]; onWatch: (w: string[]) => void; channel: 'toon' | 'card' }) {
   const [data, setData] = useState<{ accounts: Account[]; error?: string; at?: number }>()
   const [busy, setBusy] = useState(false)
   const [input, setInput] = useState('')
@@ -206,7 +209,7 @@ function WatchSection({ igReady, watch, topics, onWatch }: { igReady: boolean; w
   async function load(list = watch) {
     if (!igReady || !list.length) return
     setBusy(true)
-    setData((await loadWatchlist(list)) as typeof data)
+    setData((await loadWatchlist(list, channel)) as typeof data)
     setBusy(false)
   }
   useEffect(() => {
@@ -255,6 +258,7 @@ function WatchSection({ igReady, watch, topics, onWatch }: { igReady: boolean; w
         take: '',
         note: '',
         caption: p.caption,
+        channel,
       })
       setMsg(`@${p.account} 게시물을 레퍼런스 보드에 담았어요.`)
     } catch (e) {
@@ -281,7 +285,7 @@ function WatchSection({ igReady, watch, topics, onWatch }: { igReady: boolean; w
           </button>
         )}
       </div>
-      <p className="muted small">따라 보고 싶은 인스타툰 계정을 등록하면 최근 게시물이 반응 순으로 모여요. 비즈니스·크리에이터 계정만 볼 수 있어요.</p>
+      <p className="muted small">따라 보고 싶은 {channel === 'card' ? 'AI·카드뉴스' : '인스타툰'} 계정을 등록하면 최근 게시물이 반응 순으로 모여요. 비즈니스·크리에이터 계정만 볼 수 있어요.</p>
 
       <form
         className="row-inline"
@@ -342,17 +346,17 @@ function WatchSection({ igReady, watch, topics, onWatch }: { igReady: boolean; w
             </select>
           </div>
           {posts.length === 0 && <p className="muted small">이 기간에 올라온 게시물이 없어요.</p>}
-          <ul className="post-grid">
+          <ul className="wl-grid">
             {posts.map((p) => {
               const fresh = Date.now() - Date.parse(p.timestamp) < DAY
               const on = isSaved(p.permalink)
               return (
-                <li key={p.id} className="post">
-                  <a href={p.permalink} target="_blank" rel="noreferrer" className="post-thumb">
+                <li key={p.id} className="wl-post">
+                  <a href={p.permalink} target="_blank" rel="noreferrer" className="wl-thumb">
                     {p.thumb ? <img src={p.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className="muted small">미리보기 없음</span>}
                     {fresh && <span className="tag hot new">NEW</span>}
                   </a>
-                  <div className="post-body">
+                  <div className="wl-body">
                     <span className="ref-account">@{p.account}</span>
                     <span className="small muted">
                       {TYPE_LABEL[p.type]} · {fmtDate(p.timestamp)}

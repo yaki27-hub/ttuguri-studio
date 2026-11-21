@@ -118,6 +118,7 @@ export default function AiNews({ topics }: { topics: Topic[] }) {
         take: '',
         note: n.title,
         caption: '',
+        channel: 'card',
       })
       setMsg('레퍼런스 보드에 담았어요.')
     } catch (e) {

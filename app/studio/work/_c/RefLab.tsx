@@ -81,7 +81,7 @@ function AiAssist<T>({ aiReady, prompt, parse, onResult, label }: { aiReady: boo
 const emptyBreakdown = (): RefBreakdown => ({ hook: '', flow: [], why: '', reactions: '', formula: '', updatedAt: '' })
 
 /** 레퍼런스 상세 아래: 뜯어보기 → 변주 만들기 */
-export default function RefLab({ r, aiReady, onCreate, busy, onSaved }: { r: Reference; aiReady: boolean; onCreate: (v: RefVariant) => Promise<void>; busy?: boolean; onSaved?: () => void }) {
+export default function RefLab({ r, aiReady, onCreate, busy, onSaved, channel = 'toon' }: { r: Reference; aiReady: boolean; onCreate: (v: RefVariant) => Promise<void>; busy?: boolean; onSaved?: () => void; channel?: 'toon' | 'card' }) {
   const [tab, setTab] = useState<'breakdown' | 'variants'>(r.breakdown ? 'variants' : 'breakdown')
   const [ref, setRef] = useState(r)
   const [b, setB] = useState<RefBreakdown>(r.breakdown ?? emptyBreakdown())
@@ -163,11 +163,11 @@ export default function RefLab({ r, aiReady, onCreate, busy, onSaved }: { r: Ref
       {tab === 'variants' && (
         <div className="lab-pane">
           {!ref.breakdown?.formula && <Notice kind="warn">먼저 ① 뜯어보기에서 ‘빌릴 틀’을 적어 두면 변주가 원본과 덜 겹치고 더 정확해요.</Notice>}
-          <p className="muted small">틀은 그대로, 주제만 뚜구리 이야기로 바꾼 안을 5개 뽑아요. 질문에 내 경험을 적으면 그 답이 원문 메모가 돼요.</p>
+          <p className="muted small">틀은 그대로, 주제만 {channel === 'card' ? '내 카드뉴스 주제' : '뚜구리 이야기'}로 바꾼 안을 5개 뽑아요. 질문에 내 경험을 적으면 그 답이 원문 메모가 돼요.</p>
           <AiAssist
             aiReady={aiReady}
             label={variants.length ? '변주 5개 더 받기' : '변주 5개 받기'}
-            prompt={() => (ctx ? variantsPrompt(ref, ctx.s, ctx.eps) : '설정을 불러오는 중이에요. 잠시 후 다시 눌러 주세요.')}
+            prompt={() => (ctx ? variantsPrompt(ref, ctx.s, ctx.eps, 5, channel) : '설정을 불러오는 중이에요. 잠시 후 다시 눌러 주세요.')}
             parse={parseVariants}
             onResult={(vs) => persist({ variants: [...vs, ...variants] }, `변주안 ${vs.length}개를 저장했어요.`)}
           />
