@@ -68,9 +68,17 @@ export default function TrendsClient({ igReady }: { igReady: boolean }) {
       </p>
       {settings && (
         <>
-          <TrendingSection topics={topics} />
-          <WatchSection igReady={igReady} watch={watch} topics={topics} onWatch={(w) => patchSettings({ watchlist: w })} />
-          <TopicEditor topics={topics} onSave={(t) => patchSettings({ topics: t })} />
+        <div className="finder">
+          <div className="finder-trend">
+            <TrendingSection topics={topics} />
+          </div>
+          <div className="finder-watch">
+            <WatchSection igReady={igReady} watch={watch} topics={topics} onWatch={(w) => patchSettings({ watchlist: w })} />
+          </div>
+          <div className="finder-topics">
+            <TopicEditor topics={topics} onSave={(t) => patchSettings({ topics: t })} />
+          </div>
+        </div>
         </>
       )}
     </>

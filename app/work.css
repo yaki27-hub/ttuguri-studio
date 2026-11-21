@@ -284,11 +284,12 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .chip-x:hover { opacity: 1; }
 .post-grid { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .post { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-.post-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 5; background: var(--surface-2); }
-.post-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.post-thumb { position: relative; display: grid; width: 100%; place-items: center; aspect-ratio: 4 / 5; overflow: hidden; background: var(--surface-2); }
+.post-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .post-thumb .new { position: absolute; top: 8px; left: 8px; }
-.post-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; }
-.post-body .btn { margin-top: 4px; }
+.post-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.post-body .btn { margin-top: auto; width: 100%; }
+.post-body .clamp { margin-bottom: 8px; }
 .summary-head { cursor: pointer; list-style: none; }
 .summary-head::-webkit-details-marker { display: none; }
 .topic-edit { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -297,3 +298,14 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .card form.row-inline input { flex: 1; }
 .card form.row-inline .btn { height: 40px; }
 .topic-edit textarea { padding: 9px 11px; }
+
+/* 소재 찾기: PC에서는 넓게, 왼쪽 급상승·토픽 / 오른쪽 워치리스트 */
+.wrap.wide { max-width: 1440px; }
+.finder { display: flex; flex-direction: column; }
+@media (min-width: 1200px) {
+  .finder { display: grid; grid-template-columns: 360px minmax(0, 1fr); grid-template-areas: 'trend watch' 'topics watch'; grid-template-rows: auto 1fr; gap: 0 20px; align-items: start; }
+  .finder-trend { grid-area: trend; }
+  .finder-topics { grid-area: topics; }
+  .finder-watch { grid-area: watch; }
+  .finder .post-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+}

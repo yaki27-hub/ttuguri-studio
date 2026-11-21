@@ -10,7 +10,7 @@ export const maxDuration = 60;
 export default async function TrendsPage() {
   if (!(await isAuthed())) return <Login />;
   return (
-    <main className="wrap narrow">
+    <main className="wrap wide">
       <Nav active="trends" />
       <TrendsClient igReady={envStatus().instagram.ready} />
     </main>
