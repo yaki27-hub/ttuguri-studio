@@ -7,7 +7,9 @@ import { onBroadcast } from '@/lib/work/db'
 import { createEpisode, deleteEpisode, getEpisode, listEpisodes, toggleHold } from '@/lib/work/repo'
 import { FORMAT_LABEL, STATUS_LABEL, fmtDate, fmtDateTime } from '@/lib/work/format'
 import type { ContentType, Episode, Format, Reference, Status } from '@/lib/work/types'
-import { deleteReference, listReferences, onlyUrl } from '@/lib/work/refs'
+import { deleteReference, listReferences, onlyUrl, updateReference } from '@/lib/work/refs'
+import { originMix, variantMemo, variantNotes } from '@/lib/work/reflab'
+import RefLab from './RefLab'
 import { RefCard, RefDetail, RefForm, useRefFilter } from './Refs'
 import { addNotionMemo } from '../actions'
 import { Modal, Notice } from './ui'
@@ -15,7 +17,7 @@ import { SaveIndicator } from './Backup'
 
 const SAMPLE = '새 프로젝트에 들어갔는데 앞자리, 뒷자리, 옆자리 사람이 다 나가고 나 혼자 남았다.'
 
-export default function WorkHome({ notionReady }: { notionReady: boolean }) {
+export default function WorkHome({ notionReady, aiReady }: { notionReady: boolean; aiReady: boolean }) {
   const router = useRouter()
   const [eps, setEps] = useState<Episode[] | null>(null)
   const [memo, setMemo] = useState('')
@@ -45,7 +47,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
     return onBroadcast(() => load())
   }, [])
 
-  async function save(text: string, extra: Partial<Episode> = {}) {
+  async function save(text: string, extra: Partial<Episode> = {}, after?: (ep: Episode) => Promise<unknown>) {
     if (!text.trim()) return setErr('메모를 입력해 주세요.')
     setBusy(true)
     setErr('')
@@ -58,6 +60,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
         else notionMsg = `노션 저장은 실패했어요 (${r.error}). 작업실에는 저장했어요.`
       }
       const ep = await createEpisode(text, { contentType: ctype, ...extra, notionPageId })
+      await after?.(ep)
       if (notionMsg) sessionStorage.setItem('work-flash', notionMsg)
       router.push(`/studio/work/${ep.id}`)
     } catch (e) {
@@ -81,6 +84,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
   }, [eps, q, st, fmt, scheduled, sort])
 
   const filtering = q || st || fmt || scheduled
+  const mix = useMemo(() => originMix(eps ?? []), [eps])
 
   return (
     <>
@@ -155,6 +159,17 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
           <h2>소재 목록</h2>
           <span className="muted small">{eps ? `${filtered.length}/${eps.length}편` : '불러오는 중…'}</span>
         </div>
+        {mix.total > 0 && (
+          <div className="mix" title="처음엔 검증된 레퍼런스 7~8 : 내 이야기 2~3 정도가 빨리 자라요">
+            <div className="mix-bar" aria-hidden>
+              <span style={{ width: `${(mix.fromRef / mix.total) * 100}%` }} />
+              <span style={{ width: `${(mix.own / mix.total) * 100}%` }} />
+            </div>
+            <span className="muted small">
+              최근 30일 새 소재 {mix.total}편 — 레퍼런스에서 {mix.fromRef} · 내 이야기 {mix.own} <span className="hint">(성장기 목표 8:2)</span>
+            </span>
+          </div>
+        )}
         {eps && eps.length > 0 && (
           <div className="filters">
             <input type="search" aria-label="제목·원문·태그 검색" placeholder="제목·원문·태그 검색" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -273,7 +288,7 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
         )}
         <ul className="ref-grid">
           {rf.list.map((r) => (
-            <RefCard key={r.id} r={r} onOpen={() => setOpenRef(r)} />
+            <RefCard key={r.id} r={r} proven={rf.proven(r)} onOpen={() => setOpenRef(r)} />
           ))}
         </ul>
       </section>
@@ -301,7 +316,22 @@ export default function WorkHome({ notionReady }: { notionReady: boolean }) {
               </button>
             </>
           }
-        />
+        >
+          <RefLab
+            r={openRef}
+            aiReady={aiReady}
+            busy={busy}
+            onSaved={load}
+            onCreate={async (v) => {
+              const latest = async () => (await listReferences()).find((x) => x.id === openRef.id) ?? openRef
+              const r = await latest()
+              await save(variantMemo(v), { referenceIds: [r.id], notes: variantNotes(r, v), hookText: v.hook || undefined, title: v.title, titleIsAuto: false }, async (ep) => {
+                const cur = await latest()
+                await updateReference({ ...cur, variants: (cur.variants ?? []).map((x) => (x.id === v.id ? { ...x, answer: v.answer, episodeId: ep.id } : x)) })
+              })
+            }}
+          />
+        </RefDetail>
       )}
 
       {delRef && (

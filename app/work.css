@@ -244,3 +244,24 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .ref-mini { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
 .ref-mini b { font-size: 12px; color: var(--accent); }
 @media (max-width: 420px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+
+/* ───────── 레퍼런스 연구실 (뜯어보기·변주) ───────── */
+.ref-lab { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.ref-lab .seg button { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.ref-lab .seg button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.lab-pane { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.ai-assist { margin: 6px 0 4px; }
+.variant-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.variant { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.variant.used { opacity: .7; }
+.variant p { margin: 4px 0 0; }
+.variant-q { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; font-weight: 600; }
+.variant-q textarea { font-weight: 400; }
+.tag.hot { background: #fde8e3; color: #c2410c; }
+@media (prefers-color-scheme: dark) { .tag.hot { background: #3a2119; color: #fb923c; } }
+.proven-rule { margin-top: 6px; }
+.proven-rule .grid3 { margin-top: 6px; }
+.mix { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; }
+.mix-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--line); }
+.mix-bar span:first-child { background: var(--accent); }
+.mix-bar span:last-child { background: var(--good); }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { DEFAULT_PROVEN, isProven, loadProvenRule, saveProvenRule, type ProvenRule } from '@/lib/work/reflab'
 import {
   DuplicateRefError,
   REF_FORMAT_LABEL,
@@ -162,13 +163,16 @@ export function RefForm({ url, onSaved, onCancel, onExisting }: { url: string; o
 
 /* ───────── 카드·상세 ───────── */
 
-export function RefCard({ r, onOpen, action }: { r: Reference; onOpen: () => void; action?: React.ReactNode }) {
+export function RefCard({ r, onOpen, action, proven }: { r: Reference; onOpen: () => void; action?: React.ReactNode; proven?: boolean }) {
   return (
     <li className="ref-card">
       <button type="button" className="ref-main" onClick={onOpen}>
         <span className="ref-account">@{r.account}</span>
         <span className="ref-take">{refTitle(r)}</span>
         <span className="ep-meta">
+          {proven && <span className="tag hot">🔥 검증됨</span>}
+          {r.breakdown && <span className="tag good">뜯어봄</span>}
+          {!!r.variants?.length && <span className="tag">변주 {r.variants.length}</span>}
           {r.format && <span className="tag">{REF_FORMAT_LABEL[r.format]}</span>}
           {r.postType && <span className="tag">{REF_POST_TYPE_LABEL[r.postType]}</span>}
           {r.tags.map((t) => (
@@ -188,7 +192,7 @@ export function RefCard({ r, onOpen, action }: { r: Reference; onOpen: () => voi
   )
 }
 
-export function RefDetail({ r, onClose, footer }: { r: Reference; onClose: () => void; footer?: React.ReactNode }) {
+export function RefDetail({ r, onClose, footer, children }: { r: Reference; onClose: () => void; footer?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <Modal title={`@${r.account}`} onClose={onClose} footer={footer}>
       <dl className="kv">
@@ -249,6 +253,7 @@ export function RefDetail({ r, onClose, footer }: { r: Reference; onClose: () =>
         <dt>저장</dt>
         <dd className="muted small">{fmtDate(r.createdAt)}</dd>
       </dl>
+      {children}
     </Modal>
   )
 }
@@ -262,6 +267,10 @@ export function useRefFilter(refs: Reference[] | null) {
   const [fmt, setFmt] = useState<RefFormat | ''>('')
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<RefSort>('recent')
+  const [onlyProven, setOnlyProven] = useState(false)
+  const [rule, setRule] = useState<ProvenRule>(DEFAULT_PROVEN)
+  useEffect(() => setRule(loadProvenRule()), [])
+  const proven = (r: Reference) => isProven(r, rule)
   const allTags = useMemo(() => [...new Set([...REF_TAGS, ...(refs ?? []).flatMap((r) => r.tags)])], [refs])
   const list = useMemo(() => {
     if (!refs) return []
@@ -270,12 +279,13 @@ export function useRefFilter(refs: Reference[] | null) {
       (r) =>
         (!t || [r.account, r.take, r.note, r.caption].some((x) => x.toLowerCase().includes(t))) &&
         (!fmt || r.format === fmt) &&
-        (!tag || r.tags.includes(tag)),
+        (!tag || r.tags.includes(tag)) &&
+        (!onlyProven || isProven(r, rule)),
     )
     if (sort === 'likes') return [...out].sort((a, b) => (b.likes ?? -1) - (a.likes ?? -1))
     if (sort === 'views') return [...out].sort((a, b) => (b.views ?? -1) - (a.views ?? -1))
     return out
-  }, [refs, q, fmt, tag, sort])
+  }, [refs, q, fmt, tag, sort, onlyProven, rule])
   const controls = (
     <div className="filters">
       <input type="search" aria-label="레퍼런스 검색" placeholder="계정명·메모 검색" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -300,13 +310,43 @@ export function useRefFilter(refs: Reference[] | null) {
         <option value="likes">좋아요순</option>
         <option value="views">조회수순</option>
       </select>
+      <label className="check">
+        <input type="checkbox" checked={onlyProven} onChange={(e) => setOnlyProven(e.target.checked)} /> 🔥 검증된 것만
+      </label>
+      <details className="fold-mini proven-rule">
+        <summary>검증 기준: 좋아요 {fmtCount(rule.likes)} · 댓글 {fmtCount(rule.comments)} · 조회 {fmtCount(rule.views)} 중 하나 이상</summary>
+        <div className="grid3">
+          {(
+            [
+              ['likes', '좋아요'],
+              ['comments', '댓글'],
+              ['views', '조회수'],
+            ] as const
+          ).map(([k, l]) => (
+            <label key={k} className="field small">
+              {l}
+              <input
+                defaultValue={rule[k] === undefined ? '' : String(rule[k])}
+                placeholder="비우면 안 봄"
+                onBlur={(e) => {
+                  const next = { ...rule, [k]: parseCount(e.target.value) }
+                  setRule(next)
+                  saveProvenRule(next)
+                }}
+              />
+            </label>
+          ))}
+        </div>
+        <p className="hint">남들이 이미 반응한 게시물부터 따라 해 보는 게 빨라요. 기준은 이 기기에만 저장돼요.</p>
+      </details>
     </div>
   )
-  const filtering = !!(q || fmt || tag)
+  const filtering = !!(q || fmt || tag || onlyProven)
   const reset = () => {
     setQ('')
     setFmt('')
     setTag('')
+    setOnlyProven(false)
   }
-  return { list, controls, filtering, reset }
+  return { list, controls, filtering, reset, proven }
 }

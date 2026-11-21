@@ -76,6 +76,7 @@ export default function EpisodeRefs() {
                 <RefCard
                   key={r.id}
                   r={r}
+                  proven={rf.proven(r)}
                   onOpen={() => setOpen(r)}
                   action={
                     <button

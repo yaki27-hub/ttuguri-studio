@@ -263,4 +263,36 @@ export interface Reference extends Base {
   take: string
   note: string
   caption: string
+  /** 뜯어보기: 왜 잘됐는지 분해한 기록 */
+  breakdown?: RefBreakdown
+  /** 구조만 빌려 뚜구리 소재로 바꾼 변주안 */
+  variants?: RefVariant[]
+}
+
+export interface RefBreakdown {
+  /** 첫 컷·첫 문구에서 손을 멈추게 한 것 */
+  hook: string
+  /** 컷(장)별 흐름, 한 줄에 한 컷 */
+  flow: string[]
+  /** 사람들이 반응한 이유 (공감·저장·공유 포인트) */
+  why: string
+  /** 댓글에서 보인 반응 */
+  reactions: string
+  /** 주제를 빼고 남긴 틀. 변주는 이것을 빌린다 */
+  formula: string
+  updatedAt: ISO
+}
+
+export interface RefVariant {
+  id: string
+  title: string
+  /** 뚜구리 버전 상황 한두 문장 */
+  premise: string
+  /** 첫 컷 문구 */
+  hook: string
+  /** 작가에게 묻는 실제 경험 질문 */
+  question: string
+  /** 작가의 답 (내 이야기) */
+  answer?: string
+  episodeId?: string
 }

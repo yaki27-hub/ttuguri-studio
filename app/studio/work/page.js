@@ -11,7 +11,7 @@ export default async function WorkPage() {
   return (
     <main className="wrap narrow">
       <Nav active="work" />
-      <WorkHome notionReady={envStatus().notion.ready} />
+      <WorkHome notionReady={envStatus().notion.ready} aiReady={envStatus().ai.ready} />
     </main>
   );
 }
