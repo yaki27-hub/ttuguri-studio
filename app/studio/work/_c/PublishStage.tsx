@@ -5,6 +5,7 @@ import {
   deleteAssetIfUnused, deleteMetric, logActivity, newMetric, newPublication, newSlide, putAsset, saveMetric, savePublication, saveSlides, setStatus,
 } from '@/lib/work/repo'
 import { parsePublish, publishPrompt, type PublishOut } from '@/lib/work/prompts'
+import { cardPublishPrompt } from '@/lib/work/cards'
 import { saver } from '@/lib/work/saver'
 import { downloadBlob, fmtDateTime, fromLocalInput, toLocalInput } from '@/lib/work/format'
 import { buildPublishZip, buildTextDraftZip, checkSlides, finalCaption, type PackageIssue } from '@/lib/work/zip'
@@ -243,7 +244,7 @@ export default function PublishStage() {
           targetIds={slides.map((s) => s.id)}
           operation="게시 문구"
           compact
-          buildPrompt={() => publishPrompt(ep, ws.story, b.panels, slides, ws.settings)}
+          buildPrompt={() => (ep.contentType === 'cardnews' ? cardPublishPrompt(ep, b.panels, slides, ws.settings) : publishPrompt(ep, ws.story, b.panels, slides, ws.settings))}
           parse={(raw) => parsePublish(raw, slides.map((s) => s.id))}
           getBase={() => hashText(slides.map((s) => s.id).join())}
           preview={(o) => (

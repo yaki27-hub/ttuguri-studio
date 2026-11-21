@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { deleteAssetIfUnused, getAsset, getEpisode, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
-import { cardName } from '@/lib/work/cards'
+import { cardName, cardSettings } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { aiImage } from '../actions'
 import { buildFigmaExport } from '@/lib/work/figmaExport'
@@ -29,7 +29,13 @@ export default function ImagesStage() {
             ? `장마다 ${ws.imageReady ? '‘Gemini로 만들기’를 누르거나 ' : ''}이미지 프롬프트를 복사해 그 장 문구에 맞는 그림을 만들어요. 그림에는 글자를 넣지 않으니, 피그마에서 글자를 올린 완성본으로 교체하면 돼요.`
             : `컷마다 ${ws.imageReady ? '‘Gemini로 만들기’를 누르거나 ' : ''}장면 설명을 복사해 그림을 그리거나 생성한 뒤, 완성 파일을 첨부하세요. 말풍선·대사는 그림에 넣지 않아요.`}
         </p>
-        {!ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 Gemini가 그 얼굴·그림체를 따라 그려요(최대 4장 사용).</Notice>}
+        {ep.contentType === 'cardnews' ? (
+          <p className="hint">
+            카드뉴스 이미지는 뚜구리 설정을 쓰지 않고 <a className="link" href="/studio/settings#cardnews">설정 → 카드뉴스</a>의 그림체·규칙·참고 이미지로 만들어요.
+          </p>
+        ) : (
+          !ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 Gemini가 그 얼굴·그림체를 따라 그려요(최대 4장 사용).</Notice>
+        )}
         {!confirmed && <Notice>콘티 확정 전이에요. 첨부는 가능하지만 확정 후 작업을 권해요.</Notice>}
         <FigmaBox />
         {['confirmed_panels'].includes(ep.status) && (
@@ -110,7 +116,9 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
   const card = ws.ep.contentType === 'cardnews'
   const count = ws.b.panels.length
   const [gen, setGen] = useState(false)
-  const refCount = Math.min(MAX_REFS, ws.settings.referenceAssetIds.length)
+  // 카드뉴스는 뚜구리 캐릭터 레퍼런스 대신 카드뉴스 그림체 참고 이미지를 쓴다
+  const refIds = (card ? cardSettings(ws.settings).styleRefIds : ws.settings.referenceAssetIds).slice(0, MAX_REFS)
+  const refCount = refIds.length
   const genPrompt = () => {
     const memo = imageMemoOf(ws.ep, ws.settings)
     return card ? cardGenPrompt(p, i, count, ws.settings, memo, refCount) : cutGenPrompt(p, i, ws.settings, memo, refCount)
@@ -121,7 +129,7 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
     setErr('')
     setGen(true)
     try {
-      const refs = await referencePayload(ws.settings.referenceAssetIds.slice(0, MAX_REFS))
+      const refs = await referencePayload(refIds)
       const r = await aiImage(genPrompt(), refs, imageMemoOf(ws.ep, ws.settings).ratio)
       if ('error' in r && r.error) throw new Error(r.error)
       const { mimeType, data } = r as { mimeType: string; data: string }

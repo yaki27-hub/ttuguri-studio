@@ -209,6 +209,19 @@ export interface CharacterSettings extends Base {
   topics?: Topic[]
   /** 소재 찾기: 새 게시물을 지켜볼 계정 (@ 없이) */
   watchlist?: string[]
+  /** 카드뉴스 전용 설정 (뚜구리 캐릭터·그림체를 쓰지 않는다) */
+  cardnews?: CardNewsSettings
+}
+
+export interface CardNewsSettings {
+  /** 카드뉴스 계정 소개·말투 (장 구성·게시 문구 지시문) */
+  intro: string
+  /** 이미지 그림체·톤 */
+  imageStyle: string
+  /** 이미지 추가 규칙·금지 */
+  imageRules: string
+  /** 그림체 참고 이미지 (캐릭터가 아니라 색감·스타일 참고) */
+  styleRefIds: string[]
 }
 
 export interface Topic {

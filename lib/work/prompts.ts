@@ -286,7 +286,6 @@ ${task}
 }
 
 export function publishPrompt(ep: Episode, st: StoryVersion | undefined, panels: Panel[], slides: Slide[], s: CharacterSettings) {
-  if (ep.contentType === 'cardnews') return cardPublishPrompt(ep, panels, slides, s)
   return `${buildSystem(s)}
 
 [작업: 게시 문구]
@@ -299,26 +298,6 @@ ${panels.map(panelLine).join('\n')}
 ${slides.map((sl, i) => `${i + 1}. ${sl.id} (${sl.kind === 'cover' ? '표지' : '본문'}) 컷: ${sl.panelIds.join(', ') || '없음'}`).join('\n')}
 
 짧은 캡션 1안(해시태그 제외), 자연스러운 댓글 유도 질문(선택, 억지스러우면 빈 문자열), 관련 해시태그 5~10개(# 없이), 슬라이드별 대체텍스트 초안. 실명·회사명 노출 금지.${JSON_ONLY}
-{"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
-}
-
-/** 카드뉴스 게시 문구: 저장이 목표. 캡션 끝에 저장·공유 유도 한 줄 */
-function cardPublishPrompt(ep: Episode, panels: Panel[], slides: Slide[], s: CharacterSettings) {
-  const cards = panels.map((p, i) => `${i + 1}장: ${p.scene}${p.narration ? ` — ${p.narration.replace(/\n/g, ' ')}` : ''}`).join('\n')
-  return `${buildSystem(s)}
-
-[작업: 카드뉴스 게시 문구]
-카드뉴스 「${ep.title}」 ${panels.length}장:
-${cards}
-
-슬라이드(id와 연결된 장):
-${slides.map((sl, i) => `${i + 1}. ${sl.id} 장: ${sl.panelIds.map((id) => panels.findIndex((p) => p.id === id) + 1).filter((n) => n > 0).join(', ') || '없음'}`).join('\n')}
-
-- caption: 첫 줄은 표지 제목을 다르게 말한 한 문장(피드에서 잘리기 전에 읽히게). 이어서 핵심 2~3줄 요약. 마지막 줄은 저장·공유를 자연스럽게 권하는 한 문장(예: "필요할 때 꺼내 보게 저장해 두세요"). 장문 금지.
-- question: 경험을 묻는 댓글 질문(선택, 억지스러우면 빈 문자열).
-- hashtags: 주제 관련 5~10개(# 없이). 너무 넓은 태그만 쓰지 말 것.
-- slides: 슬라이드별 대체텍스트 — 그 장 글을 그대로 읽어 주는 문장.
-실명·회사명 노출 금지.${JSON_ONLY}
 {"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
 }
 

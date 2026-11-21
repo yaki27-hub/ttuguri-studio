@@ -6,7 +6,7 @@
  * - 문구는 "뜻 참고용"으로만 주고, 글자·숫자·말풍선·간판·UI 글씨를 모두 금지한다.
  * - 한 장면, 한 칸, 테두리·칸 나누기 금지를 맨 앞과 맨 뒤에 두 번 적는다.
  */
-import { CARD_ROLE_LABEL, cardRole } from './cards'
+import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import type { CharacterSettings, ImageMemo, Panel } from './types'
 
@@ -28,20 +28,26 @@ function styleLines(s: CharacterSettings, memo: ImageMemo) {
   ].filter(Boolean) as string[]
 }
 
-/** 카드뉴스 한 장 */
+/** 예전 장 구성의 이미지 메모에 남은 캐릭터 이름을 일반 사람으로 바꾼다 */
+const noMascot = (t: string, s: CharacterSettings) => (s.characterName ? t.split(s.characterName).join('사람') : t)
+
+/** 카드뉴스 한 장 — 뚜구리 캐릭터·그림체는 쓰지 않고 카드뉴스 설정만 쓴다. refCount = 그림체 참고 이미지 수 */
 export function cardGenPrompt(p: Panel, i: number, count: number, s: CharacterSettings, memo: ImageMemo, refCount = 0) {
+  const c = cardSettings(s)
   const role = cardRole(i, count)
   const space = role === 'cover' ? '위쪽 40%는 제목이 올라갈 빈 여백으로 비워 둬.' : '위쪽 1/3은 글이 올라갈 빈 여백으로 비워 둬.'
   return [
-    `인스타그램 카드뉴스 ${i + 1}장(${CARD_ROLE_LABEL[role]})의 배경 그림. 비율 ${RATIO_LABEL[memo.ratio] ?? '4:5 세로'}.`,
+    `인스타그램 정보 카드뉴스 ${i + 1}장(${CARD_ROLE_LABEL[role]})의 배경 그림. 비율 ${RATIO_LABEL[memo.ratio] ?? '4:5 세로'}.`,
     ONE_FRAME,
     NO_TEXT,
     space,
     '',
-    `그릴 것: ${p.productionNotes.trim() || '아래 내용의 핵심을 한눈에 보여주는 장면 하나'}`,
+    `그릴 것: ${noMascot(p.productionNotes.trim(), s) || '아래 내용의 핵심을 한눈에 보여주는 장면이나 사물 하나'}`,
     `(뜻 참고용 — 이 문장을 그림에 쓰지 말 것) 이 장의 내용: ${[p.scene, p.narration].filter((x) => x.trim()).join(' / ') || '(미정)'}`,
-    refLine(s, refCount),
-    ...styleLines(s, memo),
+    c.imageStyle.trim() && `그림체·톤: ${c.imageStyle.trim().replace(/\n/g, ' ')}`,
+    c.imageRules.trim() && `지킬 것:\n${c.imageRules.trim().split('\n').map((l) => `- ${l.trim().replace(/^[-•·]\s*/, '')}`).join('\n')}`,
+    refCount ? `함께 보낸 이미지 ${refCount}장은 그림체·색감 참고용이야. 색·선·질감만 따르고, 그 안의 내용·인물·글자·구도는 따라 하지 마.` : '',
+    '특정 캐릭터나 마스코트를 넣지 마.',
     '',
     `다시 한 번: ${ONE_FRAME} 글자 금지.`,
   ]

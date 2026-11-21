@@ -10,9 +10,10 @@
  *   adaptationNotes → 확인 필요 (수치·제도·출처)
  * 장의 역할은 순서로 정한다: 첫 장 = 표지, 마지막 장 = 마무리, 나머지 = 본문.
  */
-import { ParseError, buildSystem } from './prompts'
+import { ParseError } from './prompts'
+import { defaultCardNews } from './repo'
 import type { PanelDraftItem } from './repo'
-import type { CharacterSettings, Episode, ImageMemo, Panel } from './types'
+import type { CharacterSettings, Episode, ImageMemo, Panel, Slide } from './types'
 
 export const CARD_MIN = 3
 export const CARD_MAX = 10
@@ -58,6 +59,20 @@ export function overLimits(p: Pick<Panel, 'scene' | 'narration' | 'direction'>, 
 
 /* ───────── 프롬프트 ───────── */
 
+export const cardSettings = (s: CharacterSettings) => ({ ...defaultCardNews(), ...s.cardnews })
+
+/** 카드뉴스 공통 지시문. 인스타툰 캐릭터(뚜구리) 설정은 쓰지 않는다. */
+export function cardSystem(s: CharacterSettings) {
+  const c = cardSettings(s)
+  return [
+    '너는 인스타그램 정보 카드뉴스 계정의 제작 보조다.',
+    c.intro.trim() && `계정 소개·말투: ${c.intro.trim()}`,
+    '공통 원칙: 원문 메모에 없는 사실·수치·제도·인용을 지어내지 않는다. 확인이 필요한 것은 따로 표시한다. 과장된 제목, 공포 마케팅, 근거 없는 단정 금지. 특정 캐릭터나 마스코트를 등장시키지 않는다.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 const JSON_ONLY = '\n\n출력은 아래 형식의 JSON 하나만. 설명 문장, 마크다운, HTML 없이.'
 
 const CARD_SHAPE = '{"headline":"제목","body":"본문","highlight":"강조 한 줄(없으면 빈 문자열)","imageNote":"이 장 문구에 맞는 이미지 한 줄","check":"사실 확인이 필요한 수치·제도·출처(없으면 빈 문자열)"}'
@@ -99,17 +114,16 @@ function sourceOf(ep: Episode) {
 }
 
 export function cardsPrompt(ep: Episode, s: CharacterSettings, count: number, locked: Panel[], all: Panel[]) {
-  return `${buildSystem(s)}
+  return `${cardSystem(s)}
 
 [작업: 카드뉴스 ${count}장 구성]
 인스타그램 카드뉴스(4:5, 1080×1350)다. 정보를 주고 저장하게 만드는 게 목표다. 만화 콘티가 아니므로 인물·대사는 쓰지 않는다.
-${s.characterName}는 이 계정의 마스코트다. 표지나 마무리 장의 imageNote에 자연스럽게 등장시켜도 되지만, 본문 장은 내용에 맞는 이미지를 우선한다.
 
 ${sourceOf(ep)}
 
 ${limitGuide(count)}
 - 원문 메모에 없는 수치·통계·제도·법은 지어내지 마. 일반 상식이라도 확인이 필요하면 check에 "확인 필요: …"로 적어.
-- imageNote는 그 장 문구와 정확히 맞는 그림 한 줄. 이미지 안에는 글자를 넣지 않는다고 가정.
+- imageNote는 그 장 문구와 정확히 맞는 그림 한 줄(사물·상황·도식 위주). 특정 캐릭터 없이. 이미지 안에는 글자를 넣지 않는다고 가정.
 - title은 작업용 짧은 제목, hook은 표지 headline과 같아도 된다.${
     locked.length ? `\n다음 장은 잠겨 있어 바뀌지 않으니 흐름만 맞춰(같은 순서 자리에 그대로 둘 것):\n${locked.map((p) => cardLine(p, all.indexOf(p), all.length)).join('\n')}` : ''
   }${JSON_ONLY}
@@ -127,7 +141,7 @@ export function cardOpPrompt(op: CardOp, target: Panel, all: Panel[], ep: Episod
     op === 'shorten'
       ? `이 장의 뜻은 그대로 두고 글자 수만 줄여. headline ${L.headline}자, body ${L.body}자, highlight ${L.highlight}자 이내(공백 포함). 핵심 단어는 남겨.`
       : `이 장만 다시 써. 역할은 ${CARD_ROLE_LABEL[role]}. 요청: ${request || '(특별 요청 없음 — 더 짧고 분명하게)'}. 한도: headline ${L.headline}자, body ${L.body}자, highlight ${L.highlight}자.`
-  return `${buildSystem(s)}
+  return `${cardSystem(s)}
 
 [작업: 카드뉴스 부분 수정 — 대상 장 id ${target.id}만]
 ${sourceOf(ep)}
@@ -222,4 +236,24 @@ export function cardDocument(ep: Episode, cards: Panel[]) {
     lines.push('')
   })
   return lines.join('\n').trim() + '\n'
+}
+
+/** 카드뉴스 게시 문구: 저장이 목표. 캡션 끝에 저장·공유 유도 한 줄 */
+export function cardPublishPrompt(ep: Episode, panels: Panel[], slides: Slide[], s: CharacterSettings) {
+  const cards = panels.map((p, i) => `${i + 1}장: ${p.scene}${p.narration ? ` — ${p.narration.replace(/\n/g, ' ')}` : ''}`).join('\n')
+  return `${cardSystem(s)}
+
+[작업: 카드뉴스 게시 문구]
+카드뉴스 「${ep.title}」 ${panels.length}장:
+${cards}
+
+슬라이드(id와 연결된 장):
+${slides.map((sl, i) => `${i + 1}. ${sl.id} 장: ${sl.panelIds.map((id) => panels.findIndex((p) => p.id === id) + 1).filter((n) => n > 0).join(', ') || '없음'}`).join('\n')}
+
+- caption: 첫 줄은 표지 제목을 다르게 말한 한 문장(피드에서 잘리기 전에 읽히게). 이어서 핵심 2~3줄 요약. 마지막 줄은 저장·공유를 자연스럽게 권하는 한 문장(예: "필요할 때 꺼내 보게 저장해 두세요"). 장문 금지.
+- question: 경험을 묻는 댓글 질문(선택, 억지스러우면 빈 문자열).
+- hashtags: 주제 관련 5~10개(# 없이). 너무 넓은 태그만 쓰지 말 것.
+- slides: 슬라이드별 대체텍스트 — 그 장 글을 그대로 읽어 주는 문장.
+실명·회사명 노출 금지(기사에 나온 회사·서비스 이름은 괜찮음).${JSON_ONLY}
+{"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
 }

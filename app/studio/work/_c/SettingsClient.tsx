@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { cleanupOrphanAssets, defaultSettings, deleteAssetIfUnused, getSettings, putAsset, saveSettings } from '@/lib/work/repo'
+import { cleanupOrphanAssets, defaultCardNews, defaultSettings, deleteAssetIfUnused, getSettings, newPanel, putAsset, saveSettings } from '@/lib/work/repo'
+import { cardSettings, cardSystem } from '@/lib/work/cards'
+import { cardGenPrompt } from '@/lib/work/imagegen'
+
 import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
@@ -64,10 +67,10 @@ export default function SettingsClient({ env }: { env: Env }) {
 
       <section className="card">
         <div className="card-head">
-          <h2>캐릭터 · 작품</h2>
+          <h2>인스타툰 캐릭터 · 작품</h2>
           <span className="muted small">{s.revision ? `r${s.revision} · ${fmtDateTime(s.updatedAt)}` : '기본값 (아직 저장 전)'}</span>
         </div>
-        <p className="muted small">여기 적은 내용이 모든 AI 요청과 복사용 프롬프트의 지시문이 돼요 — 제작 탭 소재 추천·콘티, 작업실 초안 모두. 이미 확정한 에피소드에는 소급 적용하지 않아요.</p>
+        <p className="muted small">여기 적은 내용이 인스타툰 AI 요청과 복사용 프롬프트의 지시문이 돼요 — 소재 추천·콘티·이미지. 카드뉴스는 아래 ‘카드뉴스’ 설정을 따로 써요. 이미 확정한 에피소드에는 소급 적용하지 않아요.</p>
         <Notice kind="warn">
           예전 AI 지시문에는 “회사 일과 개인 프로젝트를 병행하는 직장인 두더지 (회사 9to6, 내 일 6to12)”라고 되어 있었고, 새 브리프에는 “여러 회사에서 일한 프리랜서 디자이너의 실화”로 되어 있어요. 아래 소개를 맞는 쪽으로 고쳐 주세요.
         </Notice>
@@ -92,7 +95,7 @@ export default function SettingsClient({ env }: { env: Env }) {
           onClick={() => {
             if (!confirm('캐릭터 설정을 기본값으로 되돌릴까요? 레퍼런스 이미지는 유지돼요.')) return
             const d = defaultSettings()
-            edit({ ...d, revision: s.revision, referenceAssetIds: s.referenceAssetIds, createdAt: s.createdAt }, true)
+            edit({ ...d, revision: s.revision, referenceAssetIds: s.referenceAssetIds, createdAt: s.createdAt, cardnews: s.cardnews, topics: s.topics, watchlist: s.watchlist }, true)
           }}
         >
           기본값으로 되돌리기
@@ -159,6 +162,8 @@ export default function SettingsClient({ env }: { env: Env }) {
         {msg && <p className="error">{msg}</p>}
       </section>
 
+      <CardNewsSettingsBox s={s} edit={edit} onBig={setBig} setMsg={setMsg} />
+
       <section className="card">
         <div className="card-head">
           <h2>AI 지시문 미리보기</h2>
@@ -220,5 +225,78 @@ export default function SettingsClient({ env }: { env: Env }) {
 
       {big && <Lightbox id={big} alt="캐릭터 레퍼런스" onClose={() => setBig(undefined)} />}
     </div>
+  )
+}
+
+/** 카드뉴스 전용: 계정 소개·이미지 그림체·규칙·그림체 참고 이미지 (뚜구리 설정과 분리) */
+function CardNewsSettingsBox({ s, edit, onBig, setMsg }: { s: CharacterSettings; edit: (p: Partial<CharacterSettings>, immediate?: boolean) => void; onBig: (id: string) => void; setMsg: (m: string) => void }) {
+  const c = cardSettings(s)
+  const set = (patch: Partial<typeof c>, immediate = false) => edit({ cardnews: { ...c, ...patch } }, immediate)
+  const sample = () => {
+    const p = { ...newPanel('preview', 1), scene: '수정은 2회까지', narration: '횟수를 적지 않으면 수정이 끝없이 이어져요.', productionNotes: '수정 요청 메일이 쌓인 모니터' }
+    return cardGenPrompt(p, 1, 5, s, { ...s.imageDefaults, ratio: '4:5' }, c.styleRefIds.length)
+  }
+  return (
+    <section className="card" id="cardnews">
+      <div className="card-head">
+        <h2>카드뉴스</h2>
+        <span className="muted small">뚜구리 설정과 따로 써요</span>
+      </div>
+      <p className="muted small">카드뉴스의 장 구성·게시 문구·이미지 생성은 인스타툰 캐릭터(뚜구리)와 그림체를 쓰지 않고 여기 값만 써요.</p>
+      <Field label="계정 소개 · 말투" value={c.intro} rows={3} onChange={(v) => set({ intro: v })} hint="장 구성·장 수정·게시 문구 AI 지시문의 첫머리에 들어가요." />
+      <Field label="이미지 그림체 · 톤" value={c.imageStyle} rows={3} onChange={(v) => set({ imageStyle: v })} placeholder="예) 깔끔한 플랫 일러스트, 밝은 단색 배경, 포인트 색 1~2개" />
+      <Field label="이미지 규칙 (한 줄에 하나)" value={c.imageRules} rows={3} onChange={(v) => set({ imageRules: v })} />
+      <div className="field">
+        <label>그림체 참고 이미지 (선택, 최대 4장 사용)</label>
+        <p className="hint">잘된 카드뉴스나 핀터레스트에서 고른 그림을 넣으면 색감·선·질감만 따라 해요. 그 안의 내용·글자·구도는 따라 하지 않게 지시해요.</p>
+        <div className="thumbs">
+          {c.styleRefIds.map((a) => (
+            <div key={a} className="thumb-item">
+              <AssetImage id={a} alt="카드뉴스 그림체 참고" className="thumb-img" onClick={() => onBig(a)} />
+              <button
+                type="button"
+                className="btn ghost small danger-text"
+                onClick={async () => {
+                  set({ styleRefIds: c.styleRefIds.filter((x) => x !== a) }, true)
+                  await saver.flush()
+                  await deleteAssetIfUnused(a)
+                }}
+              >
+                빼기
+              </button>
+            </div>
+          ))}
+        </div>
+        <FilePick
+          label="+ 참고 이미지"
+          className="small"
+          onFile={async (f) => {
+            try {
+              const a = await putAsset(f, 'reference')
+              set({ styleRefIds: [...c.styleRefIds, a.id] }, true)
+            } catch (e) {
+              setMsg((e as Error).message)
+            }
+          }}
+        />
+      </div>
+      <div className="row-inline wraps">
+        <CopyButton text={() => cardSystem(s)} label="글 지시문 복사" className="small" />
+        <CopyButton text={sample} label="이미지 프롬프트 예시 복사" className="small" />
+        <button
+          type="button"
+          className="btn small ghost"
+          onClick={() => {
+            if (confirm('카드뉴스 설정을 기본값으로 되돌릴까요? 참고 이미지는 유지돼요.')) set({ ...defaultCardNews(), styleRefIds: c.styleRefIds }, true)
+          }}
+        >
+          기본값으로 되돌리기
+        </button>
+      </div>
+      <details>
+        <summary className="small">이미지 프롬프트 예시 보기 (2장 · 본문)</summary>
+        <pre className="body-text">{sample()}</pre>
+      </details>
+    </section>
   )
 }
