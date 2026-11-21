@@ -2,6 +2,7 @@
 
 import { FORMAT_LABEL } from '@/lib/work/format'
 import { dialogueLines } from '@/lib/work/prompts'
+import { cardName, overLimits } from '@/lib/work/cards'
 import { AssetImage } from './ui'
 import { useWS } from './Workspace'
 
@@ -25,6 +26,32 @@ export default function Preview() {
             </li>
           ))}
         </ol>
+      </div>
+    )
+  if (ep.contentType === 'cardnews')
+    return (
+      <div className="preview">
+        <h2 className="small muted">카드뉴스 미리보기 · {b.panels.length}장</h2>
+        {b.panels.length === 0 ? (
+          <p className="muted small">아직 장이 없어요.</p>
+        ) : (
+          <ol className="pv-cards">
+            {b.panels.map((p, i) => (
+              <li key={p.id} className={i === 0 ? 'cover' : ''}>
+                <div className="pv-card">
+                  {p.assetId && <AssetImage id={p.assetId} alt={`${i + 1}장`} className="pv-card-bg" />}
+                  <span className="pv-no">
+                    {i + 1}/{b.panels.length}
+                  </span>
+                  <b className="pv-card-head">{p.scene || '제목 미정'}</b>
+                  {p.narration && <span className="pv-card-body">{p.narration}</span>}
+                  {p.direction && <span className="pv-card-hl">{p.direction}</span>}
+                </div>
+                {overLimits(p, i, b.panels.length).length > 0 && <p className="small warn-text">{cardName(i, b.panels.length)}: 글자 수 초과</p>}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
     )
   return (

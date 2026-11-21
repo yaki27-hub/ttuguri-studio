@@ -12,6 +12,7 @@ import { CopyButton, Field, Notice } from './ui'
 import { SaveIndicator } from './Backup'
 import SourceStage from './SourceStage'
 import PanelsStage from './PanelsStage'
+import CardStage from './CardStage'
 import ImagesStage from './ImagesStage'
 import PublishStage from './PublishStage'
 import Preview from './Preview'
@@ -63,7 +64,7 @@ function syncServer(local: Episode, server: Episode): Episode {
 }
 
 const EP_EDITABLE: (keyof Episode)[] = [
-  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'contentType',
+  'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'contentType', 'cardCount',
 ]
 
 export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {
@@ -229,7 +230,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
         <nav className="stage-tabs" aria-label="제작 단계">
           {STAGES.map((s, i) => (
             <button key={s} type="button" className={s === cur ? 'on' : ''} aria-current={s === cur ? 'step' : undefined} onClick={() => ws.goStage(s)}>
-              <small>{i + 1}</small> {STAGE_LABEL[s]}
+              <small>{i + 1}</small> {s === 'panels' && ep.contentType === 'cardnews' ? '장 구성' : STAGE_LABEL[s]}
             </button>
           ))}
         </nav>
@@ -294,7 +295,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
             <EpisodeRefs />
           </aside>
           <section className="ws-main" aria-label={`${STAGE_LABEL[cur]} 편집`}>
-            <StageView stage={cur} />
+            <StageView stage={cur} cardnews={ep.contentType === 'cardnews'} />
           </section>
           <aside className="ws-preview" aria-label="미리보기">
             <Preview />
@@ -305,13 +306,13 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
   )
 }
 
-function StageView({ stage }: { stage: Stage }): ReactNode {
+function StageView({ stage, cardnews }: { stage: Stage; cardnews: boolean }): ReactNode {
   switch (stage) {
     case 'source':
     case 'story':
       return <SourceStage />
     case 'panels':
-      return <PanelsStage />
+      return cardnews ? <CardStage /> : <PanelsStage />
     case 'images':
       return <ImagesStage />
     case 'publish':

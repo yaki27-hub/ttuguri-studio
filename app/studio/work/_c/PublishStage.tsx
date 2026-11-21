@@ -450,6 +450,29 @@ function PublishedInfo({ pub }: { pub: Publication }) {
   )
 }
 
+/** 카드뉴스는 저장이 핵심 지표: 가장 최근 관측의 저장률·공유율을 크게 */
+function SaveFocus({ metrics }: { metrics: Metric[] }) {
+  const last = [...metrics].sort((a, b) => b.observedAt.localeCompare(a.observedAt))[0]
+  const rate = (k: MetricKey) => {
+    const r = last?.values.reach
+    const v = last?.values[k]
+    return r && v !== undefined ? `${((v / r) * 100).toFixed(1)}%` : '—'
+  }
+  return (
+    <div className="save-focus">
+      <div>
+        <span>저장률</span>
+        <strong>{rate('saves')}</strong>
+      </div>
+      <div>
+        <span>공유율</span>
+        <strong>{rate('shares')}</strong>
+      </div>
+      <p className="hint">카드뉴스는 저장이 핵심 지표예요. 가장 최근 관측 기준이고, 다른 카드뉴스와 같은 경과 시간끼리 비교하세요.</p>
+    </div>
+  )
+}
+
 function Metrics() {
   const ws = useWS()
   const { ep, b } = ws
@@ -468,6 +491,7 @@ function Metrics() {
         </button>
       </div>
       <p className="muted small">인사이트에서 실제로 확인한 값만 적어요. 모르는 값은 비워 두면 0이 아니라 ‘미확인’으로 남아요. 같은 경과 시간끼리 비교하세요.</p>
+      {ep.contentType === 'cardnews' && <SaveFocus metrics={b.metrics} />}
       {b.metrics.length === 0 && <p className="muted small">아직 기록이 없어요.</p>}
       {b.metrics.length > 0 && (
         <div className="table-wrap">

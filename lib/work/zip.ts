@@ -3,6 +3,7 @@ import { ALL_STORES, SCHEMA_VERSION, db, uid, type StoreName } from './db'
 import { extOf, fmtDateTime, FORMAT_LABEL } from './format'
 import { getAsset, cleanupOrphanAssets, imageMemoOf } from './repo'
 import { dialogueLines, kontiDocument } from './prompts'
+import { cardDocument } from './cards'
 import type { Bundle } from './repo'
 import type { Asset, CharacterSettings, Publication, Slide } from './types'
 
@@ -25,7 +26,7 @@ export function storyboardMarkdown(b: Bundle) {
   const lines = [
     `# ${ep.title}`,
     '',
-    `- 형식: ${FORMAT_LABEL[ep.format]}`,
+    ep.contentType === 'cardnews' ? `- 형식: 카드뉴스 ${b.panels.length}장` : `- 형식: ${FORMAT_LABEL[ep.format]}`,
     `- 내보낸 시각: ${fmtDateTime(new Date().toISOString())} (Asia/Seoul)`,
     ep.confirmedPanelRevision !== undefined ? `- 확정 콘티 revision: ${ep.confirmedPanelRevision}${ep.needsReview ? ' (확정 후 수정됨)' : ''}` : '- 콘티 미확정',
     '',
@@ -93,7 +94,7 @@ export async function buildPublishZip(b: Bundle, pub: Publication, settings?: Ch
   zip.file('caption.txt', finalCaption(pub) + '\n')
   zip.file('alt-text.txt', altTextFile(b.slides))
   zip.file('storyboard.md', storyboardMarkdown(b))
-  if (settings) zip.file('konti.txt', kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
+  if (settings) zip.file('konti.txt', b.episode.contentType === 'cardnews' ? cardDocument(b.episode, b.panels) : kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
   return zip.generateAsync({ type: 'blob' })
 }
 
@@ -101,7 +102,7 @@ export async function buildTextDraftZip(b: Bundle, pub?: Publication, settings?:
   const zip = new JSZip()
   zip.file('README.txt', '텍스트 초안입니다. 게시용 이미지가 포함되지 않았습니다.\n')
   zip.file('storyboard.md', storyboardMarkdown(b))
-  if (settings) zip.file('konti.txt', kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
+  if (settings) zip.file('konti.txt', b.episode.contentType === 'cardnews' ? cardDocument(b.episode, b.panels) : kontiDocument(b.episode, b.panels, settings, imageMemoOf(b.episode, settings)))
   if (pub) zip.file('caption.txt', finalCaption(pub) + '\n')
   if (b.slides.length) zip.file('alt-text.txt', altTextFile(b.slides))
   return zip.generateAsync({ type: 'blob' })

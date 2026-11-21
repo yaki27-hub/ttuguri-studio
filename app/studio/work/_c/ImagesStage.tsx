@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { deleteAssetIfUnused, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
+import { cardImagePrompt, cardName } from '@/lib/work/cards'
 import type { Panel } from '@/lib/work/types'
 import { AssetImage, CopyButton, FilePick, Lightbox, Notice } from './ui'
 import { useWS } from './Workspace'
@@ -19,7 +20,9 @@ export default function ImagesStage() {
       <section className="card">
         <h2>이미지</h2>
         <p className="muted small">
-          컷마다 장면 설명을 복사해 그림을 그리거나 생성한 뒤, 완성 파일을 첨부하세요. 이 앱은 이미지를 자동 생성하거나 말풍선을 합성하지 않아요.
+          {ep.contentType === 'cardnews'
+            ? '장마다 이미지 프롬프트를 복사해 ChatGPT 등에서 만들면, 그 장 문구에 맞는 그림이 나와요. 글자를 올린 완성본(피그마에서 내보낸 것)을 첨부하세요.'
+            : '컷마다 장면 설명을 복사해 그림을 그리거나 생성한 뒤, 완성 파일을 첨부하세요. 이 앱은 이미지를 자동 생성하거나 말풍선을 합성하지 않아요.'}
         </p>
         {!ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 장면 설명에 함께 표시돼요.</Notice>}
         {!confirmed && <Notice>콘티 확정 전이에요. 첨부는 가능하지만 확정 후 작업을 권해요.</Notice>}
@@ -98,6 +101,8 @@ export default function ImagesStage() {
 
 function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) => void }) {
   const ws = useWS()
+  const card = ws.ep.contentType === 'cardnews'
+  const count = ws.b.panels.length
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -124,11 +129,19 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
         {p.assetId ? <AssetImage id={p.assetId} alt={`컷 ${i + 1} 이미지`} className="slot-img" onClick={() => onBig(p.assetId!)} /> : <div className="slot-empty">이미지 없음</div>}
       </div>
       <div className="image-info">
-        <p className="panel-no">컷 {i + 1}</p>
+        <p className="panel-no">{card ? cardName(i, count) : `컷 ${i + 1}`}</p>
         <p className="small clamp">{p.scene || '(화면 미정)'}</p>
-        <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
+        {card ? (
+          <p className="small muted clamp">{p.productionNotes ? `🖼 ${p.productionNotes}` : p.narration || '본문 없음'}</p>
+        ) : (
+          <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
+        )}
         <div className="row-inline wraps">
-          <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="장면 설명 복사" className="small" />
+          {card ? (
+            <CopyButton text={() => cardImagePrompt(p, i, count, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="이미지 프롬프트 복사" className="small" />
+          ) : (
+            <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="장면 설명 복사" className="small" />
+          )}
           <FilePick label={busy ? '확인 중…' : p.assetId ? '교체' : '이미지 첨부'} className="small" disabled={busy} onFile={attach} />
           {p.assetId && (
             <button
@@ -153,7 +166,7 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
               <input type="radio" checked={!p.assetIsFinal} onChange={() => ws.act(() => patchPanelMeta(p.id, { assetIsFinal: false }))} /> 그림만
             </label>
             <label className="radio">
-              <input type="radio" checked={p.assetIsFinal} onChange={() => ws.act(() => patchPanelMeta(p.id, { assetIsFinal: true }))} /> 대사 포함 최종 이미지
+              <input type="radio" checked={p.assetIsFinal} onChange={() => ws.act(() => patchPanelMeta(p.id, { assetIsFinal: true }))} /> {card ? '글자 포함 최종 이미지' : '대사 포함 최종 이미지'}
             </label>
           </fieldset>
         )}

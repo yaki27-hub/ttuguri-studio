@@ -76,6 +76,8 @@ export interface Episode extends Base {
   contentType?: ContentType
   /** 레퍼런스 보드에서 연결한 레퍼런스 */
   referenceIds?: string[]
+  /** 카드뉴스 목표 장 수 (3~10, 기본 5) */
+  cardCount?: number
 }
 
 export type Ratio = '4:5' | '1:1'

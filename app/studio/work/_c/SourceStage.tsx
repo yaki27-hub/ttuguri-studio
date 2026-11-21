@@ -30,9 +30,13 @@ export default function SourceStage() {
     <div className="stack">
       <section className="card">
         <h2>메모</h2>
-        <p className="muted small">왼쪽 원문 메모와 추가 메모만으로 바로 콘티를 뽑을 수 있어요. 형식(한컷·4컷·컷자막형)도 콘티 단계에서 AI가 골라 줘요.</p>
+        {ws.ep.contentType === 'cardnews' ? (
+          <p className="muted small">왼쪽 원문 메모에 알려 줄 내용을 적어 두면, 장 구성 단계에서 표지·본문·마무리로 나눠 뽑아요. 메모에 없는 수치는 ‘확인 필요’로 표시돼요.</p>
+        ) : (
+          <p className="muted small">왼쪽 원문 메모와 추가 메모만으로 바로 콘티를 뽑을 수 있어요. 형식(한컷·4컷·컷자막형)도 콘티 단계에서 AI가 골라 줘요.</p>
+        )}
         <button type="button" className="btn primary block" onClick={() => ws.goStage('panels')}>
-          콘티 뽑기 →
+          {ws.ep.contentType === 'cardnews' ? '장 구성 뽑기 →' : '콘티 뽑기 →'}
         </button>
         <p className="hint">더 다듬고 싶을 때만 아래 칸을 펼치세요. 채워 두면 콘티 초안에 함께 반영돼요.</p>
       </section>

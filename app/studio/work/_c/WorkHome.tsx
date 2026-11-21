@@ -234,7 +234,7 @@ export default function WorkHome({ notionReady, aiReady }: { notionReady: boolea
                 <span className="ep-meta">
                   <span className={`status s-${e.status}`}>{STATUS_LABEL[e.status]}</span>
                   {e.contentType === 'cardnews' && <span className="tag good">카드뉴스</span>}
-                  <span className="tag">{FORMAT_LABEL[e.format]}</span>
+                  {e.contentType !== 'cardnews' && <span className="tag">{FORMAT_LABEL[e.format]}</span>}
                   {!!e.referenceIds?.length && <span className="tag">레퍼런스 {e.referenceIds.length}</span>}
                   {e.tags.slice(0, 4).map((t) => (
                     <span key={t} className="tag">
