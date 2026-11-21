@@ -7,13 +7,14 @@ import { CHANNELS, CHANNEL_COOKIE } from '@/lib/channel'
 export default function ChannelSwitch({ channel }: { channel: 'toon' | 'card' }) {
   const router = useRouter()
   return (
-    <div className="channel-switch" role="group" aria-label="채널">
+    <div className="channel-switch" role="radiogroup" aria-label="채널 선택">
       {Object.values(CHANNELS).map((c) => (
         <button
           key={c.id}
           type="button"
           className={channel === c.id ? 'on' : ''}
-          aria-pressed={channel === c.id}
+          role="radio"
+          aria-checked={channel === c.id}
           onClick={() => {
             if (channel === c.id) return
             document.cookie = `${CHANNEL_COOKIE}=${c.id}; path=/; max-age=31536000; samesite=lax`
@@ -22,7 +23,13 @@ export default function ChannelSwitch({ channel }: { channel: 'toon' | 'card' })
             router.refresh()
           }}
         >
-          {c.label}
+          <span className="ch-icon" aria-hidden>
+            {c.icon}
+          </span>
+          <span className="ch-text">
+            <b>{c.label}</b>
+            <small>{c.sub}</small>
+          </span>
         </button>
       ))}
     </div>

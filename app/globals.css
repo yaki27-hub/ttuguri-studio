@@ -306,11 +306,20 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
   background: var(--bg); border-radius: 10px; padding: 12px; margin: 10px 0 0; max-height: 420px; overflow: auto;
 }
 
-/* ===== 채널 전환 (뚜구리툰 / AI 카드뉴스) ===== */
-.channel-switch { display: flex; gap: 4px; padding: 4px; margin: 0 0 10px; background: var(--surface-2); border-radius: 12px; }
-.channel-switch button { flex: 1; padding: 7px 8px; border: 0; border-radius: 9px; background: none; font: inherit; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; }
-.channel-switch button.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+/* ===== 채널 토글 (인스타툰 / 카드뉴스) ===== */
+.channel-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 10px; background: var(--surface-2); border-radius: 14px; }
+.channel-switch button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 10px; border: 0; border-radius: 11px; background: none; font: inherit; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+.channel-switch button:hover { color: var(--text); }
+.channel-switch button.on { background: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(121, 86, 206, .3); }
+.channel-switch .ch-icon { font-size: 16px; line-height: 1; }
+.channel-switch .ch-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.channel-switch .ch-text b { font-size: 14px; font-weight: 800; white-space: nowrap; }
+.channel-switch .ch-text small { font-size: 11px; opacity: .75; white-space: nowrap; }
+.channel-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand-mark.card { font-size: 11px; letter-spacing: -0.02em; background: #1f6feb; }
-@media (min-width: 1024px) { .channel-switch { margin: -8px 0 0; } }
+@media (min-width: 1024px) {
+  .channel-switch { grid-template-columns: 1fr; margin: -10px 0 0; }
+  .channel-switch button { justify-content: flex-start; padding: 10px 12px; }
+}
 .src-list { margin: 4px 0 8px; padding-left: 18px; }
 .post.no-ep { grid-template-columns: 72px 1fr; }
