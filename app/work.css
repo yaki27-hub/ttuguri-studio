@@ -346,3 +346,8 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .news-title:hover { color: var(--accent); }
 .pick-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; margin-top: 8px; border-radius: 12px; background: var(--surface); border: 1px solid var(--accent); }
 .finder-watch .card + .card { margin-top: 16px; }
+
+/* ───────── 피그마로 보내기 ───────── */
+.figma-box { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.figma-box summary { cursor: pointer; }
+.figma-steps { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

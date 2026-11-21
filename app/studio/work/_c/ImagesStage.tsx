@@ -6,6 +6,9 @@ import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { aiImage } from '../actions'
+import { buildFigmaExport } from '@/lib/work/figmaExport'
+import { downloadBlob } from '@/lib/work/format'
+import JSZip from 'jszip'
 import type { Panel } from '@/lib/work/types'
 import { AssetImage, CopyButton, FilePick, Lightbox, Notice } from './ui'
 import { useWS } from './Workspace'
@@ -28,6 +31,7 @@ export default function ImagesStage() {
         </p>
         {!ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 Gemini가 그 얼굴·그림체를 따라 그려요(최대 4장 사용).</Notice>}
         {!confirmed && <Notice>콘티 확정 전이에요. 첨부는 가능하지만 확정 후 작업을 권해요.</Notice>}
+        <FigmaBox />
         {['confirmed_panels'].includes(ep.status) && (
           <button type="button" className="btn primary block" onClick={() => ws.act(() => setStatus(ep, 'illustrating', '이미지 작업 시작'), '이미지 작업을 시작했어요.')}>
             이미지 작업 시작
@@ -242,4 +246,61 @@ async function referencePayload(ids: string[]) {
     }
   }
   return out
+}
+
+/** 피그마로 보내기: 내보내기 파일(.json) + 처음 한 번 받는 플러그인 */
+function FigmaBox() {
+  const ws = useWS()
+  const { ep, b } = ws
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const withImage = b.panels.filter((p) => p.assetId).length
+  const safe = (t: string) => t.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'ttuguri'
+
+  async function exportJson() {
+    setBusy(true)
+    setMsg('')
+    try {
+      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings))
+      downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${safe(ep.title)}-figma.json`)
+      setMsg(`${data.frames.length}개 프레임용 파일을 받았어요. 피그마에서 ‘뚜구리 가져오기’ 플러그인에 넣으세요.`)
+    } catch (e) {
+      setMsg(`내보내지 못했어요: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function pluginZip() {
+    const zip = new JSZip()
+    const dir = zip.folder('ttuguri-figma-plugin')!
+    for (const f of ['manifest.json', 'code.js', 'ui.html']) {
+      const r = await fetch(`/figma-plugin/${f}`, { cache: 'no-store' })
+      if (!r.ok) return setMsg(`플러그인 파일을 받지 못했어요 (${f}).`)
+      dir.file(f, await r.text())
+    }
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'ttuguri-figma-plugin.zip')
+  }
+
+  return (
+    <details className="figma-box">
+      <summary>
+        <b>피그마로 보내기</b> <span className="muted small">이미지 {withImage}/{b.panels.length}장 · 글자는 고칠 수 있는 레이어로</span>
+      </summary>
+      <div className="row-inline wraps">
+        <button type="button" className="btn small primary" disabled={busy || !b.panels.length} onClick={exportJson}>
+          {busy ? '만드는 중…' : '피그마용 내보내기 (.json)'}
+        </button>
+        <button type="button" className="btn small" onClick={pluginZip}>
+          플러그인 받기 (처음 한 번)
+        </button>
+      </div>
+      {msg && <p className="hint">{msg}</p>}
+      <ol className="small muted figma-steps">
+        <li>처음 한 번: ‘플러그인 받기’ zip을 풀고, 피그마 데스크톱 앱 → 메뉴 Plugins → Development → Import plugin from manifest… → 푼 폴더의 manifest.json</li>
+        <li>매번: ‘피그마용 내보내기’로 받은 .json을 피그마에서 Plugins → Development → 뚜구리 가져오기 에 넣기</li>
+        <li>장(컷)마다 프레임이 나란히 생기고, 이미지 위에 제목·본문(또는 대사) 글자 레이어가 올라가요. 위치만 다듬고 내보내면 돼요.</li>
+      </ol>
+    </details>
+  )
 }

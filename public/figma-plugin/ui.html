@@ -1,0 +1,46 @@
+<style>
+  body { font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; margin: 0; padding: 16px; color: #222; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  p { margin: 0 0 12px; color: #666; }
+  .drop { border: 2px dashed #c9bdf0; border-radius: 12px; padding: 22px 12px; text-align: center; color: #6849b1; cursor: pointer; background: #f7f4ff; }
+  .drop.over { background: #ebe3ff; }
+  #msg { margin-top: 12px; min-height: 20px; }
+  .bad { color: #c0392b; }
+  .ok { color: #2f7d57; }
+  input { display: none; }
+</style>
+<h1>뚜구리 가져오기</h1>
+<p>사이트 이미지 단계의 ‘피그마용 내보내기’로 받은 <b>.json</b> 파일을 넣으세요. 장(컷)마다 프레임이 생기고, 글자는 고칠 수 있는 레이어로 들어가요.</p>
+<label class="drop" id="drop">파일 선택 또는 여기로 끌어 놓기<input type="file" id="file" accept=".json,application/json" /></label>
+<div id="msg"></div>
+<script>
+  const msg = document.getElementById('msg');
+  const drop = document.getElementById('drop');
+  const say = (t, cls) => { msg.textContent = t; msg.className = cls || ''; };
+
+  async function take(file) {
+    if (!file) return;
+    say('읽는 중…');
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.app !== 'ttuguri-studio') throw new Error('뚜구리 스튜디오에서 내보낸 파일이 아니에요.');
+      if (data.version !== 1) throw new Error('파일 버전(' + data.version + ')이 이 플러그인과 달라요. 플러그인을 새로 받아 주세요.');
+      say('피그마에 만드는 중… (' + data.frames.length + '개)');
+      parent.postMessage({ pluginMessage: { type: 'import', data } }, '*');
+    } catch (e) {
+      say('가져오지 못했어요: ' + e.message, 'bad');
+    }
+  }
+
+  document.getElementById('file').addEventListener('change', (e) => take(e.target.files[0]));
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); take(e.dataTransfer.files[0]); });
+
+  onmessage = (e) => {
+    const m = e.data.pluginMessage;
+    if (!m) return;
+    if (m.type === 'done') say(m.text, 'ok');
+    if (m.type === 'error') say(m.text, 'bad');
+  };
+</script>
