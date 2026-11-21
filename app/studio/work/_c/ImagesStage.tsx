@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { deleteAssetIfUnused, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
+import { deleteAssetIfUnused, getAsset, getEpisode, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
-import { cardImagePrompt, cardName } from '@/lib/work/cards'
+import { cardName } from '@/lib/work/cards'
+import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
+import { aiImage } from '../actions'
 import type { Panel } from '@/lib/work/types'
 import { AssetImage, CopyButton, FilePick, Lightbox, Notice } from './ui'
 import { useWS } from './Workspace'
@@ -21,10 +23,10 @@ export default function ImagesStage() {
         <h2>이미지</h2>
         <p className="muted small">
           {ep.contentType === 'cardnews'
-            ? '장마다 이미지 프롬프트를 복사해 ChatGPT 등에서 만들면, 그 장 문구에 맞는 그림이 나와요. 글자를 올린 완성본(피그마에서 내보낸 것)을 첨부하세요.'
-            : '컷마다 장면 설명을 복사해 그림을 그리거나 생성한 뒤, 완성 파일을 첨부하세요. 이 앱은 이미지를 자동 생성하거나 말풍선을 합성하지 않아요.'}
+            ? `장마다 ${ws.imageReady ? '‘Gemini로 만들기’를 누르거나 ' : ''}이미지 프롬프트를 복사해 그 장 문구에 맞는 그림을 만들어요. 그림에는 글자를 넣지 않으니, 피그마에서 글자를 올린 완성본으로 교체하면 돼요.`
+            : `컷마다 ${ws.imageReady ? '‘Gemini로 만들기’를 누르거나 ' : ''}장면 설명을 복사해 그림을 그리거나 생성한 뒤, 완성 파일을 첨부하세요. 말풍선·대사는 그림에 넣지 않아요.`}
         </p>
-        {!ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 장면 설명에 함께 표시돼요.</Notice>}
+        {!ws.settings.referenceAssetIds.length && <Notice kind="warn">캐릭터 레퍼런스가 아직 등록 전이에요. 설정에서 등록하면 Gemini가 그 얼굴·그림체를 따라 그려요(최대 4장 사용).</Notice>}
         {!confirmed && <Notice>콘티 확정 전이에요. 첨부는 가능하지만 확정 후 작업을 권해요.</Notice>}
         {['confirmed_panels'].includes(ep.status) && (
           <button type="button" className="btn primary block" onClick={() => ws.act(() => setStatus(ep, 'illustrating', '이미지 작업 시작'), '이미지 작업을 시작했어요.')}>
@@ -38,7 +40,7 @@ export default function ImagesStage() {
       <ol className="panel-list">
         {b.panels.map((p, i) => (
           <li key={p.id} className="panel-card">
-            <ImageCard p={p} i={i} onBig={(id) => setBig({ id, alt: `컷 ${i + 1} 이미지` })} />
+            <ImageCard p={p} i={i} onBig={(id) => setBig({ id, alt: ep.contentType === 'cardnews' ? `${i + 1}장 이미지` : `컷 ${i + 1} 이미지` })} />
           </li>
         ))}
       </ol>
@@ -103,6 +105,40 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
   const ws = useWS()
   const card = ws.ep.contentType === 'cardnews'
   const count = ws.b.panels.length
+  const [gen, setGen] = useState(false)
+  const refCount = Math.min(MAX_REFS, ws.settings.referenceAssetIds.length)
+  const genPrompt = () => {
+    const memo = imageMemoOf(ws.ep, ws.settings)
+    return card ? cardGenPrompt(p, i, count, ws.settings, memo, refCount) : cutGenPrompt(p, i, ws.settings, memo, refCount)
+  }
+
+  /** Gemini로 생성 → 이 장(컷)에 첨부. 이전 이미지는 지우지 않고 ‘연결 안 된 이미지’로 보관 */
+  async function generate() {
+    setErr('')
+    setGen(true)
+    try {
+      const refs = await referencePayload(ws.settings.referenceAssetIds.slice(0, MAX_REFS))
+      const r = await aiImage(genPrompt(), refs, imageMemoOf(ws.ep, ws.settings).ratio)
+      if ('error' in r && r.error) throw new Error(r.error)
+      const { mimeType, data } = r as { mimeType: string; data: string }
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
+      const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png'
+      const file = new File([bytes], `gemini-${i + 1}.${ext}`, { type: mimeType })
+      const a = await putAsset(file, 'panel')
+      const old = p.assetId
+      await ws.act(async () => {
+        if (old) {
+          const cur = await getEpisode(ws.ep.id)
+          if (cur) await patchEpisode(cur.id, { looseAssetIds: [...(cur.looseAssetIds ?? []), old] })
+        }
+        await patchPanelMeta(p.id, { assetId: a.id, assetIsFinal: false })
+      }, `${card ? `${i + 1}장` : `컷 ${i + 1}`} 이미지를 Gemini로 만들었어요.${old ? ' 이전 이미지는 아래 ‘연결 안 된 이미지’에 보관했어요.' : ''}`)
+    } catch (e) {
+      setErr(`이미지를 만들지 못했어요: ${(e as Error).message}`)
+    } finally {
+      setGen(false)
+    }
+  }
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -137,8 +173,13 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
           <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
         )}
         <div className="row-inline wraps">
+          {ws.imageReady && (
+            <button type="button" className="btn small primary" disabled={gen || busy} onClick={generate}>
+              {gen ? 'Gemini 그리는 중… (10~30초)' : p.assetId ? 'Gemini로 다시 만들기' : 'Gemini로 만들기'}
+            </button>
+          )}
           {card ? (
-            <CopyButton text={() => cardImagePrompt(p, i, count, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="이미지 프롬프트 복사" className="small" />
+            <CopyButton text={() => genPrompt()} label="이미지 프롬프트 복사" className="small" />
           ) : (
             <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="장면 설명 복사" className="small" />
           )}
@@ -174,4 +215,31 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
       </div>
     </div>
   )
+}
+
+const MAX_REFS = 4
+
+/** 캐릭터 레퍼런스를 긴 변 768px JPEG로 줄여 base64로 (서버 요청 한도 때문) */
+async function referencePayload(ids: string[]) {
+  const out: { mimeType: string; data: string }[] = []
+  for (const id of ids) {
+    const a = await getAsset(id)
+    if (!a) continue
+    try {
+      const bmp = await createImageBitmap(a.blob)
+      const k = Math.min(1, 768 / Math.max(bmp.width, bmp.height))
+      const c = document.createElement('canvas')
+      c.width = Math.round(bmp.width * k)
+      c.height = Math.round(bmp.height * k)
+      const g = c.getContext('2d')!
+      g.fillStyle = '#fff'
+      g.fillRect(0, 0, c.width, c.height)
+      g.drawImage(bmp, 0, 0, c.width, c.height)
+      bmp.close()
+      out.push({ mimeType: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.85).split(',')[1] })
+    } catch {
+      /* 읽을 수 없는 레퍼런스는 건너뜀 */
+    }
+  }
+  return out
 }

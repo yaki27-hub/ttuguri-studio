@@ -13,7 +13,7 @@ export default async function WorkspacePage({ params }) {
   return (
     <>
       <Nav active="work" mobile={false} />
-      <Workspace id={id} aiReady={envStatus().ai.ready} />
+      <Workspace id={id} aiReady={envStatus().ai.ready} imageReady={envStatus().image.ready} />
     </>
   );
 }

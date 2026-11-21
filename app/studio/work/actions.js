@@ -1,7 +1,7 @@
 'use server';
 
 import { requireAuth } from '@/lib/auth';
-import { generateJSON } from '@/lib/ai';
+import { generateJSON, generateImage } from '@/lib/ai';
 import { listEpisodes, createEpisode, P, title, num, status, select } from '@/lib/notion';
 
 /**
@@ -39,6 +39,26 @@ export async function addNotionMemo(memo) {
       [P.origin]: select('실제 경험'),
     });
     return { id: ep.id };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+const MAX_REFS = 4;
+const MAX_REF_BYTES = 900_000; // base64 기준. 브라우저에서 줄여서 보낸다 (요청 전체 4.5MB 제한)
+
+/** 장(컷) 이미지 생성. 결과는 바로 저장하지 않고 돌려주기만 한다 (브라우저가 첨부) */
+export async function aiImage(prompt, refs = [], aspectRatio = '4:5') {
+  await requireAuth();
+  const text = String(prompt || '');
+  if (!text.trim()) return { error: '프롬프트가 비어 있어요.' };
+  if (text.length > 8000) return { error: '프롬프트가 너무 길어요.' };
+  const list = (Array.isArray(refs) ? refs : [])
+    .slice(0, MAX_REFS)
+    .filter((r) => r && /^image\/(png|jpeg|webp)$/.test(r.mimeType) && typeof r.data === 'string' && r.data.length <= MAX_REF_BYTES);
+  const ratio = aspectRatio === '1:1' ? '1:1' : '4:5';
+  try {
+    return await generateImage({ prompt: text, refs: list, aspectRatio: ratio });
   } catch (e) {
     return { error: e.message };
   }

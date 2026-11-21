@@ -223,23 +223,3 @@ export function cardDocument(ep: Episode, cards: Panel[]) {
   })
   return lines.join('\n').trim() + '\n'
 }
-
-/** 이 장에 넣을 이미지 생성 프롬프트. 장 문구를 함께 넣어 글과 그림이 따로 놀지 않게 한다. */
-export function cardImagePrompt(p: Panel, i: number, count: number, s: CharacterSettings, memo: ImageMemo) {
-  const role = CARD_ROLE_LABEL[cardRole(i, count)]
-  return [
-    `인스타그램 카드뉴스 ${i + 1}장(${role})에 들어갈 이미지를 만들어 줘. 비율 4:5 (1080×1350).`,
-    '이미지 안에는 글자를 넣지 마. 아래 문구는 나중에 위에 올릴 텍스트이니, 글이 들어갈 여백을 남겨 줘.',
-    '',
-    `제목: ${p.scene || '(미정)'}`,
-    p.narration.trim() && `본문: ${p.narration.trim()}`,
-    p.direction.trim() && `강조: ${p.direction.trim()}`,
-    '',
-    `그릴 것: ${p.productionNotes.trim() || '위 문구의 핵심을 한눈에 보여주는 장면'}`,
-    memo.background.trim() && `배경 톤: ${memo.background.trim()}`,
-    s.styleNotes.trim() && `그림체 참고: ${s.styleNotes.trim().replace(/\n/g, ' ')}`,
-    /뚜구리|마스코트|캐릭터/.test(p.productionNotes) && `${s.characterName}가 나오면 등록한 캐릭터 레퍼런스 외형을 그대로 따를 것.`,
-  ]
-    .filter((x) => x !== false && x !== '')
-    .join('\n')
-}

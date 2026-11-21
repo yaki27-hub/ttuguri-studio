@@ -26,6 +26,8 @@ export interface WS {
   story?: StoryVersion
   settings: CharacterSettings
   aiReady: boolean
+  /** Gemini 이미지 생성 가능 (GEMINI_API_KEY) */
+  imageReady: boolean
   editEp: (patch: Partial<Episode>) => void
   editStory: (patch: Partial<StoryVersion>) => void
   editPanel: (id: string, patch: Partial<Panel>) => void
@@ -67,7 +69,7 @@ const EP_EDITABLE: (keyof Episode)[] = [
   'title', 'titleIsAuto', 'notes', 'situation', 'facts', 'emotions', 'humorPoint', 'unknowns', 'tags', 'purpose', 'format', 'stage', 'scheduledAt', 'links', 'sourceAssetIds', 'contentType', 'cardCount',
 ]
 
-export default function Workspace({ id, aiReady }: { id: string; aiReady: boolean }) {
+export default function Workspace({ id, aiReady, imageReady }: { id: string; aiReady: boolean; imageReady: boolean }) {
   const router = useRouter()
   const sp = useSearchParams()
   const q = sp.get('stage') === 'story' ? 'source' : sp.get('stage')
@@ -119,6 +121,7 @@ export default function Workspace({ id, aiReady }: { id: string; aiReady: boolea
           story: b.stories[b.stories.length - 1],
           settings,
           aiReady,
+          imageReady,
           editEp(patch) {
             commit((x) => ({ ...x, episode: { ...x.episode, ...patch } }))
             saver.schedule(`ep:${id}`, async () => {
