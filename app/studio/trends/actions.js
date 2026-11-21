@@ -2,6 +2,7 @@
 
 import { requireAuth } from '@/lib/auth';
 import { fetchTrending } from '@/lib/trends';
+import { fetchAiNews } from '@/lib/ainews';
 import { discoverAccount } from '@/lib/instagram';
 
 /** 오늘 급상승 검색어 (30분 캐시) */
@@ -52,4 +53,22 @@ export async function loadWatchlist(usernames) {
   }
   await Promise.all(Array.from({ length: Math.min(3, list.length) }, worker));
   return { accounts, at: Date.now() };
+}
+
+const cleanTerms = (v) =>
+  (Array.isArray(v) ? v : [])
+    .map((x) => String(x).trim().slice(0, 30))
+    .filter(Boolean)
+    .slice(0, 12)
+    .map((x) => (/\s/.test(x) && !/^".*"$/.test(x) ? `"${x}"` : x));
+
+/** AI 소식. group: kr | global | official | community, terms: 검색어 (한국·해외 뉴스만 씀) */
+export async function loadAiNews(group, terms = {}) {
+  await requireAuth();
+  const g = ['kr', 'global', 'official', 'community'].includes(group) ? group : 'kr';
+  try {
+    return { ...(await fetchAiNews(g, { kr: cleanTerms(terms.kr), en: cleanTerms(terms.en) })), at: Date.now() };
+  } catch (e) {
+    return { items: [], errors: [e.message] };
+  }
 }

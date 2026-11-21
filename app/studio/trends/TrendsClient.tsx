@@ -10,6 +10,7 @@ import type { CharacterSettings, Topic } from '@/lib/work/types'
 import { loadTrending, loadWatchlist } from './actions'
 import { matchTopics as matchAny } from '@/lib/topics'
 import { Notice } from '../work/_c/ui'
+import AiNews from './AiNews'
 
 interface Trend {
   title: string
@@ -64,7 +65,7 @@ export default function TrendsClient({ igReady }: { igReady: boolean }) {
         <h1>소재 찾기</h1>
       </header>
       <p className="muted small intro">
-        오늘 뜨는 검색어와 지켜보는 계정의 새 게시물을 한곳에서 봐요. 마음에 드는 게시물은 ⭐로 레퍼런스 보드에 담고, 거기서 뜯어보기 → 변주로 이어가세요.
+        오늘 뜨는 검색어, AI 소식, 지켜보는 계정의 새 게시물을 한곳에서 봐요. 마음에 드는 게시물은 ⭐로 레퍼런스 보드에 담고, 거기서 뜯어보기 → 변주로 이어가세요.
       </p>
       {settings && (
         <>
@@ -73,6 +74,7 @@ export default function TrendsClient({ igReady }: { igReady: boolean }) {
             <TrendingSection topics={topics} />
           </div>
           <div className="finder-watch">
+            <AiNews topics={topics} />
             <WatchSection igReady={igReady} watch={watch} topics={topics} onWatch={(w) => patchSettings({ watchlist: w })} />
           </div>
           <div className="finder-topics">

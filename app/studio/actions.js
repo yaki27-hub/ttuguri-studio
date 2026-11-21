@@ -8,6 +8,7 @@ import {
 } from '@/lib/notion';
 import { recommendTopics, generateKonti, systemFrom } from '@/lib/studio';
 import { fetchTrending } from '@/lib/trends';
+import { fetchAiNews } from '@/lib/ainews';
 import { matchTopics } from '@/lib/topics';
 
 const go = (path, msg) => redirect(msg ? `${path}?msg=${encodeURIComponent(msg)}` : path);
@@ -67,8 +68,8 @@ export async function recommendAction(_prev, formData) {
     const episodes = await listEpisodes();
     const memos = episodes.filter((e) => e.status === '아이디어');
     const settingsRaw = formData?.get('settings');
-    const trending = await trendingFor(settingsRaw);
-    const topics = await recommendTopics({ memos, episodes, trending, system: systemFrom(settingsRaw) });
+    const [trending, aiNews] = await Promise.all([trendingFor(settingsRaw), fetchAiNews('kr').then((r) => r.items.slice(0, 10).map((x) => x.title)).catch(() => [])]);
+    const topics = await recommendTopics({ memos, episodes, trending, aiNews, system: systemFrom(settingsRaw) });
     if (!topics.length) return { error: '추천을 만들지 못했어요. 다시 시도해 주세요.' };
     return { topics, at: Date.now() };
   } catch (e) {
