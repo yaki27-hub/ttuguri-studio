@@ -20,7 +20,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 
 .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; min-width: 0; }
 .field label, fieldset legend { font-size: 13px; font-weight: 600; color: var(--muted); }
-.field input, .field select, .filters input, .filters select, .fact input, .fact select, .thumb-item select {
+.field input, .field select, .filters input, .filters select, .fact input, .fact select, .thumb-item select, .topic-edit input, .card form.row-inline input {
   height: 40px; padding: 0 10px; font: inherit; font-size: 15px; min-width: 0;
   border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text);
 }
@@ -265,3 +265,35 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .mix-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--line); }
 .mix-bar span:first-child { background: var(--accent); }
 .mix-bar span:last-child { background: var(--good); }
+
+/* ───────── 소재 찾기 ───────── */
+.seg.mini { margin: 0; gap: 4px; }
+.seg.mini button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font: inherit; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.seg.mini button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.trend-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
+.trend { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); }
+.trend:first-child { border-top: 0; }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.trend-title { font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+.trend-title:hover { color: var(--accent); }
+.watch-chips { margin-top: 10px; }
+.chip:has(.chip-in) { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px 0 0; }
+.chip-in, .chip-x { background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.chip-in { padding: 6px 4px 6px 12px; }
+.chip-x { padding: 6px 6px; font-size: 11px; opacity: .6; }
+.chip-x:hover { opacity: 1; }
+.post-grid { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.post { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.post-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 5; background: var(--surface-2); }
+.post-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.post-thumb .new { position: absolute; top: 8px; left: 8px; }
+.post-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; }
+.post-body .btn { margin-top: 4px; }
+.summary-head { cursor: pointer; list-style: none; }
+.summary-head::-webkit-details-marker { display: none; }
+.topic-edit { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.topic-edit li { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: start; }
+@media (max-width: 520px) { .topic-edit li { grid-template-columns: 1fr auto; } .topic-edit li textarea { grid-column: 1 / -1; grid-row: 2; } }
+.card form.row-inline input { flex: 1; }
+.card form.row-inline .btn { height: 40px; }
+.topic-edit textarea { padding: 9px 11px; }

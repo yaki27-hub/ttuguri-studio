@@ -7,6 +7,8 @@ import {
   P, OPTIONS, title, num, rich, select, multi, status,
 } from '@/lib/notion';
 import { recommendTopics, generateKonti, systemFrom } from '@/lib/studio';
+import { fetchTrending } from '@/lib/trends';
+import { matchTopics } from '@/lib/topics';
 
 const go = (path, msg) => redirect(msg ? `${path}?msg=${encodeURIComponent(msg)}` : path);
 const nextNumber = (episodes) => Math.max(0, ...episodes.map((e) => e.number || 0)) + 1;
@@ -43,13 +45,30 @@ export async function addMemo(formData) {
   go('/studio', msg);
 }
 
+/** 오늘 급상승 검색어 중 내 토픽에 걸린 것을 앞에. 실패해도 추천은 계속한다. */
+async function trendingFor(settingsRaw) {
+  let topics = [];
+  try {
+    topics = JSON.parse(String(settingsRaw || '{}')).topics || [];
+  } catch {}
+  try {
+    const items = await fetchTrending('KR');
+    const rows = items.map((t) => ({ title: t.title, news: t.news[0]?.title || '', hits: matchTopics(`${t.title} ${t.news.map((n) => n.title).join(' ')}`, topics).map((h) => h.name) }));
+    return [...rows.filter((r) => r.hits.length), ...rows.filter((r) => !r.hits.length)].slice(0, 15);
+  } catch {
+    return [];
+  }
+}
+
 /** ② 소재 추천 (useActionState) */
 export async function recommendAction(_prev, formData) {
   await requireAuth();
   try {
     const episodes = await listEpisodes();
     const memos = episodes.filter((e) => e.status === '아이디어');
-    const topics = await recommendTopics({ memos, episodes, system: systemFrom(formData?.get('settings')) });
+    const settingsRaw = formData?.get('settings');
+    const trending = await trendingFor(settingsRaw);
+    const topics = await recommendTopics({ memos, episodes, trending, system: systemFrom(settingsRaw) });
     if (!topics.length) return { error: '추천을 만들지 못했어요. 다시 시도해 주세요.' };
     return { topics, at: Date.now() };
   } catch (e) {

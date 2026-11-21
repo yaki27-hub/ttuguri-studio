@@ -203,6 +203,16 @@ export interface CharacterSettings extends Base {
   imageDefaults: ImageMemo
   referenceAssetIds: string[]
   recurringExpressions: string[]
+  /** 소재 찾기: 내 주제와 키워드 */
+  topics?: Topic[]
+  /** 소재 찾기: 새 게시물을 지켜볼 계정 (@ 없이) */
+  watchlist?: string[]
+}
+
+export interface Topic {
+  id: string
+  name: string
+  keywords: string[]
 }
 
 export type DraftTarget = 'source' | 'story' | 'panels' | 'publish'

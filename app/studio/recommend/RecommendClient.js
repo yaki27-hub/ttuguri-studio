@@ -25,6 +25,7 @@ export default function RecommendClient() {
           <article key={`${state.at}-${i}`} className="topic">
             <div className="topic-tags">
               {t.memoId && <span className="tag good">내 메모</span>}
+              {t.trend && <span className="tag hot">🔥 급상승: {t.trend}</span>}
               {t.category && <span className="tag">{t.category}</span>}
               {t.format && <span className="tag">{t.format}</span>}
               {t.formula && <span className="tag">{t.formula}</span>}

@@ -20,7 +20,7 @@ export default async function RecommendPage({ searchParams }) {
       </header>
       {params?.msg && <p className="flash">{params.msg}</p>}
       <p className="muted small intro">
-        내 메모를 먼저 살리고, 지금 시기와 지금까지의 성과를 참고해서 추천해요.
+        내 메모를 먼저 살리고, 지금 시기·오늘 급상승 검색어·지금까지의 성과를 참고해서 추천해요.
         고른 소재는 노션에 <b>스토리</b> 단계로 저장됩니다.
       </p>
       <RecommendClient />

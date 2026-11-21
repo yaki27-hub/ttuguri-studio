@@ -653,8 +653,16 @@ export function defaultSettings(): CharacterSettings {
     },
     referenceAssetIds: [],
     recurringExpressions: [],
+    topics: DEFAULT_TOPICS.map((t) => ({ ...t })),
+    watchlist: [],
   }
 }
+
+export const DEFAULT_TOPICS = [
+  { id: 'office', name: '회사생활', keywords: ['회사', '직장', '출근', '퇴근', '회식', '연차', '월급', '연봉', '상사', '야근', '재택', '보너스', '성과급', '이직'] },
+  { id: 'daily', name: '일상', keywords: ['날씨', '한파', '폭염', '주말', '연휴', '카페', '다이어트', '운동', '배달', '편의점', '수능', '크리스마스'] },
+  { id: 'design', name: '디자인·프리랜서', keywords: ['디자인', '디자이너', '프리랜서', '피그마', 'AI', '챗GPT', '외주'] },
+]
 
 export async function getSettings(): Promise<CharacterSettings> {
   const saved = await (await db()).get('settings', SETTINGS_ID)
