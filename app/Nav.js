@@ -10,8 +10,8 @@ const ICONS = {
 };
 
 const ITEMS = [
-  ['work', '/studio/work', '작업'],
   ['trends', '/studio/trends', '소재 찾기'],
+  ['work', '/studio/work', '작업'],
   ['stats', '/stats', '성과'],
   ['settings', '/studio/settings', '설정'],
 ];
