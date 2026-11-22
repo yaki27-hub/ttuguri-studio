@@ -93,6 +93,8 @@ export interface Episode extends Base {
   referenceIds?: string[]
   /** 카드뉴스 목표 장 수 (3~10, 기본 5) */
   cardCount?: number
+  /** 카드뉴스 글 구성: story = 읽는 이슈형(기본), brief = 짧은 정리형 */
+  cardStyle?: 'story' | 'brief'
   /** 후킹 라이브러리 번호 (H01~H26). 성과 비교용 */
   hookId?: string
   /** 카드뉴스: 읽어 온 기사 본문 */

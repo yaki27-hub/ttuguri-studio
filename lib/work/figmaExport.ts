@@ -19,9 +19,9 @@ export const FIGMA_EXPORT_VERSION = 2
  *   cast:<castId>                   (인물 대사, "이름: \"대사\"" 형태)
  *   dialogue                        (인물에 속하지 않는 대사·효과음)
  */
-export type TextField = 'scene' | 'narration' | 'direction' | 'hook' | 'dialogue' | `cast:${string}`
+export type TextField = 'scene' | 'narration' | 'direction' | 'hook' | 'dialogue' | 'action' | `cast:${string}`
 
-export type TextRole = 'headline' | 'body' | 'highlight' | 'tag' | 'hook' | 'dialogue' | 'narration'
+export type TextRole = 'headline' | 'body' | 'highlight' | 'tag' | 'source' | 'hook' | 'dialogue' | 'narration'
 
 export interface FigmaText {
   role: TextRole
@@ -81,6 +81,7 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
       if (p.narration.trim()) texts.push({ role: 'body', name: F.body, text: p.narration.trim(), field: 'narration' })
       if (p.direction.trim()) texts.push({ role: 'highlight', name: '강조', text: p.direction.trim(), field: 'direction' })
       if (p.dialogue.trim()) texts.push({ role: 'tag', name: '태그', text: p.dialogue.trim(), field: 'dialogue' })
+      if (p.action.trim()) texts.push({ role: 'source', name: '출처', text: p.action.trim(), field: 'action' })
       frames.push({ name: cardName(i, panels.length), panelId: p.id, kind: role, image, texts })
     } else {
       if (i === 0 && ep.hookText?.trim() && ep.format !== 'single') texts.push({ role: 'hook', name: '첫 화면 문구', text: ep.hookText.trim(), field: 'hook' })

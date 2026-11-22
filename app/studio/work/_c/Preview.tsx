@@ -2,7 +2,7 @@
 
 import { FORMAT_LABEL } from '@/lib/work/format'
 import { dialogueLines } from '@/lib/work/prompts'
-import { cardName, overLimits } from '@/lib/work/cards'
+import { cardName, cardStyleOf, overLimits } from '@/lib/work/cards'
 import { AssetImage } from './ui'
 import { useWS } from './Workspace'
 
@@ -47,7 +47,7 @@ export default function Preview() {
                   {p.narration && <span className="pv-card-body">{p.narration}</span>}
                   {p.direction && <span className="pv-card-hl">{p.direction}</span>}
                 </div>
-                {overLimits(p, i, b.panels.length).length > 0 && <p className="small warn-text">{cardName(i, b.panels.length)}: 글자 수 초과</p>}
+                {overLimits(p, i, b.panels.length, cardStyleOf(ep)).length > 0 && <p className="small warn-text">{cardName(i, b.panels.length)}: 글자 수 초과</p>}
               </li>
             ))}
           </ol>

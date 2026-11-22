@@ -76,13 +76,13 @@ export function planImport(ep: Episode, panels: Panel[], file: FinalFile): Impor
       const to = t.text.trim()
       if (t.field === 'hook') {
         if (to !== (ep.hookText ?? '').trim()) plan.hook = { label: '첫 화면 문구', from: ep.hookText ?? '', to }
-      } else if (t.field === 'scene' || t.field === 'narration' || t.field === 'direction' || t.field === 'dialogue') {
+      } else if (t.field === 'scene' || t.field === 'narration' || t.field === 'direction' || t.field === 'dialogue' || t.field === 'action') {
         const from = p[t.field].trim()
         if (to !== from) {
           patch[t.field] = to
           const label = card
-            ? { scene: '제목', narration: '본문', direction: '강조', dialogue: '태그' }[t.field]
-            : { scene: '장면', narration: ep.format === 'captions' ? '자막' : ep.format === 'info' ? '자막·팁 정리' : '내레이션', direction: '연출', dialogue: '기타 대사' }[t.field]
+            ? { scene: '제목', narration: '본문', direction: '강조', dialogue: '태그', action: '출처' }[t.field]
+            : { scene: '장면', narration: ep.format === 'captions' ? '자막' : ep.format === 'info' ? '자막·팁 정리' : '내레이션', direction: '연출', dialogue: '기타 대사', action: '행동·표정' }[t.field]
           changes.push({ label, from, to })
         }
       } else if (t.field.startsWith('cast:')) {

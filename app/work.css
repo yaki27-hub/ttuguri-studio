@@ -387,3 +387,4 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .fact .fact-quote { flex-basis: 100%; padding-left: 4px; }
 .fact:has(.fact-quote) { flex-wrap: wrap; }
 .fact:has(.fact-quote) input { flex: 1; min-width: 0; }
+.pre-line { white-space: pre-line; }

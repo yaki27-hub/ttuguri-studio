@@ -49,6 +49,8 @@ function styleOf(role, kind, fonts) {
       return { font: fonts.bold, size: 36, color: ACCENT, line: 140 };
     case 'tag':
       return { font: fonts.regular, size: 28, color: ACCENT, line: 130 };
+    case 'source':
+      return { font: fonts.regular, size: 24, color: { r: 0.45, g: 0.45, b: 0.5 }, line: 130 };
     case 'hook':
       return { font: fonts.bold, size: 56, color: INK, line: 130 };
     case 'dialogue':
@@ -304,7 +306,9 @@ async function buildSeodang(data) {
     frame.clipsContent = true;
     frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '' }));
 
-    // 위쪽 그림 + 위·아래 어둡게
+    // 위쪽 그림 + 위·아래 어둡게 (글이 길면 아래에서 그림 높이를 줄인다)
+    let imgRect = null;
+    let fadeRect = null;
     if (f.image && f.image.base64) {
       const img = figma.createImage(figma.base64Decode(f.image.base64));
       const rect = figma.createRectangle();
@@ -312,6 +316,7 @@ async function buildSeodang(data) {
       rect.resize(W, IH);
       rect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
       frame.appendChild(rect);
+      imgRect = rect;
       const top = figma.createRectangle();
       top.name = '위 어둡게';
       top.resize(W, 225);
@@ -323,7 +328,18 @@ async function buildSeodang(data) {
       bottom.y = IH - 300;
       bottom.fills = [vGrad(SD.bg, 0, SD.bg, 1)];
       frame.appendChild(bottom);
+      fadeRect = bottom;
     }
+    /** 글 덩어리 맨 위(textTop)가 그림을 너무 덮으면 그림을 글 위까지만 남긴다 */
+    const fitImage = (textTop) => {
+      if (!imgRect || textTop >= IH - 120) return;
+      const h = Math.max(300, Math.round(textTop + 120));
+      imgRect.resize(W, h);
+      if (fadeRect) {
+        fadeRect.resize(W, Math.min(300, h));
+        fadeRect.y = h - fadeRect.height;
+      }
+    };
     sdHeader(frame, brand, i, n, fonts, W);
 
     const by = (role) => f.texts.find((t) => t.role === role);
@@ -331,7 +347,16 @@ async function buildSeodang(data) {
     const body = by('body');
     const accent = (by('highlight') || {}).text || '';
     const tag = by('tag');
-
+    const src = by('source');
+    const long = body && body.text.length > 120;
+    /** 꼬리말 바로 위 출처 한 줄. 놓은 뒤 남은 바닥 y 를 돌려준다 */
+    const placeSource = (y) => {
+      if (!src) return y;
+      const t = sdText(frame, { name: '출처', text: `출처 · ${src.text}`, font: fonts.medium, size: 24, color: SD.dim, width: IW, field: src.field });
+      t.x = 90;
+      t.y = y - t.height;
+      return t.y - 24;
+    };
     if (f.kind === 'outro') {
       // 마무리: 가운데 제목 + 문구 + 청록 알약
       const btn = figma.createFrame();
@@ -349,17 +374,26 @@ async function buildSeodang(data) {
       btn.y = H - 90 - btn.height;
       let y = btn.y - 56;
       if (body) {
-        const b = sdText(frame, { name: '문구', text: body.text, font: fonts.body, size: 34, color: SD.sub, line: 150, align: 'CENTER', width: IW, field: body.field });
+        const b = sdText(frame, { name: '문구', text: body.text, font: fonts.body, size: long ? 32 : 34, color: SD.sub, line: 155, align: 'CENTER', width: IW, field: body.field });
+        b.paragraphSpacing = 18;
         b.x = 90;
         b.y = y - b.height;
         y = b.y - 32;
       }
       if (head) {
-        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: 92, color: SD.text, line: 118, align: 'CENTER', width: IW, field: head.field });
+        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: long ? 72 : 92, color: SD.text, line: 118, align: 'CENTER', width: IW, field: head.field });
         paintAccent(t, accent);
         t.x = 90;
         t.y = y - t.height;
+        y = t.y;
       }
+      if (tag) {
+        const pill = sdPill(frame, tag.text, fonts, tag.field);
+        pill.x = (W - pill.width) / 2;
+        pill.y = y - 30 - pill.height;
+        y = pill.y;
+      }
+      fitImage(y);
     } else if (f.kind === 'cover') {
       // 표지: 선 · 알약 · 선 / 큰 제목(가운데) / 부제 / 꼬리말
       let y = sdFooter(frame, brand, fonts, W, H) - 50;
@@ -370,13 +404,14 @@ async function buildSeodang(data) {
         y = b.y - 25;
       }
       if (head) {
-        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: 105, color: SD.text, line: 112, align: 'CENTER', width: IW, field: head.field });
+        const longest = Math.max(...head.text.split('\n').map((l) => l.length));
+        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: longest <= 11 ? 105 : longest <= 15 ? 88 : 74, color: SD.text, line: 115, align: 'CENTER', width: IW, field: head.field });
         paintAccent(t, accent);
         t.x = 90;
         t.y = y - t.height;
         y = t.y - 30;
       }
-      const label = [brand.series, tag && tag.text].filter(Boolean).join(' · ');
+      const label = tag ? tag.text : brand.series;
       if (label) {
         const pill = sdPill(frame, label, fonts, tag ? tag.field : undefined);
         pill.x = (W - pill.width) / 2;
@@ -384,18 +419,21 @@ async function buildSeodang(data) {
         const ly = pill.y + pill.height / 2 - 1;
         sdLine(frame, 90, ly, pill.x - 25 - 90);
         sdLine(frame, pill.x + pill.width + 25, ly, W - 90 - (pill.x + pill.width + 25));
+        y = pill.y;
       }
+      fitImage(y);
     } else {
-      // 본문: 번호 · 선 · 태그 / 제목 / 본문 / 꼬리말
-      let y = sdFooter(frame, brand, fonts, W, H) - 50;
+      // 본문: 번호 · 선 · 태그 / 제목 / 본문 / 출처 / 꼬리말
+      let y = placeSource(sdFooter(frame, brand, fonts, W, H) - 40) - 10;
       if (body) {
-        const b = sdText(frame, { name: '본문', text: body.text, font: fonts.body, size: 38, color: SD.sub, line: 155, width: IW, field: body.field });
+        const b = sdText(frame, { name: '본문', text: body.text, font: fonts.body, size: long ? 33 : 38, color: SD.sub, line: long ? 160 : 155, width: IW, field: body.field });
+        b.paragraphSpacing = long ? 22 : 0;
         b.x = 90;
         b.y = y - b.height;
         y = b.y - 22;
       }
       if (head) {
-        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: 80, color: SD.text, line: 115, width: IW, field: head.field });
+        const t = sdText(frame, { name: '제목', text: head.text, font: fonts.title, size: long ? 64 : 80, color: SD.text, line: 118, width: IW, field: head.field });
         paintAccent(t, accent);
         t.x = 90;
         t.y = y - t.height;
@@ -413,6 +451,7 @@ async function buildSeodang(data) {
         right = pill.x - 25;
       }
       sdLine(frame, no.x + no.width + 25, cy, right - (no.x + no.width + 25));
+      fitImage(no.y);
     }
     frames.push(frame);
   });

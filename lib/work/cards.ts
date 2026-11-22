@@ -8,7 +8,8 @@
  *   direction       → 강조 한 줄
  *   productionNotes → 이미지 메모 (그 장 문구에 맞는 그림)
  *   adaptationNotes → 확인 필요 (수치·제도·출처)
- *   dialogue        → 태그 (날짜·상태 — 예: 11.04 출시)
+ *   dialogue        → 태그 (이슈형: 섹션 이름 — 예: 사건의 시작 / 정리형: 날짜·상태)
+ *   action          → 출처 (이슈형: 그 장의 근거 매체·기관)
  * 장의 역할은 순서로 정한다: 첫 장 = 표지, 마지막 장 = 마무리, 나머지 = 본문.
  */
 import { ParseError } from './prompts'
@@ -37,6 +38,21 @@ export const CARD_LIMITS: Record<CardRole, { headline: number; body: number; hig
   outro: { headline: 20, body: 60, highlight: 25 },
 }
 
+/** 글 구성 형식: 이슈형은 장마다 2~3문단으로 이야기가 흐르게, 정리형은 장마다 한 메시지 */
+export type CardStyle = 'story' | 'brief'
+export const CARD_STYLE_LABEL: Record<CardStyle, string> = {
+  story: '읽는 이슈형 — 장마다 2~3문단, 이야기가 흐르게',
+  brief: '짧은 정리형 — 장마다 메시지 하나',
+}
+export const cardStyleOf = (ep: Pick<Episode, 'cardStyle'>): CardStyle => ep.cardStyle ?? 'story'
+
+const STORY_LIMITS: typeof CARD_LIMITS = {
+  cover: { headline: 34, body: 50, highlight: 20 },
+  content: { headline: 30, body: 260, highlight: 20 },
+  outro: { headline: 30, body: 220, highlight: 20 },
+}
+export const limitsOf = (style: CardStyle) => (style === 'brief' ? CARD_LIMITS : STORY_LIMITS)
+
 export const CARD_FIELD_LABEL: Record<CardRole, { headline: string; body: string }> = {
   cover: { headline: '후킹 제목', body: '부제' },
   content: { headline: '제목', body: '본문' },
@@ -45,13 +61,14 @@ export const CARD_FIELD_LABEL: Record<CardRole, { headline: string; body: string
 
 export const len = (s: string) => [...s.trim()].length
 
-export const cardCountOf = (ep: Episode) => Math.min(CARD_MAX, Math.max(CARD_MIN, ep.cardCount ?? CARD_DEFAULT))
+export const defaultCount = (style: CardStyle) => (style === 'brief' ? CARD_DEFAULT : 8)
+export const cardCountOf = (ep: Episode) => Math.min(CARD_MAX, Math.max(CARD_MIN, ep.cardCount ?? defaultCount(cardStyleOf(ep))))
 
 export const cardName = (i: number, count: number) => `${i + 1}장 · ${CARD_ROLE_LABEL[cardRole(i, count)]}`
 
 /** 글자 수 한도를 넘은 칸 목록 */
-export function overLimits(p: Pick<Panel, 'scene' | 'narration' | 'direction'>, i: number, count: number) {
-  const L = CARD_LIMITS[cardRole(i, count)]
+export function overLimits(p: Pick<Panel, 'scene' | 'narration' | 'direction'>, i: number, count: number, style: CardStyle = 'story') {
+  const L = limitsOf(style)[cardRole(i, count)]
   const out: string[] = []
   if (len(p.scene) > L.headline) out.push(`제목 ${len(p.scene)}/${L.headline}`)
   if (len(p.narration) > L.body) out.push(`본문 ${len(p.narration)}/${L.body}`)
@@ -77,16 +94,36 @@ export function cardSystem(s: CharacterSettings) {
 
 const JSON_ONLY = '\n\n출력은 아래 형식의 JSON 하나만. 설명 문장, 마크다운, HTML 없이.'
 
-const CARD_SHAPE = '{"headline":"제목","body":"본문","highlight":"강조(없으면 빈 문자열)","tag":"작은 태그(없으면 빈 문자열)","imageNote":"이 장 문구에 맞는 이미지 한 줄","check":"사실 확인이 필요한 수치·제도·출처(없으면 빈 문자열)"}'
+const CARD_SHAPE = '{"tag":"작은 태그(없으면 빈 문자열)","headline":"제목","body":"본문","highlight":"강조(없으면 빈 문자열)","source":"출처(없으면 빈 문자열)","imageNote":"이 장 문구에 맞는 이미지 한 줄","check":"사실 확인이 필요한 수치·제도·출처(없으면 빈 문자열)"}'
 
 /** 디자인에 따라 강조·태그를 어떻게 쓰는지 */
-function designGuide(s: CharacterSettings) {
+function designGuide(s: CharacterSettings, style: CardStyle = 'brief') {
+  if (style === 'story')
+    return designOf(cardSettings(s)) === 'seodang'
+      ? '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다. 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄(반전)을 highlight로.'
+      : '- highlight: headline 안에서 강조할 1~3단어(headline에 그대로 들어 있게).'
   return designOf(cardSettings(s)) === 'seodang'
     ? [
         '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다(예: headline "이미지 2.6", highlight "2.6"). 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄을 highlight로.',
         '- tag: 본문 장 오른쪽 위 작은 알약에 들어갈 날짜·상태(예: "11.04 출시", "순차 적용", "무료 플랜 가능"). 원문에 근거가 없으면 빈 문자열. 표지·마무리는 빈 문자열.',
       ].join('\n')
     : '- highlight: 꼭 기억할 한 줄. tag는 빈 문자열.'
+}
+
+/** 읽는 이슈형: 이야기 흐름·문단·섹션 이름·출처 */
+function storyGuide(count: number) {
+  const L = STORY_LIMITS
+  return [
+    '[글 구성: 읽는 이슈형] 짧은 요약 나열이 아니라, 끝까지 넘겨 읽고 싶은 해설 기사처럼 쓴다. 장과 장이 이야기로 이어져야 한다.',
+    `- 흐름(장 수 ${count}장에 맞게 줄이거나 합친다): 표지(사실 + 반전) → 사건의 시작(배경, 무슨 일이 있었나) → 핵심 숫자·사실 → 예상 밖의 반응·쟁점 → 논쟁의 핵심 → 또 다른 시각 → 더 큰 질문(독자의 일·삶과 연결) → 마무리(독자에게 묻기).`,
+    '- 사실이 부족하면 쟁점·의미를 늘려 쓰지 말고 장 수를 줄인다. 모든 사실 서술은 사실 목록 범위 안에서.',
+    `- tag: 그 장의 섹션 이름 2~8자(예: 사건의 시작, 놀라운 숫자, 예상 밖의 반응, 논쟁의 핵심, 또 다른 시각, 더 큰 질문, 마무리). 표지는 영문 대문자 분류(예: "AI ISSUE · MATHEMATICS").`,
+    `- 1장(표지): headline은 두 줄(\\n) — 첫 줄은 놀라운 사실, 둘째 줄은 반전·긴장("그런데 수학자들은 걱정했다."). 줄마다 15자 안팎, 전체 ${L.cover.headline}자 이내. body는 부제 한 줄 ${L.cover.body}자 이내(예: "리만가설을 둘러싼 예상 밖의 논쟁").`,
+    `- 본문 장: headline은 한 문장으로 다음 내용이 궁금해지게(${L.content.headline}자 이내, 예: "그런데 일부 수학자들의 반응은 달랐습니다."). body는 2~3문단, 문단 사이는 빈 줄(\\n\\n), 문단마다 1~2문장, ${L.content.body}자 이내. "~했어요/~습니다"를 섞은 해설체. 어려운 용어는 한 번 풀어 준다.`,
+    `- 마지막 장(마무리): headline은 전체를 꿰는 한 문장(${L.outro.headline}자 이내). body는 2~3문단, 마지막 문단은 독자에게 던지는 질문(${L.outro.body}자 이내). 저장·팔로우 강요 금지.`,
+    '- source: 그 장 내용의 근거 매체·기관 이름(예: "Quanta Magazine", "앤트로픽 발표"). 기사·사실 목록에 나온 출처만. 근거가 여러 곳이면 쉼표로. 표지·마무리는 빈 문자열이어도 된다.',
+    '- 같은 말 반복, 막연한 "주목된다/귀추가 주목된다" 같은 기사체 상투어 금지.',
+  ].join('\n')
 }
 
 function limitGuide(count: number) {
@@ -110,6 +147,7 @@ function cardLine(p: Panel, i: number, count: number) {
     body: p.narration,
     highlight: p.direction,
     tag: p.dialogue,
+    source: p.action,
     imageNote: p.productionNotes,
     check: p.adaptationNotes,
     ...(p.locked ? { locked: true } : {}),
@@ -212,12 +250,12 @@ export function cardsPrompt(ep: Episode, s: CharacterSettings, count: number, lo
   return `${cardSystem(s)}
 
 [작업: 카드뉴스 ${count}장 구성]
-인스타그램 카드뉴스(4:5, 1080×1350)다. 정보를 주고 저장하게 만드는 게 목표다. 만화 콘티가 아니므로 인물·대사는 쓰지 않는다.
+인스타그램 카드뉴스(4:5, 1080×1350)다. ${cardStyleOf(ep) === 'story' ? '끝까지 넘겨 읽고 저장하게 만드는 게 목표다.' : '정보를 주고 저장하게 만드는 게 목표다.'} 만화 콘티가 아니므로 인물·대사는 쓰지 않는다.
 
 ${sourceOf(ep)}
 
-${limitGuide(count)}
-${designGuide(s)}
+${cardStyleOf(ep) === 'story' ? storyGuide(count) : limitGuide(count)}
+${designGuide(s, cardStyleOf(ep))}
 - 원문 메모에 없는 수치·통계·제도·법은 지어내지 마. 일반 상식이라도 확인이 필요하면 check에 "확인 필요: …"로 적어.
 - imageNote는 그 장 문구와 정확히 맞는 그림 한 줄(사물·상황·도식 위주). 특정 캐릭터 없이. 이미지 안에는 글자를 넣지 않는다고 가정.
 - title은 작업용 짧은 제목, hook은 표지 headline과 같아도 된다.${
@@ -232,7 +270,8 @@ export const CARD_OP_LABEL: Record<CardOp, string> = { shorten: '글자 수에 �
 export function cardOpPrompt(op: CardOp, target: Panel, all: Panel[], ep: Episode, s: CharacterSettings, request: string) {
   const i = all.indexOf(target)
   const role = cardRole(i, all.length)
-  const L = CARD_LIMITS[role]
+  const style = cardStyleOf(ep)
+  const L = limitsOf(style)[role]
   const task =
     op === 'shorten'
       ? `이 장의 뜻은 그대로 두고 글자 수만 줄여. headline ${L.headline}자, body ${L.body}자, highlight ${L.highlight}자 이내(공백 포함). 핵심 단어는 남겨.`
@@ -246,7 +285,8 @@ ${sourceOf(ep)}
 ${all.map((p, k) => cardLine(p, k, all.length)).join('\n')}
 
 ${task}
-${designGuide(s)}
+${style === 'story' ? storyGuide(all.length) : ''}
+${designGuide(s, style)}
 원문에 없는 수치·제도는 지어내지 말고 check에 적어.${JSON_ONLY}
 {"cards":[${CARD_SHAPE.replace('{', `{"id":"${target.id}",`)}]}`
 }
@@ -263,9 +303,9 @@ export function toDraftItem(c: Record<string, unknown>): PanelDraftItem {
     direction: str(c.highlight),
     productionNotes: str(c.imageNote),
     adaptationNotes: str(c.check),
-    action: '',
     cast: [],
     dialogue: str(c.tag),
+    action: str(c.source),
   }
   if (typeof c.id === 'string') item.id = c.id
   return item
@@ -312,9 +352,10 @@ export function cardTextSheet(ep: Episode, cards: Panel[]) {
   const lines = [`「${ep.title}」 카드뉴스 ${cards.length}장 · 화면 문구`, '']
   cards.forEach((p, i) => {
     const F = CARD_FIELD_LABEL[cardRole(i, cards.length)]
-    lines.push(`[${cardName(i, cards.length)}]`, `${F.headline}: ${p.scene || '(미정)'}`)
+    lines.push(`[${cardName(i, cards.length)}]${p.dialogue.trim() ? ` · ${p.dialogue.trim()}` : ''}`, `${F.headline}: ${p.scene || '(미정)'}`)
     if (p.narration.trim()) lines.push(`${F.body}: ${p.narration.trim()}`)
     if (p.direction.trim()) lines.push(`강조: ${p.direction.trim()}`)
+    if (p.action.trim()) lines.push(`출처: ${p.action.trim()}`)
     lines.push('')
   })
   return lines.join('\n').trim() + '\n'
@@ -325,9 +366,10 @@ export function cardDocument(ep: Episode, cards: Panel[]) {
   const lines = [`「${ep.title}」 카드뉴스 ${cards.length}장`, '4:5 (1080×1350)', '']
   cards.forEach((p, i) => {
     const F = CARD_FIELD_LABEL[cardRole(i, cards.length)]
-    lines.push(`[${cardName(i, cards.length)}]`, `${F.headline}: ${p.scene || '(미정)'}`)
+    lines.push(`[${cardName(i, cards.length)}]${p.dialogue.trim() ? ` · ${p.dialogue.trim()}` : ''}`, `${F.headline}: ${p.scene || '(미정)'}`)
     if (p.narration.trim()) lines.push(`${F.body}: ${p.narration.trim()}`)
     if (p.direction.trim()) lines.push(`강조: ${p.direction.trim()}`)
+    if (p.action.trim()) lines.push(`출처: ${p.action.trim()}`)
     if (p.productionNotes.trim()) lines.push(`이미지: ${p.productionNotes.trim()}`)
     if (p.adaptationNotes.trim()) lines.push(`⚠ ${p.adaptationNotes.trim()}`)
     lines.push('')

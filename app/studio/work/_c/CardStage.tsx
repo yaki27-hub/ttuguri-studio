@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { addPanel, applyPanelDraft, confirmPanels, patchEpisode, patchPanelMeta, removePanel, reorderPanels, savePanel, type PanelDraftItem } from '@/lib/work/repo'
 import {
-  CARD_DEFAULT, CARD_FIELD_LABEL, cardSettings, CARD_LIMITS, CARD_MAX, CARD_MIN, CARD_OP_LABEL, cardCountOf, cardDocument, cardName, cardOpPrompt, cardRole, cardTextSheet, cardsPrompt, len, overLimits, parseCards,
+  CARD_FIELD_LABEL, CARD_STYLE_LABEL, cardSettings, cardStyleOf, defaultCount, limitsOf, type CardStyle, CARD_MAX, CARD_MIN, CARD_OP_LABEL, cardCountOf, cardDocument, cardName, cardOpPrompt, cardRole, cardTextSheet, cardsPrompt, len, overLimits, parseCards,
   toDraftItem, type CardOp, type CardsDoc,
 } from '@/lib/work/cards'
 import { fmtDateTime } from '@/lib/work/format'
@@ -20,7 +20,8 @@ export default function CardStage() {
   const cards = b.panels
   const target = cardCountOf(ep)
   const [dragId, setDragId] = useState<string>()
-  const over = cards.map((p, i) => overLimits(p, i, cards.length)).filter((x) => x.length).length
+  const style = cardStyleOf(ep)
+  const over = cards.map((p, i) => overLimits(p, i, cards.length, style)).filter((x) => x.length).length
   const checks = cards.filter((p) => needsCheck(p.adaptationNotes)).length
   const read = ep.facts.some((f) => f.quote)
 
@@ -64,15 +65,26 @@ export default function CardStage() {
         )}
         <Field label="작업 제목" single value={ep.title} onChange={(v) => ws.editEp({ title: v, titleIsAuto: false })} />
         <div className="field">
+          <label htmlFor="card-style">글 구성</label>
+          <select id="card-style" value={style} onChange={(e) => ws.editEp({ cardStyle: e.target.value as CardStyle })}>
+            {(Object.keys(CARD_STYLE_LABEL) as CardStyle[]).map((k) => (
+              <option key={k} value={k}>
+                {CARD_STYLE_LABEL[k]}
+              </option>
+            ))}
+          </select>
+          <p className="hint">{style === 'story' ? '사건의 시작 → 핵심 사실 → 반응·쟁점 → 다른 시각 → 더 큰 질문 → 마무리 질문 순서로, 장마다 섹션 이름과 출처가 붙어요.' : '새 기능·사용법처럼 한 장에 한 가지만 짧게 알려 줄 때 좋아요.'}</p>
+        </div>
+        <div className="field">
           <label htmlFor="card-count">목표 장 수</label>
           <select id="card-count" value={target} onChange={(e) => ws.editEp({ cardCount: Number(e.target.value) })}>
             {Array.from({ length: CARD_MAX - CARD_MIN + 1 }, (_, k) => CARD_MIN + k).map((n) => (
               <option key={n} value={n}>
-                {n}장{n === CARD_DEFAULT ? ' (추천)' : ''}
+                {n}장{n === defaultCount(style) ? ' (추천)' : ''}
               </option>
             ))}
           </select>
-          <p className="hint">원본이 10장이어도 5장 안팎으로 줄이면 끝까지 넘겨 보는 비율이 올라가요.</p>
+          <p className="hint">{style === 'story' ? '이슈형은 7~8장이 알맞아요. 사실이 적으면 AI가 장 수를 줄여요.' : '원본이 10장이어도 5장 안팎으로 줄이면 끝까지 넘겨 보는 비율이 올라가요.'}</p>
         </div>
         {cards.length > 0 && (
           <>
@@ -106,7 +118,7 @@ export default function CardStage() {
           buildPrompt={() => cardsPrompt(ep, ws.settings, target, cards.filter((p) => p.locked), cards)}
           parse={(raw) => parseCards(raw, { range: [CARD_MIN, CARD_MAX] })}
           getBase={() => ep.panelsRevision}
-          preview={(doc) => <CardsPreview items={doc.items} />}
+          preview={(doc) => <CardsPreview items={doc.items} style={style} />}
           applyLabel={cards.length ? '변경안 적용 (잠긴 장 유지)' : '장 구성에 적용'}
           apply={applyDoc}
         />
@@ -171,14 +183,16 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
   const ws = useWS()
   const { ep, b } = ws
   const role = cardRole(i, count)
-  const L = CARD_LIMITS[role]
+  const style = cardStyleOf(ep)
+  const story = style === 'story'
+  const L = limitsOf(style)[role]
   const F = CARD_FIELD_LABEL[role]
   const seodang = designOf(cardSettings(ws.settings)) === 'seodang'
   const [op, setOp] = useState<CardOp>()
   const [request, setRequest] = useState('')
   const [history, setHistory] = useState(false)
   const versions = b.panelVersions.filter((v) => v.panelId === p.id)
-  const over = overLimits(p, i, count)
+  const over = overLimits(p, i, count, style)
   const edit = (patch: Partial<Panel>) => !p.locked && ws.editPanel(p.id, patch)
 
   return (
@@ -206,8 +220,17 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
         </button>
       </div>
       <div className="panel-fields card-fields">
+        {(story || (seodang && role === 'content')) && (
+          <Field
+            label={story ? (role === 'cover' ? '분류 (예: AI ISSUE · MATHEMATICS)' : '섹션 이름 (예: 사건의 시작)') : '태그 (선택 · 예: 11.04 출시)'}
+            single
+            value={p.dialogue}
+            readOnly={p.locked}
+            onChange={(v) => edit({ dialogue: v })}
+          />
+        )}
         <Field label={F.headline} value={p.scene} readOnly={p.locked} rows={1} onChange={(v) => edit({ scene: v })} className="wide dialogue" hint={<Count v={p.scene} max={L.headline} />} />
-        <Field label={F.body} value={p.narration} readOnly={p.locked} rows={2} onChange={(v) => edit({ narration: v })} className="wide" hint={<Count v={p.narration} max={L.body} />} />
+        <Field label={story && role !== 'cover' ? `${F.body} (문단은 빈 줄로)` : F.body} value={p.narration} readOnly={p.locked} rows={story && role !== 'cover' ? 6 : 2} onChange={(v) => edit({ narration: v })} className="wide" hint={<Count v={p.narration} max={L.body} />} />
         <Field
           label={seodang ? '제목 강조 단어 (청록색으로 칠할 부분)' : '강조 한 줄 (선택)'}
           value={p.direction}
@@ -216,9 +239,7 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
           onChange={(v) => edit({ direction: v })}
           hint={seodang && p.direction.trim() && !p.scene.includes(p.direction.trim()) ? '제목에 똑같이 들어 있어야 칠해져요.' : <Count v={p.direction} max={L.highlight} />}
         />
-        {seodang && role === 'content' && (
-          <Field label="태그 (선택 · 예: 11.04 출시)" single value={p.dialogue} readOnly={p.locked} onChange={(v) => edit({ dialogue: v })} />
-        )}
+        {story && <Field label="출처 (예: Quanta Magazine)" single value={p.action} readOnly={p.locked} onChange={(v) => edit({ action: v })} />}
         <Field label="이미지 메모" value={p.productionNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ productionNotes: v })} placeholder="이 장 문구에 맞는 그림 한 줄" />
         <Field label="확인 필요 (수치·제도·출처)" value={p.adaptationNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ adaptationNotes: v })} className="wide" placeholder="확인이 끝나면 비워 두세요" />
       </div>
@@ -257,7 +278,7 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
             buildPrompt={() => cardOpPrompt(op, p, b.panels, ep, ws.settings, request)}
             parse={(raw) => parseCards(raw, { ids: [p.id] }).items}
             getBase={() => b.panels.find((x) => x.id === p.id)?.revision ?? -1}
-            preview={(items) => <CardsPreview items={items} offset={i} count={count} />}
+            preview={(items) => <CardsPreview items={items} offset={i} count={count} style={style} />}
             applyLabel={`${i + 1}장에만 적용`}
             apply={async (items) => {
               const r = await ws.act(() => applyPanelDraft(ep.id, items, 'patch', `${CARD_OP_LABEL[op]} (${i + 1}장)`, ep.storyRevision))
@@ -304,20 +325,21 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
 }
 
 /** 초안 미리보기: 장마다 역할·제목·본문·글자 수 */
-function CardsPreview({ items, offset = 0, count }: { items: PanelDraftItem[]; offset?: number; count?: number }) {
+function CardsPreview({ items, offset = 0, count, style = 'story' }: { items: PanelDraftItem[]; offset?: number; count?: number; style?: CardStyle }) {
   const n = count ?? items.length
   return (
     <ol className="cards-preview">
       {items.map((it, k) => {
         const i = offset + k
-        const over = overLimits(it, i, n)
+        const over = overLimits(it, i, n, style)
         return (
           <li key={k}>
             <p className="small">
-              <b>{cardName(i, n)}</b> {over.length > 0 && <span className="tag bad">{over.join(' · ')}</span>}
+              <b>{cardName(i, n)}</b>{it.dialogue && ` · ${it.dialogue}`} {over.length > 0 && <span className="tag bad">{over.join(' · ')}</span>}
             </p>
             <p className="cp-head">{it.scene}</p>
-            {it.narration && <p className="small">{it.narration}</p>}
+            {it.narration && <p className="small pre-line">{it.narration}</p>}
+            {it.action && <p className="small muted">출처 · {it.action}</p>}
             {it.direction && <p className="small"><b>강조</b> {it.direction}</p>}
             {it.productionNotes && <p className="small muted">🖼 {it.productionNotes}</p>}
             {it.adaptationNotes && <p className="small warn-text">⚠ {it.adaptationNotes}</p>}
