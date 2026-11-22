@@ -566,16 +566,22 @@ export interface PublishOut {
 export function parsePublish(raw: unknown, slideIds: string[]): PublishOut {
   const errs: string[] = []
   if (!isObj(raw)) throw new ParseError(['최상위가 객체({})여야 해요.'])
+  // 대체텍스트는 캡션보다 덜 중요하다. AI가 id를 잘못 옮겨 적거나(긴 id) 슬라이드가 아직 없어서
+  // 번호를 지어내도 캡션까지 버리지 않는다: id가 안 맞으면 순서로 맞추고, 그래도 없으면 slideId를 비워 둔다.
   const slides: PublishOut['slides'] = []
-  if (raw.slides !== undefined) {
-    if (!Array.isArray(raw.slides)) errs.push('slides: 배열이어야 해요.')
-    else
-      raw.slides.forEach((s, i) => {
-        if (!isObj(s)) return errs.push(`slides[${i}]: 객체여야 해요.`)
-        const slideId = str(s, 'slideId', errs, true, `slides[${i}].slideId`)
-        if (slideId && !slideIds.includes(slideId)) errs.push(`slides[${i}].slideId: 없는 슬라이드 id예요.`)
-        slides.push({ slideId, altText: str(s, 'altText', errs, false, `slides[${i}].altText`) })
-      })
+  if (Array.isArray(raw.slides)) {
+    const used = new Set<string>()
+    raw.slides.forEach((s, i) => {
+      if (!isObj(s)) return
+      const altText = typeof s.altText === 'string' ? s.altText.trim() : ''
+      if (!altText) return
+      const given = typeof s.slideId === 'string' ? s.slideId.trim() : ''
+      const num = /^\d+$/.test(given) ? slideIds[Number(given) - 1] : undefined
+      let slideId = slideIds.includes(given) ? given : num ?? slideIds[i] ?? ''
+      if (slideId && used.has(slideId)) slideId = ''
+      if (slideId) used.add(slideId)
+      slides.push({ slideId, altText })
+    })
   }
   const out = {
     caption: str(raw, 'caption', errs, true),

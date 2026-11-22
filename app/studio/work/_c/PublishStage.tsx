@@ -267,8 +267,16 @@ export default function PublishStage() {
           )}
           apply={async (o) => {
             editPub({ caption: o.caption, question: o.question, includeQuestion: !!o.question && pub.includeQuestion, hashtags: o.hashtags })
-            const alt = new Map(o.slides.map((x) => [x.slideId, x.altText]))
-            editSlides(slidesRef.current.map((x) => (alt.has(x.id) ? { ...x, altText: alt.get(x.id)! } : x)))
+            // 슬라이드가 아직 없으면 장(컷)마다 하나씩 만들고, 대체텍스트는 순서대로 붙인다
+            let cur = slidesRef.current
+            const created = !cur.length && b.panels.length > 0
+            if (created) cur = b.panels.map((p, i) => newSlide(ep.id, i + 1, 'content', [p.id], p.assetIsFinal ? p.assetId : undefined))
+            const alt = new Map(o.slides.filter((x) => x.slideId).map((x) => [x.slideId, x.altText]))
+            const next = cur.map((x, i) => {
+              const t = alt.get(x.id) ?? (created || !o.slides[i]?.slideId ? o.slides[i]?.altText : undefined)
+              return t ? { ...x, altText: t } : x
+            })
+            editSlides(next, created)
             await saver.flush()
             ws.flash('게시 문구 초안을 적용했어요.', 'ok')
           }}

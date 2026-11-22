@@ -388,7 +388,11 @@ export function cardPublishPrompt(ep: Episode, panels: Panel[], slides: Slide[],
 ${cards}
 
 슬라이드(id와 연결된 장):
-${slides.map((sl, i) => `${i + 1}. ${sl.id} 장: ${sl.panelIds.map((id) => panels.findIndex((p) => p.id === id) + 1).filter((n) => n > 0).join(', ') || '없음'}`).join('\n')}
+${
+  slides.length
+    ? slides.map((sl, i) => `${i + 1}. ${sl.id} 장: ${sl.panelIds.map((id) => panels.findIndex((p) => p.id === id) + 1).filter((n) => n > 0).join(', ') || '없음'}`).join('\n')
+    : `(아직 슬라이드가 없다. slideId에는 장 번호를 "1"부터 그대로 쓴다)\n${panels.map((_, i) => `${i + 1}. ${i + 1} 장: ${i + 1}`).join('\n')}`
+}
 
 - caption: 첫 줄은 표지 제목을 다르게 말한 한 문장(피드에서 잘리기 전에 읽히게). 이어서 핵심 2~3줄 요약. 마지막 줄은 저장·공유를 자연스럽게 권하는 한 문장(예: "필요할 때 꺼내 보게 저장해 두세요"). 장문 금지.
 - question: 경험을 묻는 댓글 질문(선택, 억지스러우면 빈 문자열).
