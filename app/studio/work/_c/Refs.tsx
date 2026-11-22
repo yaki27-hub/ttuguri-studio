@@ -33,18 +33,22 @@ function accountFromUrl(url: string) {
   }
 }
 
-export function RefForm({ url, onSaved, onCancel, onExisting, channel = 'toon' }: { url: string; onSaved: (r: Reference) => void; onCancel: () => void; onExisting: (r: Reference) => void; channel?: 'toon' | 'card' }) {
-  const [account, setAccount] = useState(() => accountFromUrl(url))
-  const [postType, setPostType] = useState<RefPostType | ''>(() => postTypeOf(url) ?? '')
-  const [format, setFormat] = useState<RefFormat | ''>('four')
-  const [tags, setTags] = useState<string[]>([])
-  const [likes, setLikes] = useState('')
-  const [comments, setComments] = useState('')
+/** 다른 화면에서 미리 채워 여는 값 (비슷한 것 찾기 결과 등) */
+export type RefFormInitial = Partial<{ account: string; postType: RefPostType; format: RefFormat; tags: string[]; likes: number; comments: number; metricsSource: string; take: string; note: string; caption: string }>
+
+export function RefForm({ url, onSaved, onCancel, onExisting, channel = 'toon', initial = {} }: { url: string; onSaved: (r: Reference) => void; onCancel: () => void; onExisting: (r: Reference) => void; channel?: 'toon' | 'card'; initial?: RefFormInitial }) {
+  const num = (n?: number) => (n === undefined || n === null ? '' : String(n))
+  const [account, setAccount] = useState(() => initial.account ?? accountFromUrl(url))
+  const [postType, setPostType] = useState<RefPostType | ''>(() => initial.postType ?? postTypeOf(url) ?? '')
+  const [format, setFormat] = useState<RefFormat | ''>(initial.format ?? 'four')
+  const [tags, setTags] = useState<string[]>(initial.tags ?? [])
+  const [likes, setLikes] = useState(num(initial.likes))
+  const [comments, setComments] = useState(num(initial.comments))
   const [views, setViews] = useState('')
-  const [metricsSource, setMetricsSource] = useState('직접 확인')
-  const [take, setTake] = useState('')
-  const [note, setNote] = useState('')
-  const [caption, setCaption] = useState('')
+  const [metricsSource, setMetricsSource] = useState(initial.metricsSource ?? '직접 확인')
+  const [take, setTake] = useState(initial.take ?? '')
+  const [note, setNote] = useState(initial.note ?? '')
+  const [caption, setCaption] = useState(initial.caption ?? '')
   const [err, setErr] = useState('')
   const [dup, setDup] = useState<Reference>()
   const [busy, setBusy] = useState(false)

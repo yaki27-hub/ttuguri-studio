@@ -10,6 +10,7 @@ import type { ContentType, Episode, Format, Reference, Status } from '@/lib/work
 import { deleteReference, listReferences, onlyUrl, updateReference } from '@/lib/work/refs'
 import { originMix, variantMemo, variantNotes } from '@/lib/work/reflab'
 import RefLab from './RefLab'
+import SimilarFinder from './SimilarFinder'
 import { RefCard, RefDetail, RefForm, useRefFilter } from './Refs'
 import { addNotionMemo } from '../actions'
 import { Modal, Notice } from './ui'
@@ -327,6 +328,7 @@ export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 't
               })
             }}
           />
+          <SimilarFinder key={openRef.id} r={openRef} aiReady={aiReady} channel={channel} onSaved={load} />
         </RefDetail>
       )}
 
