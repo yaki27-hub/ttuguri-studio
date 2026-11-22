@@ -454,3 +454,6 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
   .queue-list .q-body { flex-basis: calc(100% - 90px); }
   .queue-list .q-actions { width: 100%; justify-content: flex-end; }
 }
+.q-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 10px; }
+.q-opts .check { margin-top: 0; }
+.q-opts .q-fixed::after { content: ' ✓'; color: var(--good); }

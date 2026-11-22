@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { deleteAssetIfUnused, getAsset, getEpisode, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
+import { deleteAssetIfUnused, getEpisode, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName, cardSettings } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { aiImage } from '../actions'
+import { referencePayload, aiImageFile } from '@/lib/work/imageRefs'
 import { FIGMA_PLUGIN_VERSION, buildFigmaExport } from '@/lib/work/figmaExport'
 import { applyImport, parseFinal, planImport, type FinalFile, type ImportPlan } from '@/lib/work/figmaImport'
 import { downloadBlob } from '@/lib/work/format'
@@ -133,10 +134,7 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
       const refs = await referencePayload(refIds)
       const r = await aiImage(genPrompt(), refs, imageMemoOf(ws.ep, ws.settings).ratio)
       if ('error' in r && r.error) throw new Error(r.error)
-      const { mimeType, data } = r as { mimeType: string; data: string }
-      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0))
-      const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png'
-      const file = new File([bytes], `gemini-${i + 1}.${ext}`, { type: mimeType })
+      const file = aiImageFile(r as { mimeType: string; data: string }, `gemini-${i + 1}`)
       const a = await putAsset(file, 'panel')
       const old = p.assetId
       await ws.act(async () => {
@@ -232,30 +230,6 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
 
 const MAX_REFS = 4
 
-/** 캐릭터 레퍼런스를 긴 변 768px JPEG로 줄여 base64로 (서버 요청 한도 때문) */
-async function referencePayload(ids: string[]) {
-  const out: { mimeType: string; data: string }[] = []
-  for (const id of ids) {
-    const a = await getAsset(id)
-    if (!a) continue
-    try {
-      const bmp = await createImageBitmap(a.blob)
-      const k = Math.min(1, 768 / Math.max(bmp.width, bmp.height))
-      const c = document.createElement('canvas')
-      c.width = Math.round(bmp.width * k)
-      c.height = Math.round(bmp.height * k)
-      const g = c.getContext('2d')!
-      g.fillStyle = '#fff'
-      g.fillRect(0, 0, c.width, c.height)
-      g.drawImage(bmp, 0, 0, c.width, c.height)
-      bmp.close()
-      out.push({ mimeType: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.85).split(',')[1] })
-    } catch {
-      /* 읽을 수 없는 레퍼런스는 건너뜀 */
-    }
-  }
-  return out
-}
 
 /** 피그마로 보내기: 내보내기 파일(.json) + 처음 한 번 받는 플러그인 */
 function FigmaBox() {
