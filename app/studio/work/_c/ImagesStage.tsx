@@ -7,10 +7,11 @@ import { cardName, cardSettings } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { aiImage } from '../actions'
 import { buildFigmaExport } from '@/lib/work/figmaExport'
+import { applyImport, parseFinal, planImport, type FinalFile, type ImportPlan } from '@/lib/work/figmaImport'
 import { downloadBlob } from '@/lib/work/format'
 import JSZip from 'jszip'
 import type { Panel } from '@/lib/work/types'
-import { AssetImage, CopyButton, FilePick, Lightbox, Notice } from './ui'
+import { AssetImage, CopyButton, FilePick, Lightbox, Modal, Notice } from './ui'
 import { useWS } from './Workspace'
 
 export default function ImagesStage() {
@@ -262,7 +263,28 @@ function FigmaBox() {
   const { ep, b } = ws
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [incoming, setIncoming] = useState<{ file: FinalFile; plan: ImportPlan }>()
+  const [withText, setWithText] = useState(true)
   const withImage = b.panels.filter((p) => p.assetId).length
+
+  async function readFinal(f: File) {
+    setMsg('')
+    try {
+      const file = parseFinal(JSON.parse(await f.text()))
+      if (file.episodeId && file.episodeId !== ep.id) throw new Error(`다른 편(「${file.title}」)의 파일이에요. 그 편을 열고 가져와 주세요.`)
+      setWithText(true)
+      setIncoming({ file, plan: planImport(ep, b.panels, file) })
+    } catch (e) {
+      setMsg(`가져오지 못했어요: ${(e as Error).message}`)
+    }
+  }
+
+  async function applyFinal() {
+    if (!incoming) return
+    const r = await ws.act(() => applyImport(ep, incoming.plan, b.slides, withText))
+    setIncoming(undefined)
+    if (r) setMsg(`최종 이미지 ${r.images}장을 붙이고${withText && r.edited ? `, 글자를 고친 ${r.edited}개 장에 반영하고` : ''}, 게시 슬라이드 ${r.slides}장을 맞췄어요. 게시 단계에서 확인하세요.`)
+  }
   const safe = (t: string) => t.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'ttuguri'
 
   async function exportJson() {
@@ -299,6 +321,19 @@ function FigmaBox() {
         <button type="button" className="btn small primary" disabled={busy || !b.panels.length} onClick={exportJson}>
           {busy ? '만드는 중…' : '피그마용 내보내기 (.json)'}
         </button>
+        <label className={`btn small ${busy ? 'disabled' : ''}`}>
+          피그마에서 가져오기 (완성본)
+          <input
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) readFinal(f)
+            }}
+          />
+        </label>
         <button type="button" className="btn small" onClick={pluginZip}>
           플러그인 받기 (처음 한 번)
         </button>
@@ -307,8 +342,51 @@ function FigmaBox() {
       <ol className="small muted figma-steps">
         <li>처음 한 번: ‘플러그인 받기’ zip을 풀고, 피그마 데스크톱 앱 → 메뉴 Plugins → Development → Import plugin from manifest… → 푼 폴더의 manifest.json</li>
         <li>매번: ‘피그마용 내보내기’로 받은 .json을 피그마에서 Plugins → Development → 뚜구리 가져오기 에 넣기</li>
-        <li>장(컷)마다 프레임이 나란히 생기고, 이미지 위에 제목·본문(또는 대사) 글자 레이어가 올라가요. 위치만 다듬고 내보내면 돼요.</li>
+        <li>장(컷)마다 프레임이 나란히 생기고, 이미지 위에 제목·본문(또는 대사) 글자 레이어가 올라가요.</li>
+        <li>다 만들면: 플러그인의 ‘② 선택한 프레임 보내기’ → 받은 *-final.json을 여기 ‘피그마에서 가져오기’에 넣기. 장마다 최종 이미지가 붙고, 피그마에서 고친 글자도 반영되고, 게시 슬라이드까지 맞춰져요.</li>
       </ol>
+      {incoming && (
+        <Modal
+          title="피그마 완성본 가져오기"
+          onClose={() => setIncoming(undefined)}
+          footer={
+            <button type="button" className="btn primary" disabled={!incoming.plan.frames.length} onClick={applyFinal}>
+              가져오기
+            </button>
+          }
+        >
+          <p className="small">
+            <b>{incoming.plan.frames.filter((f) => f.frame.image).length}장</b>을 ‘글자 포함 최종 이미지’로 붙여요. 지금 붙어 있는 그림은 지우지 않고 ‘연결 안 된 이미지’로 보관해요.
+          </p>
+          {incoming.plan.unmatched.length > 0 && (
+            <Notice kind="warn">
+              이 편에 없는 장의 프레임 {incoming.plan.unmatched.length}개({incoming.plan.unmatched.map((f) => f.name).join(', ')})는 건너뛰어요. 사이트에서 장을 지웠거나 다른 편 프레임이에요.
+            </Notice>
+          )}
+          {(() => {
+            const changes = [...(incoming.plan.hook ? [{ where: '첫 장', c: incoming.plan.hook }] : []), ...incoming.plan.frames.flatMap((f) => f.changes.map((c) => ({ where: f.frame.name, c })))]
+            if (!changes.length) return <p className="muted small">피그마에서 바뀐 글자는 없어요.</p>
+            return (
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={withText} onChange={(e) => setWithText(e.target.checked)} /> 피그마에서 고친 글자 {changes.length}곳도 반영 (이전 내용은 버전 이력에 남아요)
+                </label>
+                <ul className="import-changes">
+                  {changes.map(({ where, c }, k) => (
+                    <li key={k}>
+                      <span className="muted small">
+                        {where} · {c.label}
+                      </span>
+                      <span className="old small">{c.from || '(비어 있음)'}</span>
+                      <span className="new small">{c.to || '(비움)'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )
+          })()}
+        </Modal>
+      )}
     </details>
   )
 }

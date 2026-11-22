@@ -1,21 +1,35 @@
 <style>
   body { font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; margin: 0; padding: 16px; color: #222; }
-  h1 { font-size: 15px; margin: 0 0 4px; }
-  p { margin: 0 0 12px; color: #666; }
-  .drop { border: 2px dashed #c9bdf0; border-radius: 12px; padding: 22px 12px; text-align: center; color: #6849b1; cursor: pointer; background: #f7f4ff; }
+  h1 { font-size: 15px; margin: 0 0 12px; }
+  h2 { font-size: 13px; margin: 0 0 4px; }
+  p { margin: 0 0 10px; color: #666; }
+  section { padding: 12px; border: 1px solid #eee; border-radius: 12px; margin-bottom: 10px; }
+  .drop { display: block; border: 2px dashed #c9bdf0; border-radius: 10px; padding: 16px 12px; text-align: center; color: #6849b1; cursor: pointer; background: #f7f4ff; }
   .drop.over { background: #ebe3ff; }
-  #msg { margin-top: 12px; min-height: 20px; }
+  button { width: 100%; padding: 10px; border: 0; border-radius: 10px; background: #7956ce; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  #msg { min-height: 20px; }
+  #msg a { color: #6849b1; font-weight: 700; }
   .bad { color: #c0392b; }
   .ok { color: #2f7d57; }
   input { display: none; }
 </style>
 <h1>뚜구리 가져오기</h1>
-<p>사이트 이미지 단계의 ‘피그마용 내보내기’로 받은 <b>.json</b> 파일을 넣으세요. 장(컷)마다 프레임이 생기고, 글자는 고칠 수 있는 레이어로 들어가요.</p>
-<label class="drop" id="drop">파일 선택 또는 여기로 끌어 놓기<input type="file" id="file" accept=".json,application/json" /></label>
+<section>
+  <h2>① 사이트 → 피그마</h2>
+  <p>이미지 단계의 ‘피그마용 내보내기’로 받은 <b>.json</b>을 넣으면 장(컷)마다 프레임이 생겨요.</p>
+  <label class="drop" id="drop">파일 선택 또는 끌어 놓기<input type="file" id="file" accept=".json,application/json" /></label>
+</section>
+<section>
+  <h2>② 완성본을 사이트로 보내기</h2>
+  <p>다 만든 프레임(또는 그 섹션)을 선택하고 누르세요. 프레임이 PNG로, 고친 글자와 함께 파일 하나로 저장돼요. 사이트 이미지 단계의 ‘피그마에서 가져오기’에 넣으면 끝.</p>
+  <button id="send">선택한 프레임 보내기</button>
+</section>
 <div id="msg"></div>
 <script>
   const msg = document.getElementById('msg');
   const drop = document.getElementById('drop');
+  const send = document.getElementById('send');
   const say = (t, cls) => { msg.textContent = t; msg.className = cls || ''; };
 
   async function take(file) {
@@ -24,7 +38,8 @@
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'ttuguri-studio') throw new Error('뚜구리 스튜디오에서 내보낸 파일이 아니에요.');
-      if (data.version !== 1) throw new Error('파일 버전(' + data.version + ')이 이 플러그인과 달라요. 플러그인을 새로 받아 주세요.');
+      if (data.kind === 'final') throw new Error('이건 사이트로 보낼 완성본 파일이에요. 사이트의 ‘피그마에서 가져오기’에 넣어 주세요.');
+      if (data.version !== 1 && data.version !== 2) throw new Error('파일 버전(' + data.version + ')이 이 플러그인과 달라요. 플러그인을 새로 받아 주세요.');
       say('피그마에 만드는 중… (' + data.frames.length + '개)');
       parent.postMessage({ pluginMessage: { type: 'import', data } }, '*');
     } catch (e) {
@@ -36,11 +51,33 @@
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); take(e.dataTransfer.files[0]); });
+  send.addEventListener('click', () => { send.disabled = true; say('프레임을 모으는 중…'); parent.postMessage({ pluginMessage: { type: 'send' } }, '*'); });
+
+  function download(data) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const name = (data.title || 'ttuguri').replace(/[\\/:*?"<>|]/g, '').slice(0, 40) + '-final.json';
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    msg.className = 'ok';
+    msg.innerHTML = '';
+    msg.append(data.frames.length + '장을 담았어요. 자동으로 안 받아졌으면 ');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.textContent = '여기를 눌러 저장';
+    msg.append(link, '하세요.');
+  }
 
   onmessage = (e) => {
     const m = e.data.pluginMessage;
     if (!m) return;
     if (m.type === 'done') say(m.text, 'ok');
-    if (m.type === 'error') say(m.text, 'bad');
+    if (m.type === 'progress') say(m.text);
+    if (m.type === 'error') { say(m.text, 'bad'); send.disabled = false; }
+    if (m.type === 'final') { download(m.data); send.disabled = false; }
   };
 </script>
