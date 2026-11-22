@@ -23,8 +23,8 @@ export interface Article {
   site: string
   published?: string
   text: string
-  /** fetch = 링크에서 가져옴, paste = 붙여넣음 */
-  from: 'fetch' | 'paste'
+  /** fetch = 링크에서 가져옴, paste = 붙여넣음, instagram = 해외 인스타 게시물 번역 */
+  from: 'fetch' | 'paste' | 'instagram'
   addedAt: string
 }
 

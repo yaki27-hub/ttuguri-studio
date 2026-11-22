@@ -3,7 +3,8 @@
 import { requireAuth } from '@/lib/auth';
 import { fetchTrending } from '@/lib/trends';
 import { fetchAiNews } from '@/lib/ainews';
-import { discoverAccount } from '@/lib/instagram';
+import { discoverAccount, discoverPost } from '@/lib/instagram';
+import { readPostSlides } from '@/lib/ai';
 import { igAccount } from '@/lib/channel';
 
 /** 오늘 급상승 검색어 (30분 캐시) */
@@ -19,13 +20,53 @@ export async function loadTrending(geo = 'KR') {
 const USERNAME = /^[A-Za-z0-9._]{1,30}$/;
 const MAX_ACCOUNTS = 20;
 
+/** 그 채널 계정 토큰, 없으면 다른 채널 계정 (business_discovery 는 어느 계정으로든 된다) */
+function pickAcct(channel) {
+  const mine = igAccount(channel === 'card' ? 'card' : 'toon');
+  const other = igAccount(channel === 'card' ? 'toon' : 'card');
+  return mine.token && mine.userId ? mine : other.token && other.userId ? other : null;
+}
+
+/**
+ * 해외 인스타 게시물 번역: 장별 이미지 글자 + 캡션을 읽어 한국어로.
+ * 이미지 읽기가 안 되면(Gemini 키 없음 등) 캡션만 돌려주고 readError 로 이유를 알린다.
+ */
+export async function translatePost(username, mediaId, channel = 'card') {
+  await requireAuth();
+  const acct = pickAcct(channel);
+  if (!acct) return { error: '인스타 토큰이 연결되지 않았어요.' };
+  const u = String(username || '').trim().replace(/^@/, '').toLowerCase();
+  if (!USERNAME.test(u)) return { error: '계정명이 올바르지 않아요.' };
+  let post;
+  try {
+    post = await discoverPost(u, String(mediaId || ''), acct);
+  } catch (e) {
+    return { error: e.message };
+  }
+  let read = null;
+  let readError = '';
+  try {
+    const images = [];
+    for (const url of post.images) {
+      const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 4_000_000) continue;
+      images.push({ mimeType: (r.headers.get('content-type') || 'image/jpeg').split(';')[0], data: buf.toString('base64') });
+    }
+    if (!images.length) throw new Error('게시물 이미지를 내려받지 못했어요.');
+    read = await readPostSlides({ images, caption: post.caption, account: u });
+  } catch (e) {
+    readError = e.message;
+  }
+  return { post, read, readError };
+}
+
 /** 워치리스트 계정들의 최근 게시물. 계정별 오류는 따로 돌려준다. */
 export async function loadWatchlist(usernames, channel = 'toon') {
   await requireAuth();
   // 그 채널 계정 토큰으로 조회하고, 없으면 다른 채널 계정으로 (business_discovery는 어느 계정으로든 된다)
-  const mine = igAccount(channel === 'card' ? 'card' : 'toon');
-  const other = igAccount(channel === 'card' ? 'toon' : 'card');
-  const acct = mine.token && mine.userId ? mine : other.token && other.userId ? other : null;
+  const acct = pickAcct(channel);
   if (!acct) return { error: '인스타 토큰이 연결되지 않았어요.', accounts: [] };
   const list = [...new Set((Array.isArray(usernames) ? usernames : []).map((u) => String(u).trim().replace(/^@/, '').toLowerCase()))]
     .filter((u) => USERNAME.test(u))

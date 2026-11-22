@@ -25,7 +25,7 @@ export default function ArticleBox() {
   const [err, setErr] = useState<Record<string, string>>({})
   const [paste, setPaste] = useState('')
   const [pasteUrl, setPasteUrl] = useState('')
-  const [open, setOpen] = useState<string>()
+  const [open, setOpen] = useState<string | undefined>(() => (ep.articles ?? []).find((a) => a.from === 'instagram')?.id)
 
   const links = ep.links.filter((l) => /^https?:\/\//.test(l.url.trim()))
   const has = (url: string) => arts.some((a) => a.url === url || a.id === url)
@@ -116,12 +116,12 @@ export default function ArticleBox() {
           {arts.map((a) => (
             <li key={a.id}>
               <button type="button" className="link-btn" onClick={() => setOpen(open === a.id ? undefined : a.id)}>
-                {a.from === 'paste' ? '📋' : '📰'} {a.site} · {a.title || '(제목 없음)'} <span className="muted">({a.text.length.toLocaleString()}자)</span>
+                {a.from === 'paste' ? '📋' : a.from === 'instagram' ? '📸' : '📰'} {a.site} · {a.title || '(제목 없음)'} <span className="muted">({a.text.length.toLocaleString()}자)</span>
               </button>
               <button type="button" className="btn ghost small" aria-label="이 기사 빼기" onClick={() => save(arts.filter((x) => x.id !== a.id))}>
                 ✕
               </button>
-              {open === a.id && <pre className="body-text art-text">{a.text.slice(0, 3000)}{a.text.length > 3000 ? '\n…' : ''}</pre>}
+              {open === a.id && <pre className="body-text art-text">{a.text.slice(0, 8000)}{a.text.length > 8000 ? '\n…' : ''}</pre>}
             </li>
           ))}
         </ul>

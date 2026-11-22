@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { getSettings, saveSettings } from '@/lib/work/repo'
+import { createEpisode, getSettings, saveSettings } from '@/lib/work/repo'
+import { useRouter } from 'next/navigation'
 import { DuplicateRefError, createReference, fmtCount, listReferences, normalizeUrl } from '@/lib/work/refs'
 import { onBroadcast, uid } from '@/lib/work/db'
 import { fmtDate } from '@/lib/work/format'
 import type { CharacterSettings, Topic } from '@/lib/work/types'
-import { loadTrending, loadWatchlist } from './actions'
+import { loadTrending, loadWatchlist, translatePost } from './actions'
 import { matchTopics as matchAny } from '@/lib/topics'
 import { Notice } from '../work/_c/ui'
 import AiNews from './AiNews'
@@ -243,6 +244,42 @@ function WatchSection({ igReady, watch, topics, onWatch, channel }: { igReady: b
 
   const failed = (data?.accounts ?? []).filter((a) => a.error)
 
+  const router = useRouter()
+  const [busyPost, setBusyPost] = useState('')
+
+  /** 해외 게시물 → 장별 글자·캡션 번역 → 카드뉴스 작업 (번역본은 ‘기사 읽기’에 들어간다) */
+  async function translate(p: Post & { account: string }) {
+    setBusyPost(p.id)
+    setMsg('')
+    try {
+      const r = await translatePost(p.account, p.id, channel)
+      if (r.error || !r.post) throw new Error(r.error || '게시물을 가져오지 못했어요.')
+      const { post, read, readError } = r
+      const lines = [
+        `[인스타 게시물] @${post.username} · ${fmtDate(post.timestamp)} · ♥ ${post.likes ?? '숨김'} · 💬 ${post.comments ?? 0}`,
+        read?.summary && `요약: ${read.summary}`,
+        '',
+        ...(read?.slides ?? []).flatMap((x: { n: number; original: string; ko: string }) => [`[${x.n}장]`, `원문: ${x.original}`, `번역: ${x.ko}`, '']),
+        read?.captionKo && `[캡션 번역]\n${read.captionKo}\n`,
+        `[캡션 원문]\n${post.caption}`,
+        readError && `\n(이미지 속 글자는 읽지 못했어요: ${readError})`,
+      ].filter((x) => typeof x === 'string')
+      const first = (read?.summary || post.caption.split('\n')[0] || `@${post.username} 게시물`).slice(0, 80)
+      const ep = await createEpisode(`[해외 인스타] @${post.username}: ${first}\n${post.permalink}`, {
+        contentType: 'cardnews',
+        title: first.slice(0, 40),
+        titleIsAuto: true,
+        links: [{ id: uid(), url: post.permalink, note: `@${post.username} 인스타 게시물` }],
+        articles: [{ id: uid(), url: post.permalink, title: first, site: `@${post.username}`, published: post.timestamp, text: lines.join('\n').slice(0, 20000), from: 'instagram', addedAt: new Date().toISOString() }],
+        articleSummary: read?.summary || undefined,
+      })
+      router.push(`/studio/work/${ep.id}?stage=source`)
+    } catch (e) {
+      setMsg(`번역하지 못했어요: ${(e as Error).message}`)
+      setBusyPost('')
+    }
+  }
+
   async function star(p: Post & { account: string }) {
     try {
       await createReference({
@@ -369,6 +406,11 @@ function WatchSection({ igReady, watch, topics, onWatch, channel }: { igReady: b
                     <button type="button" className={`btn small ${on ? '' : 'primary'}`} disabled={on} onClick={() => star(p)}>
                       {on ? '★ 보드에 있음' : '⭐ 보드에 담기'}
                     </button>
+                    {channel === 'card' && p.type !== 'reel' && (
+                      <button type="button" className="btn small" disabled={!!busyPost} onClick={() => translate(p)}>
+                        {busyPost === p.id ? '읽고 번역하는 중… (20~40초)' : '🌐 번역해서 카드뉴스로'}
+                      </button>
+                    )}
                   </div>
                 </li>
               )

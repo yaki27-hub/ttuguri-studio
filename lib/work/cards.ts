@@ -131,6 +131,9 @@ function sourceOf(ep: Episode) {
     read &&
       [
         '사실 사용 규칙:',
+        ...((ep.articles ?? []).some((a) => a.from === 'instagram')
+          ? ['- 해외 인스타 게시물에서 온 내용이다. 그 게시물의 장 구성·문장·예시를 그대로 옮기지 말고, 사실만 가져와 새로 구성한다.']
+          : []),
         '- 본문 장은 [확인] 사실로 채운다. 숫자·날짜·제품명·요금제 이름은 사실에 적힌 그대로.',
         '- [주장·추정]은 "~라고 밝혔다/주장했다"처럼 누가 한 말인지 붙여서만 쓴다.',
         '- 사실 목록에 없는 내용을 덧붙이지 않는다. 장마다 근거 사실 번호를 check 맨 앞에 "근거 F1, F3"처럼 적고, 확인할 게 있으면 그 뒤에 이어 쓴다.',
@@ -174,7 +177,11 @@ ${a.text.slice(0, per)}
   - quote: 근거가 된 원문 문장 그대로(영어면 영어로, 200자 이내).
 - unknowns: 기사만으로는 알 수 없어 작가가 확인해야 할 것 (한국 출시, 요금, 날짜 등). 최대 4개.
 - reliability: 출처 신뢰도 한 줄. 공식 발표/주요 매체/개인 블로그·출처 불명 중 무엇인지, 제목과 본문이 다르면 그 점도.
-- 기사에 없는 내용은 쓰지 않는다. 본문이 광고·목록 페이지라 내용이 없으면 facts를 비우고 reliability에 그렇게 적는다.${JSON_ONLY}
+- 기사에 없는 내용은 쓰지 않는다. 본문이 광고·목록 페이지라 내용이 없으면 facts를 비우고 reliability에 그렇게 적는다.${
+    arts.some((a) => a.from === 'instagram')
+      ? '\n- 인스타그램 게시물은 1차 출처가 아니다. 게시물이 인용한 원래 출처(공식 발표·기사·논문)를 reliability에 적고, 원 출처 확인을 unknowns 첫 번째로 넣는다. 게시물 속 주장은 proposed로.'
+      : ''
+  }${JSON_ONLY}
 {"summary":"","facts":[{"text":"","status":"confirmed|proposed","quote":""}],"unknowns":[""],"reliability":""}`
 }
 
@@ -344,6 +351,9 @@ ${slides.map((sl, i) => `${i + 1}. ${sl.id} 장: ${sl.panelIds.map((id) => panel
 - question: 경험을 묻는 댓글 질문(선택, 억지스러우면 빈 문자열).
 - hashtags: 주제 관련 5~10개(# 없이). 너무 넓은 태그만 쓰지 말 것.
 - slides: 슬라이드별 대체텍스트 — 그 장 글을 그대로 읽어 주는 문장.
-실명·회사명 노출 금지(기사에 나온 회사·서비스 이름은 괜찮음).${JSON_ONLY}
+실명·회사명 노출 금지(기사에 나온 회사·서비스 이름은 괜찮음).${(() => {
+    const ig = (ep.articles ?? []).filter((a) => a.from === 'instagram').map((a) => a.site)
+    return ig.length ? `\n- caption 마지막에 출처를 한 줄로 밝힌다: "출처: ${ig.join(', ')}"` : ''
+  })()}${JSON_ONLY}
 {"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
 }
