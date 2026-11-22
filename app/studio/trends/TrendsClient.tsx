@@ -2,17 +2,19 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { createEpisode, getSettings, saveSettings } from '@/lib/work/repo'
+import { getSettings, saveSettings } from '@/lib/work/repo'
 import { useRouter } from 'next/navigation'
 import { DuplicateRefError, createReference, fmtCount, listReferences, normalizeUrl } from '@/lib/work/refs'
 import { onBroadcast, uid } from '@/lib/work/db'
 import { fmtDate } from '@/lib/work/format'
 import type { CharacterSettings, Topic } from '@/lib/work/types'
 import { loadTrending, loadWatchlist, translatePost } from './actions'
+import { episodeFromTranslation, type Translation } from '@/lib/work/translated'
 import { matchTopics as matchAny } from '@/lib/topics'
 import { Notice } from '../work/_c/ui'
 import AiNews from './AiNews'
 import HookLibrary from './HookLibrary'
+import AccountAnalysis from './AccountAnalysis'
 
 interface Trend {
   title: string
@@ -81,6 +83,7 @@ export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: b
           <div className="finder-watch">
             {card ? <AiNews topics={topics} /> : <HookLibrary />}
             <WatchSection igReady={igReady} watch={watch} topics={topics} channel={channel} onWatch={(w) => patchSettings({ watchlist: w })} />
+            {card && <AccountAnalysis igReady={igReady} watch={watch} onWatch={(w) => patchSettings({ watchlist: w })} />}
           </div>
           <div className="finder-topics">
             <TopicEditor topics={topics} onSave={(t) => patchSettings({ topics: t })} />
@@ -254,25 +257,7 @@ function WatchSection({ igReady, watch, topics, onWatch, channel }: { igReady: b
     try {
       const r = await translatePost(p.account, p.id, channel)
       if (r.error || !r.post) throw new Error(r.error || '게시물을 가져오지 못했어요.')
-      const { post, read, readError } = r
-      const lines = [
-        `[인스타 게시물] @${post.username} · ${fmtDate(post.timestamp)} · ♥ ${post.likes ?? '숨김'} · 💬 ${post.comments ?? 0}`,
-        read?.summary && `요약: ${read.summary}`,
-        '',
-        ...(read?.slides ?? []).flatMap((x: { n: number; original: string; ko: string }) => [`[${x.n}장]`, `원문: ${x.original}`, `번역: ${x.ko}`, '']),
-        read?.captionKo && `[캡션 번역]\n${read.captionKo}\n`,
-        `[캡션 원문]\n${post.caption}`,
-        readError && `\n(이미지 속 글자는 읽지 못했어요: ${readError})`,
-      ].filter((x) => typeof x === 'string')
-      const first = (read?.summary || post.caption.split('\n')[0] || `@${post.username} 게시물`).slice(0, 80)
-      const ep = await createEpisode(`[해외 인스타] @${post.username}: ${first}\n${post.permalink}`, {
-        contentType: 'cardnews',
-        title: first.slice(0, 40),
-        titleIsAuto: true,
-        links: [{ id: uid(), url: post.permalink, note: `@${post.username} 인스타 게시물` }],
-        articles: [{ id: uid(), url: post.permalink, title: first, site: `@${post.username}`, published: post.timestamp, text: lines.join('\n').slice(0, 20000), from: 'instagram', addedAt: new Date().toISOString() }],
-        articleSummary: read?.summary || undefined,
-      })
+      const ep = await episodeFromTranslation(r as Translation)
       router.push(`/studio/work/${ep.id}?stage=source`)
     } catch (e) {
       setMsg(`번역하지 못했어요: ${(e as Error).message}`)
