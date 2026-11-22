@@ -1,22 +1,15 @@
 'use server';
 
-// 레퍼런스 하나로 "비슷한 것 찾기": 주제어 뽑기 → 인스타 해시태그 검색 / 해외 웹 검색
+// 레퍼런스 하나로 "비슷한 것 찾기": 주제어 뽑기 → 구글 검색으로 인스타 게시물·해외/국내 웹 찾기
+// (인스타 해시태그 API는 메타 앱 심사(Instagram Public Content Access)가 필요해서 쓰지 않는다)
 import { requireAuth } from '@/lib/auth';
 import { generateJSON, isGroundingUrl, resolveGroundingUrl, searchWebJSON } from '@/lib/ai';
-import { searchHashtagMedia } from '@/lib/instagram';
-import { igAccount } from '@/lib/channel';
+import { parseIgPostUrl, readIgPost } from '@/lib/igpage';
 
 const clip = (s, n) => String(s || '').slice(0, n);
 const list = (v, n) => (Array.isArray(v) ? v : []).map((x) => String(x || '').trim()).filter(Boolean).slice(0, n);
 /** 인스타 해시태그로 쓸 수 있는 글자만 (한글·영문·숫자·_) */
 const cleanTag = (t) => String(t || '').replace(/^#/, '').replace(/[^\p{L}\p{N}_]/gu, '').toLowerCase().slice(0, 50);
-
-/** 그 채널 계정 토큰, 없으면 다른 채널 계정 */
-function pickAcct(channel) {
-  const mine = igAccount(channel === 'card' ? 'card' : 'toon');
-  const other = igAccount(channel === 'card' ? 'toon' : 'card');
-  return mine.token && mine.userId ? mine : other.token && other.userId ? other : null;
-}
 
 /**
  * 레퍼런스에서 검색할 주제어를 뽑는다.
@@ -60,41 +53,68 @@ ${text}
 }
 
 /**
- * 해시태그별 인기 게시물. 7일 동안 30개 제한이 있어 한 번에 3개까지만.
- * 태그별 오류는 따로 돌려준다.
- */
-export async function similarHashtags(tags = [], channel = 'card', edge = 'top_media') {
-  await requireAuth();
-  const acct = pickAcct(channel);
-  if (!acct) return { error: '인스타 토큰이 연결되지 않았어요.', results: [] };
-  const picked = [...new Set(list(tags, 3).map(cleanTag).filter(Boolean))];
-  if (!picked.length) return { error: '검색할 해시태그를 골라 주세요.', results: [] };
-  const results = await Promise.all(picked.map(async (tag) => {
-    try {
-      return { tag, media: await searchHashtagMedia(tag, acct, edge === 'recent_media' ? 'recent_media' : 'top_media') };
-    } catch (e) {
-      const msg = String(e.message || '');
-      const hint = /permission|permitted|access/i.test(msg)
-        ? ' (메타 앱에 해시태그 검색 권한이 없을 수 있어요)'
-        : /limit|too many/i.test(msg) ? ' (7일 동안 해시태그 30개 제한에 걸렸을 수 있어요)' : '';
-      return { tag, media: [], error: msg + hint };
-    }
-  }));
-  return { results };
-}
-
-/**
  * 해외(또는 국내) 웹에서 비슷한 사례 찾기.
  * 모델이 적은 링크는 실제로 검색된 페이지 목록(sources)과 맞는 것만 남긴다.
  */
-export async function similarWeb(query, topic = '', lang = 'en') {
+/**
+ * 인스타 결과 확인: 게시물 페이지를 직접 열어 실제로 있는지 보고, 계정·좋아요·댓글·날짜를 채운다.
+ * - 페이지 정보가 읽히면 → 확인됨 (지표 포함)
+ * - 못 읽어도 구글 중계 주소로 확인된 링크면 → 지표 없이 남김
+ * - 둘 다 아니면(모델이 적기만 한 링크) → 버림
+ */
+async function verifyIgItems(raw, resolved, sources) {
+  const seen = new Set();
+  const cands = [];
+  const push = (url, it, viaGoogle) => {
+    const p = parseIgPostUrl(url);
+    if (!p || seen.has(p.code)) return;
+    seen.add(p.code);
+    cands.push({ url, it, viaGoogle });
+  };
+  raw.forEach((it, i) => push(resolved[i] || (isGroundingUrl(it?.url) ? '' : String(it?.url || '')), it, !!resolved[i]));
+  sources.forEach((s) => push(s.url, { title: s.title }, true));
+  const pages = await Promise.all(cands.slice(0, 12).map((c) => readIgPost(c.url)));
+  const items = [];
+  cands.slice(0, 12).forEach((c, i) => {
+    const page = pages[i];
+    if (!page && !c.viaGoogle) return;
+    const p = parseIgPostUrl(c.url);
+    const account = page?.account || p.account || '';
+    items.push({
+      title: clip(c.it?.title || page?.caption.split('\n')[0], 200),
+      url: page?.url || c.url,
+      source: account ? `@${account}` : 'Instagram',
+      account,
+      why: clip(c.it?.why, 200),
+      angle: clip(c.it?.angle, 200),
+      likes: page?.likes ?? null,
+      comments: page?.comments ?? null,
+      date: page?.date || '',
+      caption: clip(page?.caption, 2000),
+      image: page?.image || '',
+    });
+  });
+  return items;
+}
+
+/** scope: 'ig'(구글에 잡힌 인스타 게시물) | 'en'(해외 웹) | 'ko'(국내 웹) */
+export async function similarWeb(query, topic = '', scope = 'ig') {
   await requireAuth();
   const q = clip(query, 200).trim();
   if (!q) return { error: '검색어를 적어 주세요.' };
-  const en = lang !== 'ko';
+  const ig = scope === 'ig';
+  const en = scope === 'en';
+  const igPrompt = `구글에서 site:instagram.com 으로 아래 주제와 비슷한 인스타그램 게시물을 찾아라. 국내·해외 계정 모두 좋다.
+우선순위: 카드뉴스·캐러셀 게시물, 그다음 릴스.
+검색어: ${q}
+${topic ? `주제: ${clip(topic, 200)}` : ''}
+
+검색 결과에 실제로 나온 instagram.com/p/ 또는 /reel/ 게시물 페이지만 최대 8개. 없는 링크를 지어내지 말 것.
+각 항목: title(게시물 첫 문장이나 내용 요약), url(검색 결과 링크를 그대로), account(알 수 있으면 계정명, @ 없이. 모르면 빈 문자열), why(이 주제와 어떻게 비슷한지 한국어 한 줄), angle(내 카드뉴스에 빌려올 만한 관점·구성 한국어 한 줄).
+출력은 JSON 하나만: {"items":[{"title":"","url":"","account":"","why":"","angle":""}]}`;
   try {
     const { data, sources } = await searchWebJSON({
-      prompt: `${en ? '해외(영어권)' : '국내'} 웹에서 아래 주제와 비슷한 콘텐츠를 찾아라.
+      prompt: ig ? igPrompt : `${en ? '해외(영어권)' : '국내'} 웹에서 아래 주제와 비슷한 콘텐츠를 찾아라.
 우선순위: 인스타그램 카드뉴스·캐러셀 게시물, 같은 주제를 다룬 뉴스레터·블로그·기사.
 검색어: ${q}
 ${topic ? `주제: ${clip(topic, 200)}` : ''}
@@ -109,6 +129,7 @@ ${topic ? `주제: ${clip(topic, 200)}` : ''}
     const raw = (Array.isArray(data?.items) ? data.items : []).slice(0, 10);
     // 모델이 구글 중계 주소를 그대로 적은 경우: 풀리면 실제 검색 결과다
     const resolved = await Promise.all(raw.map((it) => resolveGroundingUrl(it?.url)));
+    if (ig) return { items: await verifyIgItems(raw, resolved, real), others: [] };
     const used = new Set();
     const items = [];
     raw.forEach((it, i) => {
@@ -121,7 +142,7 @@ ${topic ? `주제: ${clip(topic, 200)}` : ''}
       }
       if (!real1 || used.has(real1)) return; // 확인 안 되는 링크는 버린다
       used.add(real1);
-      items.push({ title: clip(it.title, 200), url: real1, source: clip(it.source, 80) || host(real1), why: clip(it.why, 200), angle: clip(it.angle, 200) });
+      items.push({ title: clip(it.title, 200), url: real1, source: clip(it.source, 80) || host(real1), account: '', why: clip(it.why, 200), angle: clip(it.angle, 200) });
     });
     // 모델이 따로 소개하지 않은, 검색된 나머지 페이지
     const others = real.filter((s) => !used.has(s.url)).map((s) => ({ url: s.url, title: s.title || host(s.url) }));
