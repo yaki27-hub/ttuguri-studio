@@ -323,3 +323,82 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
 }
 .src-list { margin: 4px 0 8px; padding-left: 18px; }
 .post.no-ep { grid-template-columns: 72px 1fr; }
+
+/* ===== 성과 보드: 기간·차트·확인할 일·목록 도구 ===== */
+.btn:focus-visible, .seg button:focus-visible, .list-tools :is(input, select):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--surface); }
+.btn.ghost:disabled:hover { background: transparent; }
+.btn.small { height: 30px; padding: 0 10px; font-size: 12px; border-radius: 9px; }
+
+.board-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 12px; }
+.seg button {
+  font: inherit; font-size: 13px; font-weight: 600; height: 32px; padding: 0 12px;
+  border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.seg button:hover { color: var(--text); }
+.seg button.on { background: var(--surface); color: var(--accent-strong); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.seg.small button { height: 26px; padding: 0 9px; font-size: 12px; }
+
+.kpis.five { grid-template-columns: repeat(5, 1fr); }
+.kpi em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.charts { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
+.charts.one { grid-template-columns: 1fr; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.panel h2 { font-size: 15px; margin: 0; }
+.panel > p.small { margin: 6px 0 0; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.chart .bar { fill: var(--accent); }
+.chart .bar:hover { fill: var(--accent-strong); }
+.chart .bar.zero { fill: var(--line); }
+
+.hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hbars li { display: grid; grid-template-columns: 78px 1fr 28px; align-items: center; gap: 8px; font-size: 13px; }
+.hb-label { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hb-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.hb-track span { display: block; height: 100%; background: var(--bar); border-radius: 5px; }
+.hbars b { text-align: right; font-variant-numeric: tabular-nums; }
+
+.todo { margin-bottom: 20px; }
+.todo ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.todo li { display: flex; align-items: center; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+.todo li > span:nth-child(2) { flex: 1; min-width: 180px; }
+.todo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+.todo li.warn .todo-dot { background: var(--warn); }
+.todo li.bad .todo-dot { background: var(--bad); }
+
+.list-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; scroll-margin-top: 16px; }
+.list-tools input, .list-tools select {
+  height: 38px; padding: 0 10px; font: inherit; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text);
+}
+.list-tools input { flex: 1; min-width: 160px; }
+.list-tools .count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.empty p { margin: 0 0 10px; }
+
+/* 불러오는 중 */
+.skel { background: var(--surface-2); border-radius: var(--radius); animation: skel 1.2s ease-in-out infinite alternate; }
+@keyframes skel { from { opacity: .55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.skel-kpi { height: 84px; }
+.skel-chart { height: 230px; margin-bottom: 10px; }
+.skel-row { height: 110px; margin-bottom: 10px; }
+
+@media (max-width: 900px) {
+  .charts { grid-template-columns: 1fr; }
+  .kpis.five { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 480px) {
+  .kpis.five { grid-template-columns: repeat(2, 1fr); }
+  .list-tools input { flex-basis: 100%; }
+  .list-tools select, .list-tools .btn { flex: 1 1 40%; min-width: 0; }
+  .list-tools .count { margin-left: 0; }
+}
