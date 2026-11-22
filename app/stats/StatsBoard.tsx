@@ -286,7 +286,7 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
   return (
     <>
       <div className="board-bar">
-        <div className="seg" role="group" aria-label="기간 선택">
+        <div className="pill-seg" role="group" aria-label="기간 선택">
           {PERIODS.map(([v, label]) => (
             <button key={v} type="button" className={period === v ? 'on' : ''} aria-pressed={period === v} onClick={() => setPeriod(v)}>{label}</button>
           ))}
@@ -304,10 +304,10 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
       </section>
 
       <section className={`charts ${card ? 'one' : ''}`}>
-        <div className="panel">
-          <div className="panel-head">
+        <div className="stat-panel">
+          <div className="stat-head">
             <h2>게시일별 {METRICS.find(([m]) => m === metric)?.[1]}</h2>
-            <div className="seg small" role="group" aria-label="차트 지표">
+            <div className="pill-seg small" role="group" aria-label="차트 지표">
               {METRICS.map(([m, label]) => (
                 <button key={m} type="button" className={metric === m ? 'on' : ''} aria-pressed={metric === m} onClick={() => setMetric(m)}>{label}</button>
               ))}
@@ -317,16 +317,16 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
           <p className="muted small">그날 올린 게시물의 지금까지 누적값이에요. 막대에 마우스를 올리면 숫자가 보여요.</p>
         </div>
         {!card && (
-          <div className="panel">
-            <div className="panel-head"><h2>제작 상태별 에피소드</h2></div>
+          <div className="stat-panel">
+            <div className="stat-head"><h2>제작 상태별 에피소드</h2></div>
             <StatusChart counts={statusCounts} />
             <p className="muted small">노션 에피소드 DB 전체 기준 (기간과 상관없음)</p>
           </div>
         )}
       </section>
 
-      <section className="panel todo" aria-label="확인할 일">
-        <div className="panel-head"><h2>확인할 일</h2></div>
+      <section className="stat-panel todo" aria-label="확인할 일">
+        <div className="stat-head"><h2>확인할 일</h2></div>
         {todos.length ? (
           <ul>
             {todos.map((t) => (

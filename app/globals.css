@@ -224,6 +224,12 @@ h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.04em; }
   .side-foot { display: block; margin-top: auto; padding: 14px; border-radius: var(--radius); background: var(--accent-soft); }
   .side-foot b { display: block; font-size: 12px; color: var(--accent-strong); }
   .side-foot p { margin: 6px 0 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
+  /* 위쪽 메뉴·아래 안내는 고정, 늘어나는 '진행 중' 목록만 스크롤 */
+  .side-nav > * { flex: none; }
+  .side-nav .tabs { overflow: visible; max-width: none; }
+  .side-nav > .side-eps { flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; }
+  .side-eps ul { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .side-eps .side-label, .side-eps .side-more { flex: none; }
   .wrap.narrow { max-width: 760px; }
   .top .brand .brand-mark { display: none; }
 }
@@ -325,33 +331,29 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
 .post.no-ep { grid-template-columns: 72px 1fr; }
 
 /* ===== 성과 보드: 기간·차트·확인할 일·목록 도구 ===== */
-.btn:focus-visible, .seg button:focus-visible, .list-tools :is(input, select):focus-visible {
+.btn:focus-visible, .pill-seg button:focus-visible, .list-tools :is(input, select):focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn:disabled:hover { background: var(--surface); }
-.btn.ghost:disabled:hover { background: transparent; }
-.btn.small { height: 30px; padding: 0 10px; font-size: 12px; border-radius: 9px; }
 
 .board-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
-.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 12px; }
-.seg button {
+.pill-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 12px; }
+.pill-seg button {
   font: inherit; font-size: 13px; font-weight: 600; height: 32px; padding: 0 12px;
   border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer;
 }
-.seg button:hover { color: var(--text); }
-.seg button.on { background: var(--surface); color: var(--accent-strong); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-.seg.small button { height: 26px; padding: 0 9px; font-size: 12px; }
+.pill-seg button:hover { color: var(--text); }
+.pill-seg button.on { background: var(--surface); color: var(--accent-strong); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.pill-seg.small button { height: 26px; padding: 0 9px; font-size: 12px; }
 
 .kpis.five { grid-template-columns: repeat(5, 1fr); }
 .kpi em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
 .charts.one { grid-template-columns: 1fr; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-.panel h2 { font-size: 15px; margin: 0; }
-.panel > p.small { margin: 6px 0 0; }
+.stat-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.stat-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.stat-panel h2 { font-size: 15px; margin: 0; }
+.stat-panel > p.small { margin: 6px 0 0; }
 
 .chart { width: 100%; height: auto; display: block; }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
