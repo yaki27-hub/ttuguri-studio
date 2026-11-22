@@ -9,7 +9,8 @@
 import { designOf, isDark } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
-import type { CharacterSettings, ImageMemo, Panel } from './types'
+import { SHOT_CAMERA, SHOT_LABEL } from './shots'
+import type { CharacterSettings, ImageMemo, Panel, Shot } from './types'
 
 const NO_TEXT =
   '이미지 안에 어떤 글자도 넣지 마: 한글·영어·숫자·말풍선·간판·화면 속 글씨·종이 위 글씨 모두 금지. 종이나 화면이 나오면 선이나 빈칸으로만 표현해.'
@@ -17,7 +18,7 @@ const ONE_FRAME = '한 장면을 한 칸에 꽉 채워 그려. 칸 나누기·�
 
 function refLine(s: CharacterSettings, refCount: number) {
   if (!refCount) return ''
-  return `함께 보낸 이미지 ${refCount}장은 주인공 「${s.characterName}」의 캐릭터 레퍼런스야. 얼굴·몸 비율·색·선 굵기를 그대로 따르고, 새로운 디자인으로 바꾸지 마. 단, 레퍼런스 속 배경·소품·구도·포즈는 따라 하지 말고 아래 '그릴 것'의 장면을 새로 그려.`
+  return `함께 보낸 이미지 ${refCount}장은 주인공 「${s.characterName}」의 캐릭터 레퍼런스야. 얼굴·몸 비율·색·선 굵기를 그대로 따르고, 새로운 디자인으로 바꾸지 마. 단, 레퍼런스 속 배경·소품·구도·포즈·카메라 거리는 따라 하지 말고, 아래 '카메라'와 장면대로 새로 그려.`
 }
 
 function styleLines(s: CharacterSettings, memo: ImageMemo) {
@@ -62,8 +63,10 @@ export function cardGenPrompt(p: Panel, i: number, count: number, s: CharacterSe
     .trim()
 }
 
-/** 인스타툰 한 컷 (대사는 피그마에서 올리므로 그림에는 넣지 않는다) */
-export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: ImageMemo, refCount = 0) {
+/** 인스타툰 한 컷 (대사는 피그마에서 올리므로 그림에는 넣지 않는다).
+ *  shot = 이 컷의 카메라, near = 앞뒤 컷의 카메라 (같은 그림이 반복되지 않게) */
+export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: ImageMemo, refCount = 0, shot: Shot = 'medium', near: Shot[] = []) {
+  const others = [...new Set(near.filter((x) => x !== shot))].map((x) => SHOT_LABEL[x])
   const cast = (p.cast ?? []).map((c) => {
     const pos = { left: '왼쪽', center: '가운데', right: '오른쪽', '': '' }[c.position]
     const act = c.action.split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(', ')
@@ -75,17 +78,21 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     NO_TEXT,
     '대사는 나중에 따로 올리니 말풍선 자리만 위쪽에 조금 비워 둬.',
     '',
+    `카메라(${SHOT_LABEL[shot]}): ${SHOT_CAMERA[shot]}`,
+    `이 편의 컷들은 카메라 거리·각도·포즈가 서로 달라야 해. 다른 컷처럼 '책상 앞에 앉아 모니터를 보는 같은 구도'를 반복하지 마.${others.length ? ` (앞뒤 컷은 ${others.join('·')}이야.)` : ''}`,
+    '',
     `장면: ${p.scene || '(미정)'}`,
     p.action.trim() && `행동·표정: ${p.action.trim()}`,
     cast.length ? `인물:\n${cast.join('\n')}` : '',
     p.direction.trim() && `핵심 연출: ${p.direction.trim()}`,
-    memo.composition.trim() && `구도: ${memo.composition.trim()}`,
-    memo.placement.trim() && `배치: ${memo.placement.trim()}`,
+    // 편 전체 메모는 모든 컷에 같이 들어가므로, 카메라 지시와 부딪히면 카메라가 우선
+    memo.composition.trim() && `편 전체 구도 참고(위 카메라가 우선): ${memo.composition.trim()}`,
+    memo.placement.trim() && shot !== 'detail' && `배치 참고: ${memo.placement.trim()}`,
     memo.direction.trim() && `연출: ${memo.direction.trim()}`,
     refLine(s, refCount),
     ...styleLines(s, memo),
     '',
-    `다시 한 번: ${ONE_FRAME} 글자·말풍선 금지.`,
+    `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.`,
   ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')

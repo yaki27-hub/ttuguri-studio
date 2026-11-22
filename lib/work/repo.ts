@@ -233,6 +233,7 @@ export function snapshotOf(p: Panel): PanelSnapshot {
     action: p.action,
     cast: p.cast ?? [],
     direction: p.direction ?? '',
+    ...(p.shot ? { shot: p.shot } : {}),
     dialogue: p.dialogue,
     narration: p.narration,
     productionNotes: p.productionNotes,

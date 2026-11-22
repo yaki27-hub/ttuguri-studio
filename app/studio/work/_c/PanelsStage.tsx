@@ -11,7 +11,8 @@ import {
 } from '@/lib/work/prompts'
 import { uid } from '@/lib/work/db'
 import { FORMATS, FORMAT_LABEL, byPage, countRange, fitCount, fmtDateTime, fmtDuration } from '@/lib/work/format'
-import type { CastItem, CastPosition, Episode, Format, ImageMemo, Panel, Ratio } from '@/lib/work/types'
+import type { CastItem, CastPosition, Episode, Format, ImageMemo, Panel, Ratio, Shot } from '@/lib/work/types'
+import { SHOTS, SHOT_HINT, SHOT_LABEL, shotPlan } from '@/lib/work/shots'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
 import { useWS } from './Workspace'
@@ -275,6 +276,31 @@ export default function PanelsStage() {
   )
 }
 
+/** 컷의 카메라. 비워 두면 내용·순서로 자동으로 정하고, 앞 컷과 겹치지 않게 바꾼다 */
+function ShotField({ p, i, onChange }: { p: Panel; i: number; onChange: (s: Shot | undefined) => void }) {
+  const ws = useWS()
+  const plan = shotPlan(ws.b.panels)
+  const cur = plan[i]?.shot ?? 'medium'
+  const prev = plan[i - 1]?.shot
+  return (
+    <div className="field">
+      <label htmlFor={`shot-${p.id}`}>카메라</label>
+      <select id={`shot-${p.id}`} value={p.shot ?? ''} disabled={p.locked} onChange={(e) => onChange((e.target.value || undefined) as Shot | undefined)}>
+        <option value="">자동 · {SHOT_LABEL[cur]}</option>
+        {SHOTS.map((k) => (
+          <option key={k} value={k}>
+            {SHOT_LABEL[k]}
+          </option>
+        ))}
+      </select>
+      <p className="hint">
+        {SHOT_HINT[cur]}
+        {prev === cur && <span className="warn-text"> · 앞 컷과 같은 카메라예요</span>}
+      </p>
+    </div>
+  )
+}
+
 function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: boolean; onMove: (d: number) => void; count: number }) {
   const ws = useWS()
   const { ep, b, story } = ws
@@ -311,6 +337,7 @@ function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: b
         {p.action && <Field label="행동·표정 (컷 전체)" value={p.action} readOnly={p.locked} rows={1} onChange={(v) => edit({ action: v })} className="wide" />}
         <CastEditor p={p} />
         <Field label="핵심 연출" value={p.direction} readOnly={p.locked} rows={1} onChange={(v) => edit({ direction: v })} className="wide" placeholder="예) 두 캐릭터 사이의 거리와 대비를 강조" />
+        {ws.ep.contentType !== 'cardnews' && <ShotField p={p} i={i} onChange={(shot) => edit({ shot })} />}
         <Field label={p.cast.length ? '기타 대사·효과음' : '대사'} value={p.dialogue} readOnly={p.locked} rows={1} onChange={(v) => edit({ dialogue: v })} />
         <Field label={textLabel(ep.format)} value={p.narration} readOnly={p.locked} rows={ep.format === 'info' && p.narration.includes('\n') ? 4 : 1} onChange={(v) => edit({ narration: v })} className={byPage(ep.format) ? 'dialogue' : ''} />
         <Field label="제작 메모" value={p.productionNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ productionNotes: v })} />
@@ -556,6 +583,7 @@ function DraftCompare({ items, panels }: { items: PanelDraftItem[]; panels: Pane
               <p key={k}>· {line}</p>
             ))}
             {it.direction && <p>핵심 연출: {it.direction}</p>}
+            {it.shot && <p>카메라: {SHOT_LABEL[it.shot]}</p>}
             {dialogueLines(it).map((d, k) => (
               <p key={k} className="pv-dialogue">
                 {d}

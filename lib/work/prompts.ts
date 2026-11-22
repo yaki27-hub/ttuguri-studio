@@ -1,7 +1,8 @@
-import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
+import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Shot, Slide, StoryVersion } from './types'
 import { FORMAT_LABEL, byPage, countRange } from './format'
 import { hookBlock } from './hooks'
 import type { PanelDraftItem } from './repo'
+import { SHOTS, SHOT_HINT, SHOT_LABEL, isShot, shotPlan } from './shots'
 
 /* ───────── 프롬프트 ───────── */
 
@@ -54,6 +55,7 @@ function panelLine(p: Panel, i: number) {
     ...(p.action ? { action: p.action } : {}),
     cast: (p.cast ?? []).map(({ position, name, action, dialogue, fixed }) => ({ position, name, action, dialogue, ...(fixed ? { fixed: true } : {}) })),
     direction: p.direction ?? '',
+    ...(p.shot ? { shot: p.shot } : {}),
     dialogue: p.dialogue,
     narration: p.narration,
     productionNotes: p.productionNotes,
@@ -111,8 +113,9 @@ export function kontiDocument(ep: Episode, panels: Panel[], s: CharacterSettings
   const single = panels.length === 1
   const lines: string[] = ['상단 제목', `「${ep.title}」`, '', `형식: ${FORMAT_LABEL[ep.format]}`, '']
   if (ep.hookText?.trim()) lines.push('첫 화면 문구', ep.hookText.trim(), '')
+  const shotsK = shotPlan(panels)
   panels.forEach((p, i) => {
-    lines.push(`${cutName(ep, panels.length, i)} 장면`, p.scene || '(미정)')
+    lines.push(`${cutName(ep, panels.length, i)} 장면 · ${SHOT_LABEL[shotsK[i].shot]}`, p.scene || '(미정)')
     if (p.action) lines.push(...bullets(p.action))
     lines.push('')
     for (const c of p.cast ?? []) {
@@ -150,8 +153,9 @@ export const textLabel = (f: Format) => (f === 'captions' ? '자막' : f === 'in
 /** 피그마용 ① 그릴 것만: 컷별 장면·인물 행동·핵심 연출 + 이미지 제작 메모 */
 export function sceneSheet(ep: Episode, panels: Panel[], s: CharacterSettings, memo: ImageMemo) {
   const lines: string[] = [`「${ep.title}」 장면 설명 · ${FORMAT_LABEL[ep.format]}`, '']
+  const shotsS = shotPlan(panels)
   panels.forEach((p, i) => {
-    lines.push(`[${cutName(ep, panels.length, i)}]`, p.scene || '(미정)')
+    lines.push(`[${cutName(ep, panels.length, i)}] 샷: ${SHOT_LABEL[shotsS[i].shot]}`, p.scene || '(미정)')
     if (p.action) lines.push(...bullets(p.action))
     for (const c of p.cast ?? []) lines.push(`${castHead(c)}: ${c.action.split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(' / ') || '(행동 미정)'}`)
     if (p.direction?.trim()) lines.push(`핵심 연출: ${p.direction.trim().replace(/\n/g, ' / ')}`)
@@ -184,11 +188,17 @@ export function screenTextSheet(ep: Episode, panels: Panel[]) {
   return lines.join('\n').trim() + '\n'
 }
 
+/** 컷마다 카메라를 다르게 — 같은 자세·같은 화면이 반복되면 재미가 떨어진다 */
+const SHOT_RULES = `- shot에는 컷의 카메라를 하나 골라: ${SHOTS.map((k) => `${k}(${SHOT_LABEL[k]})`).join(', ')}.
+  · 강약을 줘. 바로 앞 컷과 같은 shot 금지, 4컷 이상이면 3가지 이상 섞어.
+  · 화면·물건 속 사건(알림, 커서, 메시지, 제품)은 detail, 반응·반전·멍한 순간은 closeup, 도입은 보통 wide.
+  · 모든 컷을 같은 책상·같은 각도로 두지 마. closeup·detail 컷에서는 배경을 과감히 빼도 된다.`
+
 function memoBlock(memo: ImageMemo, s: CharacterSettings) {
   return `이번 편 이미지 제작 메모(현재 값):\n화면 비율: ${memo.ratio}\n${IMAGE_MEMO_FIELDS.map((f) => `${f.label(s)}: ${memo[f.k] || '(비어 있음)'}`).join('\n')}`
 }
 
-const PANEL_SHAPE = `{"scene":"장소와 전체 상황 한두 문장","cast":[{"position":"left|center|right","name":"인물 이름(주변 인물은 역할로 — 예: 동료 직원)","action":"차림·행동·표정·소품 (한 줄에 하나)","dialogue":"이 인물의 대사(없으면 빈 문자열)","fixed":false}],"direction":"핵심 연출 — 대비·거리감 등 이 컷에서 강조할 것","dialogue":"인물에 속하지 않는 대사·효과음(보통 빈 문자열)","narration":"속마음·내레이션","productionNotes":"제작 메모","adaptationNotes":"각색 표시"}`
+const PANEL_SHAPE = `{"scene":"장소와 전체 상황 한두 문장","cast":[{"position":"left|center|right","name":"인물 이름(주변 인물은 역할로 — 예: 동료 직원)","action":"차림·행동·표정·소품 (한 줄에 하나)","dialogue":"이 인물의 대사(없으면 빈 문자열)","fixed":false}],"direction":"핵심 연출 — 대비·거리감 등 이 컷에서 강조할 것","shot":"wide|medium|closeup|detail|over","dialogue":"인물에 속하지 않는 대사·효과음(보통 빈 문자열)","narration":"속마음·내레이션","productionNotes":"제작 메모","adaptationNotes":"각색 표시"}`
 
 const MEMO_FIELDS_SHAPE = `"composition":"구도","placement":"캐릭터 배치","characterLook":"주인공 외형 지시","extras":"주변 인물","background":"배경 소품","direction":"연출","text":"텍스트 처리"`
 
@@ -236,6 +246,7 @@ ${memoBlock(memo, s)}
 - 컷에 나오는 인물마다 cast 항목을 하나씩 만들고, 화면 위치(left/center/right)와 차림·행동·표정·소품을 한 줄에 하나씩 적어.
 - 대사는 그 인물의 dialogue에. 인물당 짧은 한 문장, 빈 대사도 가능.
 - direction에는 웃음이 전달되는 핵심 연출(대비, 거리감, 소품)을 짧게.
+${SHOT_RULES}
 - ${auto ? 'narration은 컷자막형이면 그 장에 올릴 자막 한 줄, 정보툰 정리 장이면 팁 목록, 아니면 속마음·내레이션이 꼭 필요할 때만.' : format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : format === 'info' ? 'narration은 앞 장에서는 짧은 자막(필요할 때만), 정리 장에서는 팁 목록.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}${auto || format === 'info' ? `\n${auto ? '(정보툰을 고른 경우)\n' : ''}${INFO_RULES}` : ''}
 - 원문에 없는 대사나 시각적 장치는 adaptationNotes에 "각색 제안"이라고 적어.
 - hook은 첫 화면(첫 장)에 올릴 짧은 문구.${format === 'single' || auto ? ' 한컷이면 그림 안 자막으로 쓰인다.' : ''}
@@ -290,7 +301,7 @@ ${storyBlock(st)}
 ${all.map(panelLine).join('\n')}
 
 ${task}
-인물별 위치·행동·대사는 cast에, 핵심 연출은 direction에 둬.${JSON_ONLY}
+인물별 위치·행동·대사는 cast에, 핵심 연출은 direction에, 카메라는 shot에 둬. 앞뒤 컷과 같은 shot은 피해.${JSON_ONLY}
 {"panels":[${PANEL_SHAPE.replace('{', `{"id":"${target.id}",`)}]}`
 }
 
@@ -310,7 +321,7 @@ ${slides.map((sl, i) => `${i + 1}. ${sl.id} (${sl.kind === 'cover' ? '표지' : 
 {"caption":"","question":"","hashtags":[""],"slides":[{"slideId":"","altText":""}]}`
 }
 
-export function sceneDescription(p: Panel, idx: number, s: CharacterSettings, memo: ImageMemo) {
+export function sceneDescription(p: Panel, idx: number, s: CharacterSettings, memo: ImageMemo, shot?: Shot) {
   const ref = s.referenceAssetIds.length ? `캐릭터 레퍼런스 ${s.referenceAssetIds.length}장 첨부 기준` : '캐릭터 레퍼런스 미등록 — 외형 임의 확정 금지'
   const cast = (p.cast ?? []).map((c) => [castHead(c), ...bullets(c.action)].join('\n'))
   const memoLines = IMAGE_MEMO_FIELDS.filter((f) => memo[f.k].trim()).map((f) => `${f.label(s)}: ${memo[f.k].trim()}`)
@@ -318,6 +329,7 @@ export function sceneDescription(p: Panel, idx: number, s: CharacterSettings, me
   return [
     `[그림 설명 — ${s.seriesName} 컷 ${idx + 1}]`,
     `화면 비율: ${RATIO_LABEL[memo.ratio] ?? memo.ratio}`,
+    shot && `샷: ${SHOT_LABEL[shot]} — ${SHOT_HINT[shot]}`,
     `장면: ${p.scene || '(미정)'}`,
     p.action && `행동·표정: ${p.action}`,
     cast.length ? `\n${cast.join('\n\n')}\n` : '',
@@ -469,6 +481,7 @@ export function parsePanels(raw: unknown, expect?: { ids?: string[]; range?: [nu
       action: str(p, 'action', errs, false, `${P}.action`),
       cast: parseCast(p.cast, P, errs),
       direction: str(p, 'direction', errs, false, `${P}.direction`),
+      ...(isShot(p.shot) ? { shot: p.shot } : {}),
       dialogue: str(p, 'dialogue', errs, false, `${P}.dialogue`),
       narration: str(p, 'narration', errs, false, `${P}.narration`),
       productionNotes: str(p, 'productionNotes', errs, false, `${P}.productionNotes`),

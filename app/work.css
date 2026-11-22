@@ -458,3 +458,7 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .q-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 10px; }
 .q-opts .check { margin-top: 0; }
 .q-opts .q-fixed::after { content: ' ✓'; color: var(--good); }
+
+/* 컷 카메라 */
+.shot-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0 0; }
+.shot-pick select { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }

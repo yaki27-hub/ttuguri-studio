@@ -5,6 +5,8 @@ import { deleteAssetIfUnused, getEpisode, patchEpisode, patchPanelMeta, putAsset
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName, cardSettings } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
+import { SHOTS, SHOT_HINT, SHOT_LABEL, shotPlan } from '@/lib/work/shots'
+import type { Shot } from '@/lib/work/types'
 import { aiImage } from '../actions'
 import { referencePayload, aiImageFile } from '@/lib/work/imageRefs'
 import { FIGMA_PLUGIN_VERSION, buildFigmaExport } from '@/lib/work/figmaExport'
@@ -121,9 +123,12 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
   // 카드뉴스는 뚜구리 캐릭터 레퍼런스 대신 카드뉴스 그림체 참고 이미지를 쓴다
   const refIds = (card ? cardSettings(ws.settings).styleRefIds : ws.settings.referenceAssetIds).slice(0, MAX_REFS)
   const refCount = refIds.length
+  const plan = shotPlan(ws.b.panels)
+  const shot = plan[i]?.shot ?? 'medium'
+  const near = [plan[i - 1]?.shot, plan[i + 1]?.shot].filter((x): x is Shot => !!x)
   const genPrompt = () => {
     const memo = imageMemoOf(ws.ep, ws.settings)
-    return card ? cardGenPrompt(p, i, count, ws.settings, memo, refCount) : cutGenPrompt(p, i, ws.settings, memo, refCount)
+    return card ? cardGenPrompt(p, i, count, ws.settings, memo, refCount) : cutGenPrompt(p, i, ws.settings, memo, refCount, shot, near)
   }
 
   /** Gemini로 생성 → 이 장(컷)에 첨부. 이전 이미지는 지우지 않고 ‘연결 안 된 이미지’로 보관 */
@@ -181,7 +186,25 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
         {card ? (
           <p className="small muted clamp">{p.productionNotes ? `🖼 ${p.productionNotes}` : p.narration || '본문 없음'}</p>
         ) : (
-          <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
+          <>
+            <p className="small muted clamp">대사: {dialogueLines(p).join(' / ') || '없음'}</p>
+            <label className="shot-pick small">
+              카메라{' '}
+              <select
+                value={p.shot ?? ''}
+                aria-label={`컷 ${i + 1} 카메라`}
+                onChange={(e) => ws.editPanel(p.id, { shot: (e.target.value || undefined) as Shot | undefined })}
+              >
+                <option value="">자동 · {SHOT_LABEL[shot]}</option>
+                {SHOTS.map((k) => (
+                  <option key={k} value={k}>
+                    {SHOT_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+              <span className="muted"> {SHOT_HINT[shot]}</span>
+            </label>
+          </>
         )}
         <div className="row-inline wraps">
           {ws.imageReady && (
@@ -192,7 +215,7 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
           {card ? (
             <CopyButton text={() => genPrompt()} label="이미지 프롬프트 복사" className="small" />
           ) : (
-            <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings))} label="장면 설명 복사" className="small" />
+            <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings), shot)} label="장면 설명 복사" className="small" />
           )}
           <FilePick label={busy ? '확인 중…' : p.assetId ? '교체' : '이미지 첨부'} className="small" disabled={busy} onFile={attach} />
           {p.assetId && (

@@ -151,6 +151,9 @@ export interface StoryVersion extends Base {
   appliedAt?: ISO
 }
 
+/** 컷의 카메라: 전체 장면 / 인물 중심 / 표정 클로즈업 / 화면·사물 클로즈업 / 어깨 너머 */
+export type Shot = 'wide' | 'medium' | 'closeup' | 'detail' | 'over'
+
 export interface Panel extends Base {
   episodeId: string
   order: number
@@ -160,6 +163,8 @@ export interface Panel extends Base {
   cast: CastItem[]
   /** 핵심 연출 (대비·거리감 등) */
   direction: string
+  /** 없으면 내용·순서로 짐작한다 (lib/work/shots.ts) */
+  shot?: Shot
   /** 인물에 속하지 않는 대사·효과음 (예전 콘티의 대사도 여기에 남아 있다) */
   dialogue: string
   narration: string
@@ -173,7 +178,7 @@ export interface Panel extends Base {
 
 export type PanelSnapshot = Pick<
   Panel,
-  'scene' | 'action' | 'cast' | 'direction' | 'dialogue' | 'narration' | 'productionNotes' | 'adaptationNotes'
+  'scene' | 'action' | 'cast' | 'direction' | 'shot' | 'dialogue' | 'narration' | 'productionNotes' | 'adaptationNotes'
 >
 
 export interface PanelVersion extends Base {
