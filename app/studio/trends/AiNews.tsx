@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { createEpisode } from '@/lib/work/repo'
+import { enqueue } from '@/lib/work/queue'
 import { DuplicateRefError, createReference, listReferences, normalizeUrl } from '@/lib/work/refs'
 import { onBroadcast } from '@/lib/work/db'
 import { matchTopics as matchAny } from '@/lib/topics'
@@ -151,6 +152,27 @@ export default function AiNews({ topics }: { topics: Topic[] }) {
     }
   }
 
+  /** 고른 소식을 한 편씩 카드뉴스 대기 목록에 넣는다 (작업 화면에서 한꺼번에 초안 만들기) */
+  async function toQueue(list: News[]) {
+    if (!list.length) return
+    setBusy(true)
+    try {
+      for (const n of list) {
+        await enqueue(`[AI 소식] ${n.title}\n출처: ${n.source}${n.at ? ` (${n.at.slice(0, 10)})` : ''} ${n.url}`, [n.url], {
+          title: n.title.slice(0, 40),
+          titleIsAuto: false,
+          cardCount: 5,
+        })
+      }
+      setPicked([])
+      setMsg(`대기 목록에 ${list.length}개 넣었어요. 작업 화면에서 ‘초안 만들기’를 누르면 만들어져요.`)
+    } catch (e) {
+      setMsg(`넣지 못했어요: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <section className="card ai-news">
       <div className="card-head">
@@ -185,6 +207,9 @@ export default function AiNews({ topics }: { topics: Topic[] }) {
           </span>
           <button type="button" className="btn small primary" disabled={busy} onClick={() => toCardNews(pickedItems)}>
             {pickedItems.length === 1 ? '이걸로 카드뉴스 만들기' : `${pickedItems.length}개 묶어 카드뉴스 만들기`}
+          </button>
+          <button type="button" className="btn small" disabled={busy} onClick={() => toQueue(pickedItems)}>
+            {pickedItems.length === 1 ? '대기 목록에 넣기' : `${pickedItems.length}개 따로 대기에 넣기`}
           </button>
           <button type="button" className="btn small ghost" onClick={() => setPicked([])}>
             선택 해제

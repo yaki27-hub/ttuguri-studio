@@ -10,6 +10,8 @@ import type { ContentType, Episode, Format, Reference, Status } from '@/lib/work
 import { deleteReference, listReferences, onlyUrl, updateReference } from '@/lib/work/refs'
 import { originMix, variantMemo, variantNotes } from '@/lib/work/reflab'
 import RefLab from './RefLab'
+import QueueBox from './QueueBox'
+import { QUEUE_LABEL } from '@/lib/work/queue'
 import SimilarFinder from './SimilarFinder'
 import { RefCard, RefDetail, RefForm, useRefFilter } from './Refs'
 import { addNotionMemo } from '../actions'
@@ -148,6 +150,8 @@ export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 't
         {err && <p className="flash bad">{err}</p>}
       </section>
 
+      {card && <QueueBox eps={eps} aiReady={aiReady} onChange={load} />}
+
       <section className="card">
         <div className="card-head">
           <h2>소재 목록</h2>
@@ -228,6 +232,7 @@ export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 't
                 <span className="muted small clamp">{e.originalMemo}</span>
                 <span className="ep-meta">
                   <span className={`status s-${e.status}`}>{STATUS_LABEL[e.status]}</span>
+                  {e.queue && <span className={`q-tag q-${e.queue}`}>대기 목록 · {QUEUE_LABEL[e.queue]}</span>}
                   {e.contentType === 'cardnews' && <span className="tag good">카드뉴스</span>}
                   {e.contentType !== 'cardnews' && <span className="tag">{FORMAT_LABEL[e.format]}</span>}
                   {e.hookId && <span className="tag hot">후킹 {e.hookId}</span>}

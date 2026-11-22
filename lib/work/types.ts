@@ -101,7 +101,14 @@ export interface Episode extends Base {
   articles?: Article[]
   /** 카드뉴스: 기사 한 줄 요약 (번역·정리 결과) */
   articleSummary?: string
+  /** 카드뉴스 대기 목록: 대기 → 만드는 중 → 완료 / 확인 필요. 목록에서 빼면 없음 */
+  queue?: QueueState
+  /** 대기 목록에서 만들 때 남긴 안내 (못 읽은 기사, 멈춘 이유 등) */
+  queueNote?: string
+  queuedAt?: ISO
 }
+
+export type QueueState = 'waiting' | 'running' | 'done' | 'check'
 
 export type Ratio = '4:5' | '1:1'
 
