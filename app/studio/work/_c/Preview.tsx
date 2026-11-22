@@ -38,14 +38,19 @@ export default function Preview() {
           <ol className="pv-cards">
             {b.panels.map((p, i) => (
               <li key={p.id} className={i === 0 ? 'cover' : ''}>
-                <div className="pv-card">
+                {/* 글자 포함 최종 이미지(피그마 완성본)는 그대로 보여 주고, 앱 글자를 겹쳐 그리지 않는다 */}
+                <div className={`pv-card ${p.assetId && p.assetIsFinal ? 'final' : ''}`}>
                   {p.assetId && <AssetImage id={p.assetId} alt={`${i + 1}장`} className="pv-card-bg" />}
                   <span className="pv-no">
                     {i + 1}/{b.panels.length}
                   </span>
-                  <b className="pv-card-head">{p.scene || '제목 미정'}</b>
-                  {p.narration && <span className="pv-card-body">{p.narration}</span>}
-                  {p.direction && <span className="pv-card-hl">{p.direction}</span>}
+                  {!(p.assetId && p.assetIsFinal) && (
+                    <>
+                      <b className="pv-card-head">{p.scene || '제목 미정'}</b>
+                      {p.narration && <span className="pv-card-body">{p.narration}</span>}
+                      {p.direction && <span className="pv-card-hl">{p.direction}</span>}
+                    </>
+                  )}
                 </div>
                 {overLimits(p, i, b.panels.length, cardStyleOf(ep)).length > 0 && <p className="small warn-text">{cardName(i, b.panels.length)}: 글자 수 초과</p>}
               </li>
