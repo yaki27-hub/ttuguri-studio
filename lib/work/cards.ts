@@ -14,7 +14,7 @@
  */
 import { ParseError } from './prompts'
 import { defaultCardNews } from './repo'
-import { designOf } from './cardDesign'
+import { brandOf, designOf, seriesBlock } from './cardDesign'
 import type { PanelDraftItem } from './repo'
 import type { CharacterSettings, Episode, ImageMemo, Panel, Slide } from './types'
 
@@ -86,6 +86,7 @@ export function cardSystem(s: CharacterSettings) {
   return [
     '너는 인스타그램 정보 카드뉴스 계정의 제작 보조다.',
     c.intro.trim() && `계정 소개·말투: ${c.intro.trim()}`,
+    designOf(c) === 'seodang' && seriesBlock(brandOf(c)),
     '공통 원칙: 원문 메모에 없는 사실·수치·제도·인용을 지어내지 않는다. 확인이 필요한 것은 따로 표시한다. 과장된 제목, 공포 마케팅, 근거 없는 단정 금지. 특정 캐릭터나 마스코트를 등장시키지 않는다.',
   ]
     .filter(Boolean)

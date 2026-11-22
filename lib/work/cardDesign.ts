@@ -14,7 +14,28 @@ export const CARD_DESIGN_LABEL: Record<CardDesign, string> = {
   plain: '기본 (그림 위에 글자만)',
 }
 
-export const SEODANG_BRAND: CardBrand = { name: 'AI 서당', handle: '@ai.seodang', series: '오늘의 방(榜)' }
+export const SEODANG_BRAND: CardBrand = {
+  name: 'AI 서당',
+  handle: '@ai.seodang',
+  series: '어쩌다 발견',
+  seriesTitle: '조선 선비의 AI 뉴스 읽기',
+  tagline: '세상은 바뀌어도, 궁금한 건 못 참지!',
+  about: '어려운 AI 소식도 쉽고 재미있게.\n선비와 함께 하나씩 알아봐요.',
+}
+
+/** AI 지시문에 넣을 시리즈 소개 */
+export function seriesBlock(b: CardBrand) {
+  const head = [b.series, b.seriesTitle].filter((x) => x?.trim()).join(' · ')
+  if (!head && !b.tagline?.trim() && !b.about?.trim()) return ''
+  return [
+    `시리즈: ${head || '(이름 없음)'}${b.tagline?.trim() ? ` — "${b.tagline.trim()}"` : ''}`,
+    b.about?.trim() && `시리즈 소개: ${b.about.trim().replace(/\n+/g, ' ')}`,
+    '- 이 시리즈의 결대로 쓴다: 어려운 소식을 쉽고 재미있게, 궁금증을 따라가며 하나씩 풀어 준다.',
+    '- 선비 콘셉트는 표지 문구나 마무리 한두 마디에만 살짝 쓴다. 본문은 지금 말투로, 사극체·고어 남발 금지. 사실을 콘셉트 때문에 비틀지 않는다.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
 
 export const SEODANG_STYLE = {
   imageStyle:

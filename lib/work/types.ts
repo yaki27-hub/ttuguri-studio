@@ -260,8 +260,14 @@ export interface CardBrand {
   name: string
   /** @계정 */
   handle: string
-  /** 표지 알약에 들어갈 연재 이름 (예: 오늘의 방(榜)) */
+  /** 표지 알약에 들어갈 연재 이름 (예: 어쩌다 발견) */
   series: string
+  /** 시리즈 제목 (예: 조선 선비의 AI 뉴스 읽기) */
+  seriesTitle?: string
+  /** 한 줄 태그라인 */
+  tagline?: string
+  /** 시리즈 소개 (여러 줄) */
+  about?: string
 }
 
 export interface Topic {

@@ -9,7 +9,7 @@ import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
 import type { CardDesign, CharacterSettings, Ratio } from '@/lib/work/types'
-import { CARD_DESIGN_LABEL, SEODANG_STYLE, applySeodang, brandOf, designOf } from '@/lib/work/cardDesign'
+import { CARD_DESIGN_LABEL, SEODANG_BRAND, SEODANG_STYLE, applySeodang, brandOf, designOf } from '@/lib/work/cardDesign'
 import { AssetImage, CopyButton, Field, FilePick, Lightbox, ListField, Notice } from './ui'
 import { BackupButtons, SaveIndicator } from './Backup'
 
@@ -273,8 +273,22 @@ function CardNewsSettingsBox({ s, edit, onBig, setMsg }: { s: CharacterSettings;
           <div className="row-inline wraps">
             <Field label="계정 이름 (첫 단어가 청록색)" single value={brandOf(c).name} onChange={(v) => set({ brand: { ...brandOf(c), name: v } })} />
             <Field label="@계정" single value={brandOf(c).handle} onChange={(v) => set({ brand: { ...brandOf(c), handle: v } })} />
-            <Field label="표지 연재 이름" single value={brandOf(c).series} onChange={(v) => set({ brand: { ...brandOf(c), series: v } })} />
           </div>
+          <fieldset className="series-box">
+            <legend>시리즈 소개</legend>
+            <p className="hint">AI가 장 구성·게시 문구를 쓸 때 이 콘셉트와 말투를 따라요. 연재 이름은 피그마 표지에도 들어가요.</p>
+            <div className="row-inline wraps">
+              <Field label="연재 이름 (예: 어쩌다 발견)" single value={brandOf(c).series} onChange={(v) => set({ brand: { ...brandOf(c), series: v } })} />
+              <Field label="시리즈 제목" single value={brandOf(c).seriesTitle ?? ''} onChange={(v) => set({ brand: { ...brandOf(c), seriesTitle: v } })} />
+            </div>
+            <Field label="한 줄 태그라인" single value={brandOf(c).tagline ?? ''} onChange={(v) => set({ brand: { ...brandOf(c), tagline: v } })} />
+            <Field label="소개" value={brandOf(c).about ?? ''} rows={2} onChange={(v) => set({ brand: { ...brandOf(c), about: v } })} />
+            {brandOf(c).series !== SEODANG_BRAND.series && (
+              <button type="button" className="btn small" onClick={() => set({ brand: { ...brandOf(c), ...SEODANG_BRAND, name: brandOf(c).name, handle: brandOf(c).handle } }, true)}>
+                ‘어쩌다 발견 · 조선 선비의 AI 뉴스 읽기’로 채우기
+              </button>
+            )}
+          </fieldset>
           {c.imageStyle !== SEODANG_STYLE.imageStyle && (
             <Notice>
               그림체·규칙이 AI 서당 스타일과 달라요.{' '}
