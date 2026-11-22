@@ -8,6 +8,7 @@ import { PURPOSE_LABEL } from '@/lib/work/format'
 import type { Fact, FactStatus, Purpose } from '@/lib/work/types'
 import { AssetImage, Field, FilePick, Lightbox, ListField } from './ui'
 import GenBox from './GenBox'
+import ArticleBox from './ArticleBox'
 import StoryStage from './StoryStage'
 import { useWS } from './Workspace'
 
@@ -28,10 +29,11 @@ export default function SourceStage() {
 
   return (
     <div className="stack">
+      {ws.ep.contentType === 'cardnews' && <ArticleBox />}
       <section className="card">
         <h2>메모</h2>
         {ws.ep.contentType === 'cardnews' ? (
-          <p className="muted small">왼쪽 원문 메모에 알려 줄 내용을 적어 두면, 장 구성 단계에서 표지·본문·마무리로 나눠 뽑아요. 메모에 없는 수치는 ‘확인 필요’로 표시돼요.</p>
+          <p className="muted small">위에서 정리한 사실(없으면 원문 메모)로 장 구성 단계에서 표지·본문·마무리를 뽑아요. 사실 목록에 없는 수치는 ‘확인 필요’로 표시돼요.</p>
         ) : (
           <p className="muted small">왼쪽 원문 메모와 추가 메모만으로 바로 콘티를 뽑을 수 있어요. 형식(한컷·4컷·컷자막형)도 콘티 단계에서 AI가 골라 줘요.</p>
         )}
@@ -71,6 +73,7 @@ export default function SourceStage() {
               <button type="button" className="btn ghost small" aria-label={`사실 ${i + 1} 삭제`} onClick={() => setFacts(ep.facts.filter((x) => x.id !== f.id))}>
                 ✕
               </button>
+              {f.quote && <q className="fact-quote small muted">{f.quote}</q>}
             </div>
           ))}
           <button type="button" className="btn small" onClick={() => setFacts([...ep.facts, { id: uid(), text: '', status: 'confirmed' }])}>

@@ -370,3 +370,20 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .hook-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .hook-text { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
 .hooks .check { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 카드뉴스 기사 읽기 */
+.article-box .art-links, .article-box .art-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+.art-link-row { display: flex; align-items: center; gap: 8px; }
+.art-link-row .clamp { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: center; }
+.art-paste { margin: 8px 0 12px; display: grid; gap: 8px; }
+.art-paste[open] { display: grid; }
+.art-paste .row-inline input { flex: 1; min-width: 0; }
+.art-paste textarea { width: 100%; }
+.art-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.art-list .link-btn { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.art-text { flex-basis: 100%; max-height: 240px; overflow: auto; font-size: 12px; }
+.fact-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.fact-list q, .fact-quote { display: block; margin-top: 2px; font-style: italic; }
+.fact .fact-quote { flex-basis: 100%; padding-left: 4px; }
+.fact:has(.fact-quote) { flex-wrap: wrap; }
+.fact:has(.fact-quote) input { flex: 1; min-width: 0; }

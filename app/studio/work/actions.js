@@ -3,6 +3,7 @@
 import { requireAuth } from '@/lib/auth';
 import { generateJSON, generateImage } from '@/lib/ai';
 import { listEpisodes, createEpisode, P, title, num, status, select } from '@/lib/notion';
+import { fetchArticle } from '@/lib/article';
 
 /**
  * 작업실 초안 생성. 프롬프트는 브라우저의 설정·원문으로 만든다(수동 복사용과 동일).
@@ -46,6 +47,16 @@ export async function addNotionMemo(memo) {
 
 const MAX_REFS = 4;
 const MAX_REF_BYTES = 900_000; // base64 기준. 브라우저에서 줄여서 보낸다 (요청 전체 4.5MB 제한)
+
+/** 기사 본문 가져오기 (카드뉴스 메모 단계). 실패하면 error 로 이유를 돌려준다 */
+export async function readArticle(url) {
+  await requireAuth();
+  try {
+    return { article: await fetchArticle(String(url || '')) };
+  } catch (e) {
+    return { error: e.name === 'TimeoutError' ? '기사 페이지가 15초 안에 열리지 않았어요. 본문을 붙여넣어 주세요.' : e.message };
+  }
+}
 
 /** 장(컷) 이미지 생성. 결과는 바로 저장하지 않고 돌려주기만 한다 (브라우저가 첨부) */
 export async function aiImage(prompt, refs = [], aspectRatio = '4:5') {

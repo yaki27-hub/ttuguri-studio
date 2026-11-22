@@ -117,13 +117,88 @@ function cardLine(p: Panel, i: number, count: number) {
 }
 
 function sourceOf(ep: Episode) {
+  const facts = ep.facts.filter((f) => f.text.trim())
+  const read = facts.some((f) => f.quote)
   return [
     `원문 메모(작가가 아는 내용 — 이 범위를 벗어난 사실을 지어내지 말 것):\n"""${ep.originalMemo}"""`,
     ep.notes && `추가 메모:\n${ep.notes}`,
-    ep.facts.length ? `정리된 사실:\n${ep.facts.map((f) => `- [${f.status}] ${f.text}`).join('\n')}` : '',
+    ep.articleSummary && `기사 요약: ${ep.articleSummary}`,
+    facts.length
+      ? `${read ? '기사에서 확인한 사실 (번호로 근거를 댈 것)' : '정리된 사실'}:\n${facts
+          .map((f, i) => `F${i + 1}. [${f.status === 'confirmed' ? '확인' : f.status === 'proposed' ? '주장·추정' : '모름'}] ${f.text}${f.quote ? ` (원문: "${f.quote}")` : ''}`)
+          .join('\n')}`
+      : '',
+    read &&
+      [
+        '사실 사용 규칙:',
+        '- 본문 장은 [확인] 사실로 채운다. 숫자·날짜·제품명·요금제 이름은 사실에 적힌 그대로.',
+        '- [주장·추정]은 "~라고 밝혔다/주장했다"처럼 누가 한 말인지 붙여서만 쓴다.',
+        '- 사실 목록에 없는 내용을 덧붙이지 않는다. 장마다 근거 사실 번호를 check 맨 앞에 "근거 F1, F3"처럼 적고, 확인할 게 있으면 그 뒤에 이어 쓴다.',
+        '- 내용이 부족하면 "검증 필요", "지켜보자" 같은 말로 장을 채우지 말고 장 수를 줄인다.',
+      ].join('\n'),
   ]
     .filter(Boolean)
     .join('\n\n')
+}
+
+/* ───────── 기사 번역·사실 정리 ───────── */
+
+const ARTICLE_BUDGET = 24000
+
+/** 읽어 온 기사들을 한국어 사실 목록으로 정리하는 프롬프트 */
+export function articleFactsPrompt(ep: Episode, s: CharacterSettings) {
+  const arts = ep.articles ?? []
+  const per = Math.floor(ARTICLE_BUDGET / Math.max(1, arts.length))
+  return `${cardSystem(s)}
+
+[작업: 기사 읽고 사실 정리]
+아래 기사를 끝까지 읽고, 카드뉴스에 쓸 수 있게 한국어로 정리한다. 영어 기사는 번역해서 정리한다.
+
+작가 메모: ${ep.originalMemo.trim().slice(0, 1500)}
+
+${arts
+  .map(
+    (a, i) => `<기사 ${i + 1}>
+출처: ${a.site}${a.published ? ` (${a.published.slice(0, 10)})` : ''} ${a.url}
+제목: ${a.title}
+본문:
+${a.text.slice(0, per)}
+</기사 ${i + 1}>`,
+  )
+  .join('\n\n')}
+
+규칙:
+- summary: 이 기사가 실제로 말하는 내용 한두 문장 (제목이 과장됐으면 본문 기준으로).
+- facts: 카드뉴스에 쓸 만한 사실 5~12개. 하나에 사실 하나, 한국어 한 문장. 숫자·날짜·제품명·요금제는 원문 그대로.
+  - status: 기사가 사실로 보도·공식 발표한 것은 confirmed, 누군가의 주장·전망·소문·익명 소식통은 proposed (text에 누가 한 말인지 넣기).
+  - quote: 근거가 된 원문 문장 그대로(영어면 영어로, 200자 이내).
+- unknowns: 기사만으로는 알 수 없어 작가가 확인해야 할 것 (한국 출시, 요금, 날짜 등). 최대 4개.
+- reliability: 출처 신뢰도 한 줄. 공식 발표/주요 매체/개인 블로그·출처 불명 중 무엇인지, 제목과 본문이 다르면 그 점도.
+- 기사에 없는 내용은 쓰지 않는다. 본문이 광고·목록 페이지라 내용이 없으면 facts를 비우고 reliability에 그렇게 적는다.${JSON_ONLY}
+{"summary":"","facts":[{"text":"","status":"confirmed|proposed","quote":""}],"unknowns":[""],"reliability":""}`
+}
+
+export interface ArticleFactsOut {
+  summary: string
+  facts: { text: string; status: 'confirmed' | 'proposed'; quote: string }[]
+  unknowns: string[]
+  reliability: string
+}
+
+export function parseArticleFacts(raw: unknown): ArticleFactsOut {
+  if (!isObj(raw)) throw new ParseError(['최상위가 객체({})여야 해요.'])
+  const facts = (Array.isArray(raw.facts) ? raw.facts : [])
+    .filter(isObj)
+    .map((f) => ({ text: str(f.text), status: f.status === 'proposed' ? ('proposed' as const) : ('confirmed' as const), quote: str(f.quote) }))
+    .filter((f) => f.text)
+  const out = {
+    summary: str(raw.summary),
+    facts,
+    unknowns: (Array.isArray(raw.unknowns) ? raw.unknowns : []).map(str).filter(Boolean).slice(0, 4),
+    reliability: str(raw.reliability),
+  }
+  if (!out.summary && !facts.length) throw new ParseError(['summary와 facts가 모두 비어 있어요.'])
+  return out
 }
 
 export function cardsPrompt(ep: Episode, s: CharacterSettings, count: number, locked: Panel[], all: Panel[]) {

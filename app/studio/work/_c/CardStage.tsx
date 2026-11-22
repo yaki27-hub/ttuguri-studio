@@ -21,7 +21,8 @@ export default function CardStage() {
   const target = cardCountOf(ep)
   const [dragId, setDragId] = useState<string>()
   const over = cards.map((p, i) => overLimits(p, i, cards.length)).filter((x) => x.length).length
-  const checks = cards.filter((p) => p.adaptationNotes.trim()).length
+  const checks = cards.filter((p) => needsCheck(p.adaptationNotes)).length
+  const read = ep.facts.some((f) => f.quote)
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= cards.length) return
@@ -53,6 +54,14 @@ export default function CardStage() {
           </span>
         </div>
         <p className="muted small">표지(후킹) → 본문 → 마무리(저장·팔로우 유도) 순서예요. 장마다 메시지 하나, 3초 안에 읽히는 길이가 목표예요.</p>
+        {!read && (
+          <Notice kind="warn">
+            기사 본문을 아직 안 읽었어요. 이대로 뽑으면 제목만 보고 쓰게 돼요.{' '}
+            <button type="button" className="btn small" onClick={() => ws.goStage('source')}>
+              ← 메모 단계에서 기사 읽기
+            </button>
+          </Notice>
+        )}
         <Field label="작업 제목" single value={ep.title} onChange={(v) => ws.editEp({ title: v, titleIsAuto: false })} />
         <div className="field">
           <label htmlFor="card-count">목표 장 수</label>
@@ -148,6 +157,11 @@ export default function CardStage() {
 }
 
 /** 글자 수 표시: 12/20, 넘으면 빨간색 */
+/** check 칸 맨 앞 "근거 F1, F3" */
+const BASIS = /^\s*근거\s*((?:F\d+[\s,·]*)+)[.\/:·-]?\s*/
+const basisOf = (note: string) => note.match(BASIS)?.[0].trim().replace(/[.\/:·-]$/, '').trim() ?? ''
+const needsCheck = (note: string) => !!note.replace(BASIS, '').trim()
+
 function Count({ v, max }: { v: string; max: number }) {
   const n = len(v)
   return <span className={n > max ? 'count over' : 'count'}>{n}/{max}</span>
@@ -173,7 +187,8 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
         <span className={`panel-no role-${role}`}>{cardName(i, count)}</span>
         {p.locked && <span className="tag">🔒 잠금</span>}
         {over.length > 0 && <span className="tag bad">글자 수 초과</span>}
-        {p.adaptationNotes.trim() && <span className="tag warn">확인 필요</span>}
+        {needsCheck(p.adaptationNotes) && <span className="tag warn">확인 필요</span>}
+        {basisOf(p.adaptationNotes) && <span className="tag good">{basisOf(p.adaptationNotes)}</span>}
         <span className="spacer" />
         <button type="button" className="btn ghost small" aria-label={`${i + 1}장 위로`} disabled={i === 0} onClick={() => onMove(-1)}>
           ↑

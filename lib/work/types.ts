@@ -11,6 +11,21 @@ export interface Fact {
   id: string
   text: string
   status: FactStatus
+  /** 근거가 된 기사 원문 문장 (카드뉴스 기사 정리) */
+  quote?: string
+}
+
+/** 카드뉴스 메모 단계에서 읽어 온 기사 본문 */
+export interface Article {
+  id: string
+  url: string
+  title: string
+  site: string
+  published?: string
+  text: string
+  /** fetch = 링크에서 가져옴, paste = 붙여넣음 */
+  from: 'fetch' | 'paste'
+  addedAt: string
 }
 
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
@@ -80,6 +95,10 @@ export interface Episode extends Base {
   cardCount?: number
   /** 후킹 라이브러리 번호 (H01~H26). 성과 비교용 */
   hookId?: string
+  /** 카드뉴스: 읽어 온 기사 본문 */
+  articles?: Article[]
+  /** 카드뉴스: 기사 한 줄 요약 (번역·정리 결과) */
+  articleSummary?: string
 }
 
 export type Ratio = '4:5' | '1:1'
