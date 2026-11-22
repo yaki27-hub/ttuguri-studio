@@ -6,7 +6,7 @@ import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName, cardSettings } from '@/lib/work/cards'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { aiImage } from '../actions'
-import { buildFigmaExport } from '@/lib/work/figmaExport'
+import { FIGMA_PLUGIN_VERSION, buildFigmaExport } from '@/lib/work/figmaExport'
 import { applyImport, parseFinal, planImport, type FinalFile, type ImportPlan } from '@/lib/work/figmaImport'
 import { downloadBlob } from '@/lib/work/format'
 import JSZip from 'jszip'
@@ -309,7 +309,7 @@ function FigmaBox() {
       if (!r.ok) return setMsg(`플러그인 파일을 받지 못했어요 (${f}).`)
       dir.file(f, await r.text())
     }
-    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'ttuguri-figma-plugin.zip')
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), `ttuguri-figma-plugin-v${FIGMA_PLUGIN_VERSION}.zip`)
   }
 
   return (
@@ -335,11 +335,14 @@ function FigmaBox() {
           />
         </label>
         <button type="button" className="btn small" onClick={pluginZip}>
-          플러그인 받기 (처음 한 번)
+          플러그인 받기 (v{FIGMA_PLUGIN_VERSION})
         </button>
       </div>
       {msg && <p className="hint">{msg}</p>}
       <ol className="small muted figma-steps">
+        <li>
+          지금 최신 플러그인은 <b>v{FIGMA_PLUGIN_VERSION}</b>이에요. 피그마 메뉴와 플러그인 창 제목에 ‘v{FIGMA_PLUGIN_VERSION}’이 안 보이면 예전 버전이니 다시 받아서 처음 등록한 폴더에 덮어쓰세요.
+        </li>
         <li>처음 한 번: ‘플러그인 받기’ zip을 풀고, 피그마 데스크톱 앱 → 메뉴 Plugins → Development → Import plugin from manifest… → 푼 폴더의 manifest.json</li>
         <li>매번: ‘피그마용 내보내기’로 받은 .json을 피그마에서 Plugins → Development → 뚜구리 가져오기 에 넣기</li>
         <li>장(컷)마다 프레임이 나란히 생기고, 이미지 위에 제목·본문(또는 대사) 글자 레이어가 올라가요.</li>

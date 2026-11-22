@@ -11,6 +11,11 @@ import type { CardBrand, CardDesign, CardNewsSettings } from './types'
 import type { Episode, ImageMemo, Panel } from './types'
 
 export const FIGMA_EXPORT_VERSION = 2
+/**
+ * 피그마 플러그인 버전. 플러그인을 고치면 1 올리고 public/figma-plugin 의 세 곳도 같이 고칠 것:
+ * code.js PLUGIN_VERSION · ui.html 제목 · manifest.json name
+ */
+export const FIGMA_PLUGIN_VERSION = 3
 
 /**
  * field: 피그마에서 고친 글자를 다시 앱에 넣을 자리
@@ -48,6 +53,8 @@ export interface FigmaExport {
   width: number
   height: number
   exportedAt: string
+  /** 이 파일을 읽으려면 필요한 플러그인 버전 */
+  plugin?: number
   /** 카드뉴스 디자인 템플릿 (플러그인이 배치를 고른다) */
   design?: CardDesign
   brand?: CardBrand
@@ -109,6 +116,7 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
     width,
     height,
     exportedAt: new Date().toISOString(),
+    plugin: FIGMA_PLUGIN_VERSION,
     ...(card ? { design: designOf(cardnews ?? {}), brand: brandOf(cardnews ?? {}) } : {}),
     frames,
   }

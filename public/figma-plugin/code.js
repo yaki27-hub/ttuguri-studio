@@ -1,11 +1,14 @@
 // 뚜구리 가져오기
 //  ① 사이트에서 내보낸 .json 으로 프레임을 만든다 (lib/work/figmaExport.ts, version 1·2)
+//  v3: 카드뉴스 '내 피그마 마스터' (ai_title · page 컴포넌트 복제)
 //  ② 다 만든 프레임을 PNG + 최종 글자로 묶어 사이트로 돌려보낸다 (lib/work/figmaImport.ts)
 // 프레임·글자 레이어에는 pluginData 로 편 id·장 id·글자 자리를 기억해 둔다.
 
 figma.showUI(__html__, { width: 360, height: 420 });
 
 const KEY = 'ttuguri';
+/** 플러그인 버전 — lib/work/figmaExport.ts FIGMA_PLUGIN_VERSION · ui.html 제목 · manifest.json name 과 같이 올릴 것 */
+const PLUGIN_VERSION = 3;
 
 const ACCENT = { r: 0x79 / 255, g: 0x56 / 255, b: 0xce / 255 };
 const INK = { r: 0.12, g: 0.12, b: 0.14 };
@@ -69,6 +72,8 @@ function rightEdge() {
 }
 
 async function build(data) {
+  if (data.plugin && data.plugin > PLUGIN_VERSION)
+    throw new Error(`이 파일은 플러그인 v${data.plugin}용인데 지금 플러그인은 v${PLUGIN_VERSION}이에요. 사이트 이미지 단계 → 피그마로 보내기 → ‘플러그인 받기’로 새로 받아 폴더에 덮어써 주세요.`);
   if (data.contentType === 'cardnews' && data.design === 'master') {
     const r = await buildMaster(data);
     if (r) return r;
@@ -527,6 +532,46 @@ function accentOf(inst) {
   return fill ? fill.color : hex('#5CE1E6');
 }
 
+/** 글자를 채우기 전 위치·높이를 기억해 둔다 (겹침 정리용) */
+function snapshot(root) {
+  const m = new Map();
+  for (const n of root.findAll((x) => x.type === 'TEXT')) m.set(n.name + '|' + Math.round(n.y) + '|' + Math.round(n.x), { y: n.y, h: n.height });
+  return m;
+}
+
+/**
+ * 길어진 글이 아래 칸을 덮으면 아래 칸을 밀어 내린다 (같은 부모 안에서, 원래 간격을 최대 24px 로 유지).
+ * 오토 레이아웃이면 피그마가 알아서 하므로 건너뛴다. 인스턴스 안 위치를 못 바꾸면 false.
+ */
+function restack(root, before) {
+  const groups = new Map();
+  for (const n of root.findAll((x) => x.type === 'TEXT' && x.visible)) {
+    const p = n.parent;
+    if (p && 'layoutMode' in p && p.layoutMode && p.layoutMode !== 'NONE') continue;
+    if (!groups.has(p)) groups.set(p, []);
+    groups.get(p).push(n);
+  }
+  try {
+    for (const list of groups.values()) {
+      const items = list
+        .map((n) => ({ n, o: before.get(n.name + '|' + Math.round(n.y) + '|' + Math.round(n.x)) || { y: n.y, h: n.height } }))
+        .sort((a, b) => a.o.y - b.o.y);
+      let prevBottom = -Infinity;
+      let prevOrigBottom = -Infinity;
+      for (const it of items) {
+        const gap = Math.min(24, Math.max(8, it.o.y - prevOrigBottom));
+        const y = Math.max(it.o.y, prevBottom + gap);
+        if (Math.abs(y - it.n.y) > 0.5) it.n.y = y;
+        prevBottom = it.n.y + it.n.height;
+        prevOrigBottom = it.o.y + it.o.h;
+      }
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function imageFill(node, base64) {
   const img = figma.createImage(figma.base64Decode(base64));
   node.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
@@ -543,6 +588,7 @@ async function buildMaster(data) {
   const startX = rightEdge();
   const brand = data.brand || {};
   const frames = [];
+  let detached = 0;
 
   for (const [i, f] of data.frames.entries()) {
     const by = (role) => f.texts.find((t) => t.role === role);
@@ -563,7 +609,8 @@ async function buildMaster(data) {
     frame.clipsContent = true;
 
     let inst;
-    if (f.kind === 'outro' || (!hasImg && f.kind !== 'cover')) {
+    const isTitle = !(f.kind === 'outro' || (!hasImg && f.kind !== 'cover'));
+    if (!isTitle) {
       inst = (f.kind === 'outro' ? m.end : m.page).createInstance();
       frame.appendChild(inst);
       inst.x = 0;
@@ -589,19 +636,18 @@ async function buildMaster(data) {
     }
 
     const color = accentOf(inst);
-    for (const b of textsIn(inst, '브랜드')) await setText(b, brand.series || b.characters);
-    const t = textsIn(inst, '제목')[0];
+    let root = inst;
+    const before = snapshot(root);
+    for (const b of textsIn(root, '브랜드')) await setText(b, brand.series || b.characters);
+    const t = textsIn(root, '제목')[0];
     if (t && head) {
       await setText(t, head.text);
       paintRange(t, accent, color);
-      fields[t.id] = head.field;
     }
     // 본문 칸이 여럿이면: 가장 큰 칸 = 본문, 가장 아래 작은 칸 = 태그(#섹션) 또는 출처
-    const bodies = textsIn(inst, '본문').sort((a, b) => b.width * b.height - a.width * a.height);
-    if (bodies[0] && body) {
-      await setText(bodies[0], body.text);
-      fields[bodies[0].id] = body.field;
-    }
+    const bigFirst = (r) => textsIn(r, '본문').sort((a, b) => b.width * b.height - a.width * a.height)
+    const bodies = bigFirst(root);
+    if (bodies[0] && body) await setText(bodies[0], body.text);
     const small = bodies.slice(1).sort((a, b) => b.y - a.y)[0];
     if (small && f.kind !== 'outro') {
       const line = tag ? `#${tag.text.replace(/^#/, '')}` : src ? `출처 · ${src.text}` : '';
@@ -609,15 +655,29 @@ async function buildMaster(data) {
       else small.visible = false;
     }
 
-    // ai_title 은 글 길이에 맞춰 아래 여백 68px 에 붙인다
-    if (inst.mainComponent && inst.mainComponent.parent && inst.mainComponent.parent.name.trim() === 'ai_title') {
-      const bottom = Math.max(...inst.findAll((n) => n.type === 'TEXT' && n.visible).map((n) => n.y + n.height));
-      inst.y = Math.max(135, Math.round(H - 68 - bottom));
+    // 길어진 글이 아래 칸을 덮으면 밀어 내린다. 인스턴스 안에서 못 옮기면 이 장만 인스턴스를 풀어서 옮긴다.
+    if (!restack(root, before)) {
+      root = inst.detachInstance();
+      detached += 1;
+      restack(root, before);
     }
+
+    // ai_title 은 글 길이에 맞춰 아래 여백 68px 에 붙인다
+    if (isTitle) {
+      const bottom = Math.max(...root.findAll((n) => n.type === 'TEXT' && n.visible).map((n) => n.y + n.height));
+      root.y = Math.max(135, Math.round(H - 68 - bottom));
+    }
+
+    // 완성본 보내기용: 글자 레이어 id → 자리
+    const t2 = textsIn(root, '제목')[0];
+    if (t2 && head) fields[t2.id] = head.field;
+    const b2 = bigFirst(root)[0];
+    if (b2 && body) fields[b2.id] = body.field;
 
     frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '', fields }));
     frames.push(frame);
   }
+  if (detached) figma.notify(`글이 길어진 ${detached}장은 인스턴스를 풀어서 배치했어요. 마스터 컴포넌트에 오토 레이아웃(세로)을 넣으면 인스턴스로 유지돼요.`, { timeout: 8000 });
   return finish(frames, data, W, H, startX, '마스터 컴포넌트');
 }
 
@@ -681,7 +741,7 @@ async function sendFinal() {
     }
     out.push({ panelId: metaOf(f).panelId, name: f.name, image: { mime: 'image/png', base64: figma.base64Encode(bytes) }, texts });
   }
-  return { app: 'ttuguri-studio', kind: 'final', version: 2, episodeId: first.episodeId, title: first.title, contentType: first.contentType, exportedAt: new Date().toISOString(), frames: out };
+  return { app: 'ttuguri-studio', kind: 'final', version: 2, plugin: PLUGIN_VERSION, episodeId: first.episodeId, title: first.title, contentType: first.contentType, exportedAt: new Date().toISOString(), frames: out };
 }
 
 figma.ui.onmessage = async (msg) => {
