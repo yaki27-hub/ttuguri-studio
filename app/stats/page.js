@@ -6,6 +6,8 @@ import Login from '../Login';
 import Nav from '../Nav';
 import StatsBoard from './StatsBoard';
 import RefreshButton from './RefreshButton';
+import WeeklyReview from './WeeklyReview';
+import { fetchFollowerStats } from '@/lib/instagram';
 import { getChannel } from '@/lib/channel-server';
 import { igAccount } from '@/lib/channel';
 
@@ -29,7 +31,12 @@ export default async function Page({ searchParams }) {
   const acct = igAccount(channel);
   // 인스타와 노션을 따로 불러와서, 한쪽이 실패해도 다른 쪽은 보이게 한다.
   // 노션 에피소드 DB는 뚜구리툰 것이라 카드뉴스 채널에서는 읽지 않는다.
-  const [igRes, notionRes] = await Promise.allSettled([collectPosts(channel), card ? Promise.resolve([]) : listEpisodes()]);
+  const [igRes, notionRes, followRes] = await Promise.allSettled([
+    collectPosts(channel),
+    card ? Promise.resolve([]) : listEpisodes(),
+    acct.token ? fetchFollowerStats(acct) : Promise.resolve(null),
+  ]);
+  const followers = followRes.status === 'fulfilled' ? followRes.value : { followers: null, daily: null, dailyError: followRes.reason?.message || '불러오지 못했어요' };
   const posts = igRes.status === 'fulfilled' ? igRes.value : [];
   const episodes = notionRes.status === 'fulfilled' ? notionRes.value : [];
   const loadError = [
@@ -77,6 +84,8 @@ export default async function Page({ searchParams }) {
         </p>
       )}
       {loadError && !(card && !acct.token) && <p className="flash bad">데이터를 불러오지 못했어요: {loadError}</p>}
+
+      {!(card && !acct.token) && <WeeklyReview rows={rows} followers={followers} card={card} now={loadedAt} />}
 
       {!(card && !acct.token) && (
         <StatsBoard

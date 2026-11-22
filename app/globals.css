@@ -406,3 +406,27 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
   .top-actions { flex-wrap: wrap; }
   .refresh-time { display: none; }
 }
+
+/* ---------- 주간 콘텐츠 점검 (성과) ---------- */
+.weekly-review { margin: 8px 0 20px; }
+.wr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.wr-block { min-width: 0; }
+.wr-block h3 { font-size: 13px; margin: 4px 0 6px; color: var(--muted); font-weight: 600; }
+.wr-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.wr-table th, .wr-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.wr-table th:first-child { text-align: left; font-weight: 500; }
+.wr-table thead th { font-size: 12px; color: var(--muted); font-weight: 500; }
+.wr-table tr.best th, .wr-table tr.best td { background: var(--accent-soft); }
+.wr-badge { margin-left: 6px; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: #fff; }
+.wr-delta { color: var(--muted); }
+.wr-delta.up { color: var(--good); }
+.wr-delta.down { color: var(--bad); }
+.wr-top { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 760px) {
+  .wr-grid { grid-template-columns: 1fr; gap: 14px; }
+  .wr-table th, .wr-table td { padding: 6px 4px; }
+  .wr-table thead th { white-space: normal; }
+  .wr-table tbody th { white-space: normal; }
+  .wr-table tbody th .muted { display: block; font-size: 11px; }
+  .wr-badge { display: inline-block; margin: 2px 0 0; }
+}
