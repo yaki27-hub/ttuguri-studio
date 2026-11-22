@@ -62,8 +62,13 @@ export default function StoryStage({ embedded = false }: { embedded?: boolean })
           <Field label="한 줄 요약" value={story.summary} onChange={(v) => ws.editStory({ summary: v })} />
           <Field label="도입 — 첫 장면" value={story.opening} onChange={(v) => ws.editStory({ opening: v })} />
           {story.format !== 'single' && <Field label="전개" value={story.development} onChange={(v) => ws.editStory({ development: v })} />}
-          <Field label="웃음 지점" value={story.humor} onChange={(v) => ws.editStory({ humor: v })} />
-          <Field label="마무리 — 마지막 한 줄" value={story.ending} onChange={(v) => ws.editStory({ ending: v })} hint="첫 장면과 이어지는지 확인해 보세요." />
+          <Field label={story.format === 'info' ? '정리 장에 넣을 팁' : '웃음 지점'} value={story.humor} onChange={(v) => ws.editStory({ humor: v })} />
+          <Field
+            label={story.format === 'info' ? '정리 장 제목' : '마무리 — 마지막 한 줄'}
+            value={story.ending}
+            onChange={(v) => ws.editStory({ ending: v })}
+            hint={story.format === 'info' ? '앞 장의 상황에서 바로 이어지는 정리인지 확인해 보세요.' : '첫 장면과 이어지는지 확인해 보세요.'}
+          />
         </section>
       )}
 

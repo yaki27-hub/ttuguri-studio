@@ -82,7 +82,7 @@ export function planImport(ep: Episode, panels: Panel[], file: FinalFile): Impor
           patch[t.field] = to
           const label = card
             ? { scene: '제목', narration: '본문', direction: '강조', dialogue: '대사' }[t.field]
-            : { scene: '장면', narration: ep.format === 'captions' ? '자막' : '내레이션', direction: '연출', dialogue: '기타 대사' }[t.field]
+            : { scene: '장면', narration: ep.format === 'captions' ? '자막' : ep.format === 'info' ? '자막·팁 정리' : '내레이션', direction: '연출', dialogue: '기타 대사' }[t.field]
           changes.push({ label, from, to })
         }
       } else if (t.field.startsWith('cast:')) {

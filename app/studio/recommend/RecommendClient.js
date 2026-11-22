@@ -32,7 +32,7 @@ export default function RecommendClient() {
             </div>
             <h3>{t.title}</h3>
             {t.empathy && <p><b>공감</b> {t.empathy}</p>}
-            {t.twist && <p><b>반전</b> {t.twist}</p>}
+            {t.twist && <p><b>{t.format === '정보툰' ? '정리 팁' : '반전'}</b> {t.twist}</p>}
             {t.reason && <p className="reason">💡 {t.reason}</p>}
             <form action={pickTopic}>
               <input type="hidden" name="topic" value={JSON.stringify(t)} />

@@ -88,8 +88,8 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
       // 한컷에서 자막이 비어 있으면 첫 화면 문구를 그림 안 자막으로 쓴다
       const hookAsCaption = !p.narration.trim() && ep.format === 'single' && i === 0 && !!ep.hookText?.trim()
       const narr = p.narration.trim() || (hookAsCaption ? ep.hookText!.trim() : '')
-      if (narr) texts.push({ role: 'narration', name: ep.format === 'captions' ? '자막' : '내레이션', text: narr, field: hookAsCaption ? 'hook' : 'narration' })
-      frames.push({ name: panels.length === 1 ? '한컷' : ep.format === 'captions' ? `${i + 1}장` : `컷 ${i + 1}`, panelId: p.id, kind: 'cut', image, texts })
+      if (narr) texts.push({ role: 'narration', name: ep.format === 'captions' ? '자막' : ep.format === 'info' ? '자막·팁 정리' : '내레이션', text: narr, field: hookAsCaption ? 'hook' : 'narration' })
+      frames.push({ name: panels.length === 1 ? '한컷' : ep.format === 'captions' || ep.format === 'info' ? `${i + 1}장` : `컷 ${i + 1}`, panelId: p.id, kind: 'cut', image, texts })
     }
   }
 

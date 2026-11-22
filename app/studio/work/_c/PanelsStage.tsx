@@ -10,7 +10,7 @@ import {
   type PanelOp, type PanelsDoc,
 } from '@/lib/work/prompts'
 import { uid } from '@/lib/work/db'
-import { FORMATS, FORMAT_LABEL, countRange, fitCount, fmtDateTime, fmtDuration } from '@/lib/work/format'
+import { FORMATS, FORMAT_LABEL, byPage, countRange, fitCount, fmtDateTime, fmtDuration } from '@/lib/work/format'
 import type { CastItem, CastPosition, Episode, Format, ImageMemo, Panel, Ratio } from '@/lib/work/types'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
@@ -57,7 +57,7 @@ export default function PanelsStage() {
       if (doc.hook && (imported || doc.hook !== cur.hookText)) patch.hookText = doc.hook
       if (pickFormat) {
         const k = doc.items.length
-        const f = doc.format && k >= countRange(doc.format)[0] && k <= countRange(doc.format)[1] ? doc.format : k === 1 ? 'single' : k === 4 ? 'four' : k <= 4 ? 'captions' : undefined
+        const f = doc.format && k >= countRange(doc.format)[0] && k <= countRange(doc.format)[1] ? doc.format : k === 1 ? 'single' : k === 4 ? 'four' : k <= 4 ? 'captions' : k <= 6 ? 'info' : undefined
         if (f) patch.format = f
       }
       if (Object.keys(patch).length) await patchEpisode(ep.id, patch)
@@ -108,7 +108,7 @@ export default function PanelsStage() {
             {FORMATS.map((f) => (
               <option key={f} value={f}>
                 {FORMAT_LABEL[f]}
-                {f === 'captions' ? ' (2~4장)' : ''}
+                {f === 'captions' ? ' (2~4장)' : f === 'info' ? ' (4~6장, 마지막에 팁 정리)' : ''}
               </option>
             ))}
           </select>
@@ -164,7 +164,7 @@ export default function PanelsStage() {
                 panels.flatMap((p, i) => (p.locked ? [] : p.cast.filter((c) => c.fixed && c.dialogue.trim()).map((c) => `${cutName(ep, panels.length, i)} ${c.name || '인물'}: "${c.dialogue}"`))),
               )
             }
-            parse={(raw) => parsePanelsDoc(raw, { range: auto ? [1, 4] : range })}
+            parse={(raw) => parsePanelsDoc(raw, { range: auto ? [1, 6] : range })}
             getBase={() => ep.panelsRevision}
             preview={(doc) => <DocPreview doc={doc} panels={panels} imported={false} />}
             applyLabel={panels.length ? '변경안 적용 (잠긴 컷 유지)' : '콘티에 적용'}
@@ -312,7 +312,7 @@ function PanelCard({ p, i, last, onMove, count }: { p: Panel; i: number; last: b
         <CastEditor p={p} />
         <Field label="핵심 연출" value={p.direction} readOnly={p.locked} rows={1} onChange={(v) => edit({ direction: v })} className="wide" placeholder="예) 두 캐릭터 사이의 거리와 대비를 강조" />
         <Field label={p.cast.length ? '기타 대사·효과음' : '대사'} value={p.dialogue} readOnly={p.locked} rows={1} onChange={(v) => edit({ dialogue: v })} />
-        <Field label={textLabel(ep.format)} value={p.narration} readOnly={p.locked} rows={1} onChange={(v) => edit({ narration: v })} className={ep.format === 'captions' ? 'dialogue' : ''} />
+        <Field label={textLabel(ep.format)} value={p.narration} readOnly={p.locked} rows={ep.format === 'info' && p.narration.includes('\n') ? 4 : 1} onChange={(v) => edit({ narration: v })} className={byPage(ep.format) ? 'dialogue' : ''} />
         <Field label="제작 메모" value={p.productionNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ productionNotes: v })} />
         <Field label="각색 표시" value={p.adaptationNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ adaptationNotes: v })} />
       </div>

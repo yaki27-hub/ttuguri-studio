@@ -1,5 +1,5 @@
 import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
-import { FORMAT_LABEL, countRange } from './format'
+import { FORMAT_LABEL, byPage, countRange } from './format'
 import type { PanelDraftItem } from './repo'
 
 /* ───────── 프롬프트 ───────── */
@@ -66,7 +66,14 @@ export const FORMAT_GUIDE: Record<Format, string> = {
   single: '한컷 — 한 장면으로 끝나는 밈. 첫 화면 문구를 그림 안 자막으로 써도 된다.',
   four: '4컷 — 상황 → 진행 → 반전 단서 → 결말의 짧은 스토리.',
   captions: '컷자막형 — 2~4장. 장마다 그림 한 장과 짧은 자막 한 줄로 잔잔하게 흘러가는 이야기.',
+  info: '정보툰 — 4~6장. 앞 장들은 주인공이 일하며 실제로 겪은 상황(공감), 마지막 1~2장은 그 경험에서 나온 실무 팁을 정리한 "정리 장". 정리 장은 저장하고 싶게 — 팁 3~5개를 짧게, 한 줄에 하나.',
 }
+
+/** 정보툰 콘티 규칙 */
+const INFO_RULES = `- 정보툰: 앞 장들(2~4장)은 평소 에피소드처럼 상황과 대사로. 설명하지 말고 겪은 일을 보여 줘.
+- 마지막 1~2장은 정리 장. scene은 "정리 장 — (정리 제목)"으로 시작하고, narration에 팁을 한 줄에 하나씩 3~5개(각 25자 안팎, 앞에 1. 2. 3.). 주인공은 팁을 가리키거나 메모를 든 모습 정도로 단순하게.
+- 팁은 원문·이야기에 근거한 것만. 법·세금·금액처럼 틀리면 곤란한 내용은 단정하지 말고 adaptationNotes에 "확인 필요"라고 적어.
+- 정리 장 앞 장은 공감으로 끝나야 정리 장이 "그래서 이렇게 한다"로 읽힌다.`
 
 export const POSITION_LABEL: Record<CastPosition, string> = { left: '왼쪽', center: '가운데', right: '오른쪽', '': '' }
 export const RATIO_LABEL: Record<Ratio, string> = { '4:5': '4:5 세로', '1:1': '1:1 정사각형' }
@@ -132,11 +139,11 @@ export function kontiDocument(ep: Episode, panels: Panel[], s: CharacterSettings
 /** 한컷 / 컷 2 / 2장 */
 export function cutName(ep: Pick<Episode, 'format'>, count: number, i: number) {
   if (count === 1) return '한컷'
-  return ep.format === 'captions' ? `${i + 1}장` : `컷 ${i + 1}`
+  return byPage(ep.format) ? `${i + 1}장` : `컷 ${i + 1}`
 }
 
 /** narration 칸 이름: 컷자막형은 자막 */
-export const textLabel = (f: Format) => (f === 'captions' ? '자막' : '속마음·내레이션')
+export const textLabel = (f: Format) => (f === 'captions' ? '자막' : f === 'info' ? '자막·팁 정리' : '속마음·내레이션')
 
 /** 피그마용 ① 그릴 것만: 컷별 장면·인물 행동·핵심 연출 + 이미지 제작 메모 */
 export function sceneSheet(ep: Episode, panels: Panel[], s: CharacterSettings, memo: ImageMemo) {
@@ -200,17 +207,17 @@ export function storyPrompt(ep: Episode, s: CharacterSettings) {
 ${sourceBlock(ep)}
 ${ep.situation ? `\n한 줄 상황: ${ep.situation}` : ''}${ep.humorPoint ? `\n웃음 포인트: ${ep.humorPoint}` : ''}
 
-가장 적합한 방향 1개만 제안해. 형식은 아래 중 소재에 어울리는 하나:\n${(['single', 'four', 'captions'] as Format[]).map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`).join('\n')}\n 첫 장면과 마지막 한 줄이 연결되게. 억지 반전 대신 실제 상황의 모순을 살려. 한컷이면 development는 빈 문자열이어도 된다. reason은 한 문장.${JSON_ONLY}
-{"summary":"","opening":"","development":"","humor":"","ending":"","recommendedFormat":"single|four|captions","reason":""}`
+가장 적합한 방향 1개만 제안해. 형식은 아래 중 소재에 어울리는 하나:\n${(Object.keys(FORMAT_GUIDE) as Format[]).map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`).join('\n')}\n 첫 장면과 마지막 한 줄이 연결되게. 억지 반전 대신 실제 상황의 모순을 살려. 한컷이면 development는 빈 문자열이어도 된다. 원문에 나눌 만한 실무 요령(일하는 방법·대처법·도구 사용법)이 있을 때만 info를 고르고, 그때 humor에는 정리 장에 넣을 팁을 요약하고 ending은 정리 장 제목으로. reason은 한 문장.${JSON_ONLY}
+{"summary":"","opening":"","development":"","humor":"","ending":"","recommendedFormat":"single|four|captions|info","reason":""}`
 }
 
 export function panelsPrompt(ep: Episode, st: StoryVersion | undefined, format: Format | 'auto', s: CharacterSettings, locked: Panel[], memo: ImageMemo, fixedLines: string[] = []) {
   const auto = format === 'auto'
   const [a, b] = auto ? [1, 4] : countRange(format)
-  const n = auto ? '고른 형식에 맞는 수(한컷 1개, 4컷 4개, 컷자막형 2~4개)' : a === b ? `${a}개` : `${a}~${b}개(이야기에 맞게, 보통 3장)`
+  const n = auto ? '고른 형식에 맞는 수(한컷 1개, 4컷 4개, 컷자막형 2~4개, 정보툰 4~6개)' : a === b ? `${a}개` : format === 'info' ? `${a}~${b}개(이야기에 맞게, 보통 5장)` : `${a}~${b}개(이야기에 맞게, 보통 3장)`
   const fmtHead = auto
     ? `[작업: 콘티 — 형식 자동 추천]
-이야기의 결을 보고 아래 셋 중 가장 어울리는 형식 하나를 골라 format에 적어. 한컷으로 충분한 이야기를 늘리지 마.
+이야기의 결을 보고 아래 중 가장 어울리는 형식 하나를 골라 format에 적어. 한컷으로 충분한 이야기를 늘리지 마. 정보툰은 원문에 나눌 만한 실무 요령이 있을 때만.
 ${(Object.keys(FORMAT_GUIDE) as Format[]).map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`).join('\n')}`
     : `[작업: ${FORMAT_LABEL[format]} 콘티]
 형식: ${FORMAT_GUIDE[format]}`
@@ -223,17 +230,17 @@ ${storyBlock(st)}
 
 ${memoBlock(memo, s)}
 
-컷 ${n}를 만들어. 컷마다 핵심 행동 하나. 그림으로 읽히는 상황은 대사를 줄이고, 마지막 컷은 표정·행동·소품으로 끝내도 된다.
+컷 ${n}를 만들어. 컷마다 핵심 행동 하나. 그림으로 읽히는 상황은 대사를 줄이고${format === 'info' ? '.' : ', 마지막 컷은 표정·행동·소품으로 끝내도 된다.'}
 - 컷에 나오는 인물마다 cast 항목을 하나씩 만들고, 화면 위치(left/center/right)와 차림·행동·표정·소품을 한 줄에 하나씩 적어.
 - 대사는 그 인물의 dialogue에. 인물당 짧은 한 문장, 빈 대사도 가능.
 - direction에는 웃음이 전달되는 핵심 연출(대비, 거리감, 소품)을 짧게.
-- ${auto ? 'narration은 컷자막형이면 그 장에 올릴 자막 한 줄, 아니면 속마음·내레이션이 꼭 필요할 때만.' : format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}
+- ${auto ? 'narration은 컷자막형이면 그 장에 올릴 자막 한 줄, 정보툰 정리 장이면 팁 목록, 아니면 속마음·내레이션이 꼭 필요할 때만.' : format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : format === 'info' ? 'narration은 앞 장에서는 짧은 자막(필요할 때만), 정리 장에서는 팁 목록.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}${auto || format === 'info' ? `\n${auto ? '(정보툰을 고른 경우)\n' : ''}${INFO_RULES}` : ''}
 - 원문에 없는 대사나 시각적 장치는 adaptationNotes에 "각색 제안"이라고 적어.
 - hook은 첫 화면(첫 장)에 올릴 짧은 문구.${format === 'single' || auto ? ' 한컷이면 그림 안 자막으로 쓰인다.' : ''}
 - title은 짧은 상단 제목 제안. imageMemo는 이번 편에 맞게 채우되, 비어 있지 않은 현재 값은 그대로 두고 화면 비율은 넣지 마.${
     locked.length ? `\n다음 컷은 잠겨 있어 바뀌지 않으니 흐름만 맞춰:\n${locked.map(panelLine).join('\n')}` : ''
   }${fixedLines.length ? `\n다음 대사는 고정이야. 글자 그대로 넣고 그 cast의 fixed를 true로:\n${fixedLines.join('\n')}` : ''}${JSON_ONLY}
-{"title":"상단 제목",${auto ? '"format":"single|four|captions",' : ''}"hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}}}`
+{"title":"상단 제목",${auto ? '"format":"single|four|captions|info",' : ''}"hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{${MEMO_FIELDS_SHAPE}}}`
 }
 
 /** 다른 곳(ChatGPT 등)에서 만든 콘티 글을 앱 형식으로 옮긴다. 내용은 바꾸지 않는다. */
@@ -242,7 +249,7 @@ export function importKontiPrompt(text: string, s: CharacterSettings) {
 
 [작업: 콘티 옮겨 적기]
 아래 <콘티> 안의 글은 작업자가 다른 곳에서 이미 확정한 콘티다. 내용을 고치거나 다듬지 말고, 적힌 그대로 JSON 칸에 나눠 담아.
-- 컷 수는 글에 적힌 대로(한컷이면 1개, 4컷이면 4개, 장마다 자막이 붙는 형식이면 그 장 수). format은 single(한컷)/four(4컷)/captions(2~4장 컷자막형) 중 글에 맞는 것.
+- 컷 수는 글에 적힌 대로(한컷이면 1개, 4컷이면 4개, 장마다 자막이 붙는 형식이면 그 장 수). format은 single(한컷)/four(4컷)/captions(2~4장 컷자막형)/info(4~6장, 마지막에 팁 정리 장이 있는 정보툰) 중 글에 맞는 것.
 - 첫 화면 문구가 있으면 hook에. 장별 자막은 narration에.
 - 인물별 블록(예: "왼쪽 — 동료 직원")은 cast 항목 하나로. 위치는 left/center/right, 없으면 빈 문자열. 블록 안의 줄은 action에 한 줄씩, "대사:" 줄은 dialogue로.
 - 글에 없는 칸은 빈 문자열. 새 대사·연출을 지어내지 마. adaptationNotes도 글에 없으면 빈 문자열.
@@ -252,7 +259,7 @@ export function importKontiPrompt(text: string, s: CharacterSettings) {
 <콘티>
 ${text.trim()}
 </콘티>${JSON_ONLY}
-{"title":"상단 제목","format":"single|four|captions","hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{"ratio":"1:1|4:5",${MEMO_FIELDS_SHAPE}}}`
+{"title":"상단 제목","format":"single|four|captions|info","hook":"첫 화면 문구","panels":[${PANEL_SHAPE}],"imageMemo":{"ratio":"1:1|4:5",${MEMO_FIELDS_SHAPE}}}`
 }
 
 export type PanelOp = 'rewrite' | 'shorten' | 'expression' | 'ending'
@@ -431,14 +438,14 @@ export function parseStory(raw: unknown): StoryOut {
   const errs: string[] = []
   if (!isObj(raw)) throw new ParseError(['최상위가 객체({})여야 해요.'])
   const f = raw.recommendedFormat
-  if (f !== 'single' && f !== 'four' && f !== 'captions') errs.push('recommendedFormat: single, four, captions 중 하나여야 해요.')
+  if (f !== 'single' && f !== 'four' && f !== 'captions' && f !== 'info') errs.push('recommendedFormat: single, four, captions, info 중 하나여야 해요.')
   const out = {
     summary: str(raw, 'summary', errs, true),
     opening: str(raw, 'opening', errs),
     development: str(raw, 'development', errs),
     humor: str(raw, 'humor', errs),
     ending: str(raw, 'ending', errs, true),
-    recommendedFormat: (f === 'single' || f === 'captions' ? f : 'four') as Format,
+    recommendedFormat: (f === 'single' || f === 'captions' || f === 'info' ? f : 'four') as Format,
     reason: str(raw, 'reason', errs),
   }
   if (errs.length) throw new ParseError(errs)
@@ -542,7 +549,7 @@ export function parsePanelsDoc(raw: unknown, expect?: { range?: [number, number]
     }
   }
   const hook = typeof o.hook === 'string' ? o.hook.trim() : ''
-  const format = o.format === 'single' || o.format === 'four' || o.format === 'captions' ? o.format : undefined
+  const format = o.format === 'single' || o.format === 'four' || o.format === 'captions' || o.format === 'info' ? o.format : undefined
   if (errs.length) throw new ParseError(errs)
   return { title, hook, format, imageMemo, items }
 }

@@ -47,22 +47,26 @@ export const STAGE_LABEL: Record<Stage, string> = {
 /** 화면에 보이는 단계. 'story'는 예전 데이터 호환용으로만 남아 있고 '메모'로 합쳐 보여준다. */
 export const STAGES: Stage[] = ['source', 'panels', 'images', 'publish']
 
-export const FORMAT_LABEL: Record<Format, string> = { single: '한컷', four: '4컷', captions: '컷자막형' }
-export const FORMATS: Format[] = ['single', 'four', 'captions']
+export const FORMAT_LABEL: Record<Format, string> = { single: '한컷', four: '4컷', captions: '컷자막형', info: '정보툰' }
+export const FORMATS: Format[] = ['single', 'four', 'captions', 'info']
 
 /** 형식별 컷(장) 수 범위 */
 export function countRange(f: Format): [number, number] {
-  return f === 'single' ? [1, 1] : f === 'four' ? [4, 4] : [2, 4]
+  return f === 'single' ? [1, 1] : f === 'four' ? [4, 4] : f === 'info' ? [4, 6] : [2, 4]
 }
 
 /** 형식을 바꿀 때 남길 컷 수 */
 export function fitCount(f: Format, cur: number) {
   const [a, b] = countRange(f)
   if (f === 'captions' && cur < a) return 3
+  if (f === 'info' && cur < a) return 5
   return Math.min(b, Math.max(a, cur))
 }
 
 /** 걸린 시간 표시: 1분 미만 / 12분 / 2시간 5분 / 3일 */
+/** 장으로 세는 형식 (컷자막형·정보툰) */
+export const byPage = (f: Format) => f === 'captions' || f === 'info'
+
 export function fmtDuration(ms: number) {
   const m = Math.round(ms / 60000)
   if (m < 1) return '1분 미만'

@@ -35,7 +35,7 @@ export default function OpenFromNotion({ pageId, episode, error }: { pageId: str
         const ep = await createEpisode(episode.title, {
           notionPageId: pageId,
           notes,
-          format: episode.format === '한컷' ? 'single' : 'four',
+          format: episode.twist?.startsWith('[정보툰]') ? 'info' : episode.format === '한컷' ? 'single' : 'four',
           tags: episode.category ? [episode.category] : [],
           facts: [],
           humorPoint: episode.twist ?? '',

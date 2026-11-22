@@ -15,7 +15,7 @@ export interface Fact {
 
 export type Purpose = 'discovery' | 'exploration' | 'relationship'
 /** single: 한 컷 밈, four: 4컷 스토리, captions: 2~4장 컷자막형 */
-export type Format = 'single' | 'four' | 'captions'
+export type Format = 'single' | 'four' | 'captions' | 'info'
 /** instatoon: 인스타툰, cardnews: 카드뉴스 */
 export type ContentType = 'instatoon' | 'cardnews'
 export type Stage = 'source' | 'story' | 'panels' | 'images' | 'publish'

@@ -21,7 +21,8 @@ function topicProps(t) {
   if (OPTIONS.format.includes(t.format)) props[P.format] = select(t.format);
   if (OPTIONS.formula.includes(t.formula)) props[P.formula] = multi([t.formula]);
   if (t.empathy) props[P.empathy] = rich(t.empathy);
-  if (t.twist) props[P.twist] = rich(t.twist);
+  // 노션 '형식'에는 정보툰 선택지가 없어서 반전 칸 앞에 표시해 두고, 작업으로 가져올 때 형식을 되살린다
+  if (t.twist) props[P.twist] = rich(t.format === '정보툰' ? `[정보툰] ${t.twist}` : t.twist);
   return props;
 }
 
