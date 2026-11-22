@@ -229,6 +229,7 @@ export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 't
                   <span className={`status s-${e.status}`}>{STATUS_LABEL[e.status]}</span>
                   {e.contentType === 'cardnews' && <span className="tag good">카드뉴스</span>}
                   {e.contentType !== 'cardnews' && <span className="tag">{FORMAT_LABEL[e.format]}</span>}
+                  {e.hookId && <span className="tag hot">후킹 {e.hookId}</span>}
                   {!!e.referenceIds?.length && <span className="tag">레퍼런스 {e.referenceIds.length}</span>}
                   {e.tags.slice(0, 4).map((t) => (
                     <span key={t} className="tag">

@@ -355,3 +355,18 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .import-changes li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .import-changes .old { text-decoration: line-through; color: var(--muted); }
 .import-changes .new { font-weight: 700; }
+
+/* 후킹 라이브러리 */
+.hook-plan { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 10px 0 12px; font-size: 13px; }
+.hook-week { display: flex; align-items: center; gap: 4px; }
+.hook-week b { color: var(--muted); font-weight: 600; margin-right: 2px; }
+.hook-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+@media (min-width: 1100px) { .hook-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
+.hook-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); }
+.hook-item.next { border-color: var(--accent); }
+.hook-item .btn { align-self: flex-start; margin-top: auto; }
+.hook-item p { margin: 0; }
+.hook-item .link { margin-right: 8px; }
+.hook-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.hook-text { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+.hooks .check { display: inline-flex; align-items: center; gap: 4px; }

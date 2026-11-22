@@ -11,6 +11,7 @@ import { loadTrending, loadWatchlist } from './actions'
 import { matchTopics as matchAny } from '@/lib/topics'
 import { Notice } from '../work/_c/ui'
 import AiNews from './AiNews'
+import HookLibrary from './HookLibrary'
 
 interface Trend {
   title: string
@@ -77,7 +78,7 @@ export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: b
             <TrendingSection topics={topics} />
           </div>
           <div className="finder-watch">
-            {card && <AiNews topics={topics} />}
+            {card ? <AiNews topics={topics} /> : <HookLibrary />}
             <WatchSection igReady={igReady} watch={watch} topics={topics} channel={channel} onWatch={(w) => patchSettings({ watchlist: w })} />
           </div>
           <div className="finder-topics">

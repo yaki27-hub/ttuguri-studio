@@ -1,5 +1,6 @@
 import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Slide, StoryVersion } from './types'
 import { FORMAT_LABEL, byPage, countRange } from './format'
+import { hookBlock } from './hooks'
 import type { PanelDraftItem } from './repo'
 
 /* ───────── 프롬프트 ───────── */
@@ -34,6 +35,7 @@ function sourceBlock(ep: Episode) {
     ep.notes && `추가 메모/정정:\n${ep.notes}`,
     facts && `정리된 사실:\n${facts}`,
     ep.unknowns.length ? `미정: ${ep.unknowns.join(', ')}` : '',
+    hookBlock(ep.hookId),
   ]
     .filter(Boolean)
     .join('\n\n')

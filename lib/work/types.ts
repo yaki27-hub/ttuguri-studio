@@ -78,6 +78,8 @@ export interface Episode extends Base {
   referenceIds?: string[]
   /** 카드뉴스 목표 장 수 (3~10, 기본 5) */
   cardCount?: number
+  /** 후킹 라이브러리 번호 (H01~H26). 성과 비교용 */
+  hookId?: string
 }
 
 export type Ratio = '4:5' | '1:1'
