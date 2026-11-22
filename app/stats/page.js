@@ -5,6 +5,7 @@ import { logout, syncNow } from '../actions';
 import Login from '../Login';
 import Nav from '../Nav';
 import StatsBoard from './StatsBoard';
+import RefreshButton from './RefreshButton';
 import { getChannel } from '@/lib/channel-server';
 import { igAccount } from '@/lib/channel';
 
@@ -49,6 +50,7 @@ export default async function Page({ searchParams }) {
   for (const ep of episodes) statusMap.set(ep.status || '상태 없음', (statusMap.get(ep.status || '상태 없음') || 0) + 1);
   const statusCounts = [...statusMap].filter(([s, n]) => n > 0 || statusFlow.includes(s));
   const daysLeft = tokenDaysLeft(channel);
+  const loadedAt = Date.now();
 
   return (
     <main className="wrap">
@@ -61,6 +63,7 @@ export default async function Page({ searchParams }) {
           </div>
         </div>
         <div className="top-actions">
+          <RefreshButton loadedAt={loadedAt} />
           {!card && <form action={syncNow}><button className="btn primary" type="submit">지금 노션에 동기화</button></form>}
           <form action={logout}><button className="btn ghost" type="submit">로그아웃</button></form>
         </div>
@@ -81,7 +84,7 @@ export default async function Page({ searchParams }) {
           candidates={candidates}
           statusCounts={statusCounts}
           card={card}
-          now={Date.now()}
+          now={loadedAt}
           tokenDaysLeft={daysLeft}
           tokenVar={acct.tokenVar}
         />

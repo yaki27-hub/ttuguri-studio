@@ -401,4 +401,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
   .list-tools input { flex-basis: 100%; }
   .list-tools select, .list-tools .btn { flex: 1 1 40%; min-width: 0; }
   .list-tools .count { margin-left: 0; }
+  .top-actions { flex-wrap: wrap; }
+  .refresh-time { display: none; }
 }
