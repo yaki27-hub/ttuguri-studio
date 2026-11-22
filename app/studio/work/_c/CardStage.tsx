@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { addPanel, applyPanelDraft, confirmPanels, patchEpisode, patchPanelMeta, removePanel, reorderPanels, savePanel, type PanelDraftItem } from '@/lib/work/repo'
 import {
-  CARD_DEFAULT, CARD_FIELD_LABEL, CARD_LIMITS, CARD_MAX, CARD_MIN, CARD_OP_LABEL, cardCountOf, cardDocument, cardName, cardOpPrompt, cardRole, cardTextSheet, cardsPrompt, len, overLimits, parseCards,
+  CARD_DEFAULT, CARD_FIELD_LABEL, cardSettings, CARD_LIMITS, CARD_MAX, CARD_MIN, CARD_OP_LABEL, cardCountOf, cardDocument, cardName, cardOpPrompt, cardRole, cardTextSheet, cardsPrompt, len, overLimits, parseCards,
   toDraftItem, type CardOp, type CardsDoc,
 } from '@/lib/work/cards'
 import { fmtDateTime } from '@/lib/work/format'
+import { designOf } from '@/lib/work/cardDesign'
 import type { Episode, Panel } from '@/lib/work/types'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
@@ -158,6 +159,7 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
   const role = cardRole(i, count)
   const L = CARD_LIMITS[role]
   const F = CARD_FIELD_LABEL[role]
+  const seodang = designOf(cardSettings(ws.settings)) === 'seodang'
   const [op, setOp] = useState<CardOp>()
   const [request, setRequest] = useState('')
   const [history, setHistory] = useState(false)
@@ -191,7 +193,17 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
       <div className="panel-fields card-fields">
         <Field label={F.headline} value={p.scene} readOnly={p.locked} rows={1} onChange={(v) => edit({ scene: v })} className="wide dialogue" hint={<Count v={p.scene} max={L.headline} />} />
         <Field label={F.body} value={p.narration} readOnly={p.locked} rows={2} onChange={(v) => edit({ narration: v })} className="wide" hint={<Count v={p.narration} max={L.body} />} />
-        <Field label="강조 한 줄 (선택)" value={p.direction} readOnly={p.locked} rows={1} onChange={(v) => edit({ direction: v })} hint={<Count v={p.direction} max={L.highlight} />} />
+        <Field
+          label={seodang ? '제목 강조 단어 (청록색으로 칠할 부분)' : '강조 한 줄 (선택)'}
+          value={p.direction}
+          readOnly={p.locked}
+          rows={1}
+          onChange={(v) => edit({ direction: v })}
+          hint={seodang && p.direction.trim() && !p.scene.includes(p.direction.trim()) ? '제목에 똑같이 들어 있어야 칠해져요.' : <Count v={p.direction} max={L.highlight} />}
+        />
+        {seodang && role === 'content' && (
+          <Field label="태그 (선택 · 예: 11.04 출시)" single value={p.dialogue} readOnly={p.locked} onChange={(v) => edit({ dialogue: v })} />
+        )}
         <Field label="이미지 메모" value={p.productionNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ productionNotes: v })} placeholder="이 장 문구에 맞는 그림 한 줄" />
         <Field label="확인 필요 (수치·제도·출처)" value={p.adaptationNotes} readOnly={p.locked} rows={1} onChange={(v) => edit({ adaptationNotes: v })} className="wide" placeholder="확인이 끝나면 비워 두세요" />
       </div>

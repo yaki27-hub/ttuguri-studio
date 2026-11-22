@@ -8,7 +8,8 @@ import { cardGenPrompt } from '@/lib/work/imagegen'
 import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
-import type { CharacterSettings, Ratio } from '@/lib/work/types'
+import type { CardDesign, CharacterSettings, Ratio } from '@/lib/work/types'
+import { CARD_DESIGN_LABEL, SEODANG_STYLE, applySeodang, brandOf, designOf } from '@/lib/work/cardDesign'
 import { AssetImage, CopyButton, Field, FilePick, Lightbox, ListField, Notice } from './ui'
 import { BackupButtons, SaveIndicator } from './Backup'
 
@@ -256,6 +257,34 @@ function CardNewsSettingsBox({ s, edit, onBig, setMsg }: { s: CharacterSettings;
         <span className="muted small">뚜구리 설정과 따로 써요</span>
       </div>
       <p className="muted small">카드뉴스의 장 구성·게시 문구·이미지 생성은 인스타툰 캐릭터(뚜구리)와 그림체를 쓰지 않고 여기 값만 써요.</p>
+      <div className="field">
+        <label htmlFor="cdesign">디자인 템플릿</label>
+        <select id="cdesign" value={designOf(c)} onChange={(e) => set({ design: e.target.value as CardDesign }, true)}>
+          {(Object.keys(CARD_DESIGN_LABEL) as CardDesign[]).map((d) => (
+            <option key={d} value={d}>
+              {CARD_DESIGN_LABEL[d]}
+            </option>
+          ))}
+        </select>
+        <p className="hint">피그마로 보낼 때 이 배치로 프레임을 만들고, 이미지도 이 배치에 맞는 여백으로 그려요.</p>
+      </div>
+      {designOf(c) === 'seodang' && (
+        <>
+          <div className="row-inline wraps">
+            <Field label="계정 이름 (첫 단어가 청록색)" single value={brandOf(c).name} onChange={(v) => set({ brand: { ...brandOf(c), name: v } })} />
+            <Field label="@계정" single value={brandOf(c).handle} onChange={(v) => set({ brand: { ...brandOf(c), handle: v } })} />
+            <Field label="표지 연재 이름" single value={brandOf(c).series} onChange={(v) => set({ brand: { ...brandOf(c), series: v } })} />
+          </div>
+          {c.imageStyle !== SEODANG_STYLE.imageStyle && (
+            <Notice>
+              그림체·규칙이 AI 서당 스타일과 달라요.{' '}
+              <button type="button" className="btn small" onClick={() => set(applySeodang(c), true)}>
+                AI 서당 그림체로 채우기
+              </button>
+            </Notice>
+          )}
+        </>
+      )}
       <Field label="계정 소개 · 말투" value={c.intro} rows={3} onChange={(v) => set({ intro: v })} hint="장 구성·장 수정·게시 문구 AI 지시문의 첫머리에 들어가요." />
       <Field label="이미지 그림체 · 톤" value={c.imageStyle} rows={3} onChange={(v) => set({ imageStyle: v })} placeholder="예) 깔끔한 플랫 일러스트, 밝은 단색 배경, 포인트 색 1~2개" />
       <Field label="이미지 규칙 (한 줄에 하나)" value={c.imageRules} rows={3} onChange={(v) => set({ imageRules: v })} />

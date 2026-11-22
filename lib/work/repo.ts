@@ -1,3 +1,4 @@
+import { SEODANG_BRAND, SEODANG_STYLE } from './cardDesign'
 import { ConflictError, broadcast, db, nowISO, uid, EPISODE_STORES } from './db'
 import type {
   Activity,
@@ -666,8 +667,9 @@ export function defaultSettings(): CharacterSettings {
 export function defaultCardNews(): CardNewsSettings {
   return {
     intro: 'AI 활용법과 새 소식을 직장인이 바로 써먹을 수 있게 정리하는 정보 카드뉴스 계정. 말투는 친근하지만 과장하지 않고, 한 장에 메시지 하나.',
-    imageStyle: '깔끔한 플랫 일러스트. 밝은 단색 배경과 넓은 여백, 포인트 색은 1~2개. 사람은 특정 캐릭터 없이 단순한 형태로. 사진처럼 사실적인 묘사는 피한다.',
-    imageRules: '실제 회사 로고·상표를 그리지 않기\n실존 인물 얼굴 금지\n화면·종이 속 글씨는 선이나 빈칸으로만',
+    ...SEODANG_STYLE,
+    design: 'seodang',
+    brand: { ...SEODANG_BRAND },
     styleRefIds: [],
     topics: CARD_TOPICS.map((t) => ({ ...t, keywords: [...t.keywords] })),
     watchlist: [],

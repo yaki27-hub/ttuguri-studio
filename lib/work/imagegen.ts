@@ -6,6 +6,7 @@
  * - 문구는 "뜻 참고용"으로만 주고, 글자·숫자·말풍선·간판·UI 글씨를 모두 금지한다.
  * - 한 장면, 한 칸, 테두리·칸 나누기 금지를 맨 앞과 맨 뒤에 두 번 적는다.
  */
+import { designOf } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import type { CharacterSettings, ImageMemo, Panel } from './types'
@@ -35,7 +36,12 @@ const noMascot = (t: string, s: CharacterSettings) => (s.characterName ? t.split
 export function cardGenPrompt(p: Panel, i: number, count: number, s: CharacterSettings, memo: ImageMemo, refCount = 0) {
   const c = cardSettings(s)
   const role = cardRole(i, count)
-  const space = role === 'cover' ? '위쪽 40%는 제목이 올라갈 빈 여백으로 비워 둬.' : '위쪽 1/3은 글이 올라갈 빈 여백으로 비워 둬.'
+  const space =
+    designOf(c) === 'seodang'
+      ? '그림의 주제는 위쪽 60% 안에 두고, 아래쪽 40%는 거의 검은 배경으로 자연스럽게 어두워지게 비워 둬(글이 올라가). 위쪽 가장자리도 살짝 어둡게.'
+      : role === 'cover'
+        ? '위쪽 40%는 제목이 올라갈 빈 여백으로 비워 둬.'
+        : '위쪽 1/3은 글이 올라갈 빈 여백으로 비워 둬.'
   return [
     `인스타그램 정보 카드뉴스 ${i + 1}장(${CARD_ROLE_LABEL[role]})의 배경 그림. 비율 ${RATIO_LABEL[memo.ratio] ?? '4:5 세로'}.`,
     ONE_FRAME,

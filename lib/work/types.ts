@@ -227,6 +227,20 @@ export interface CardNewsSettings {
   /** 소재 찾기 토픽·워치리스트 (카드뉴스 채널용) */
   topics?: Topic[]
   watchlist?: string[]
+  /** 디자인 템플릿 (없으면 seodang) — 피그마 프레임 배치와 이미지 여백이 달라진다 */
+  design?: CardDesign
+  /** 머리말·꼬리말에 들어갈 계정 정보 */
+  brand?: Partial<CardBrand>
+}
+
+export type CardDesign = 'seodang' | 'plain'
+export interface CardBrand {
+  /** 계정 이름. 첫 단어가 강조색 (예: AI 서당) */
+  name: string
+  /** @계정 */
+  handle: string
+  /** 표지 알약에 들어갈 연재 이름 (예: 오늘의 방(榜)) */
+  series: string
 }
 
 export interface Topic {

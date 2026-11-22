@@ -8,10 +8,12 @@
  *   direction       → 강조 한 줄
  *   productionNotes → 이미지 메모 (그 장 문구에 맞는 그림)
  *   adaptationNotes → 확인 필요 (수치·제도·출처)
+ *   dialogue        → 태그 (날짜·상태 — 예: 11.04 출시)
  * 장의 역할은 순서로 정한다: 첫 장 = 표지, 마지막 장 = 마무리, 나머지 = 본문.
  */
 import { ParseError } from './prompts'
 import { defaultCardNews } from './repo'
+import { designOf } from './cardDesign'
 import type { PanelDraftItem } from './repo'
 import type { CharacterSettings, Episode, ImageMemo, Panel, Slide } from './types'
 
@@ -75,7 +77,17 @@ export function cardSystem(s: CharacterSettings) {
 
 const JSON_ONLY = '\n\n출력은 아래 형식의 JSON 하나만. 설명 문장, 마크다운, HTML 없이.'
 
-const CARD_SHAPE = '{"headline":"제목","body":"본문","highlight":"강조 한 줄(없으면 빈 문자열)","imageNote":"이 장 문구에 맞는 이미지 한 줄","check":"사실 확인이 필요한 수치·제도·출처(없으면 빈 문자열)"}'
+const CARD_SHAPE = '{"headline":"제목","body":"본문","highlight":"강조(없으면 빈 문자열)","tag":"작은 태그(없으면 빈 문자열)","imageNote":"이 장 문구에 맞는 이미지 한 줄","check":"사실 확인이 필요한 수치·제도·출처(없으면 빈 문자열)"}'
+
+/** 디자인에 따라 강조·태그를 어떻게 쓰는지 */
+function designGuide(s: CharacterSettings) {
+  return designOf(cardSettings(s)) === 'seodang'
+    ? [
+        '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다(예: headline "이미지 2.6", highlight "2.6"). 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄을 highlight로.',
+        '- tag: 본문 장 오른쪽 위 작은 알약에 들어갈 날짜·상태(예: "11.04 출시", "순차 적용", "무료 플랜 가능"). 원문에 근거가 없으면 빈 문자열. 표지·마무리는 빈 문자열.',
+      ].join('\n')
+    : '- highlight: 꼭 기억할 한 줄. tag는 빈 문자열.'
+}
 
 function limitGuide(count: number) {
   const c = CARD_LIMITS.cover
@@ -83,7 +95,7 @@ function limitGuide(count: number) {
   const o = CARD_LIMITS.outro
   return [
     `- 1장(표지): headline은 스크롤을 멈추게 하는 후킹 제목 ${c.headline}자 이내, body는 부제 ${c.body}자 이내. 숫자·대상·약속을 분명하게(예: "프리랜서 3년 차가 매번 쓰는 견적 문장 5개").`,
-    `- 2~${count - 1}장(본문): 장마다 메시지 하나. headline ${m.headline}자 이내, body ${m.body}자 이내(2~3줄), highlight는 꼭 기억할 한 줄 ${m.highlight}자 이내.`,
+    `- 2~${count - 1}장(본문): 장마다 메시지 하나. headline ${m.headline}자 이내, body ${m.body}자 이내(2~3줄), highlight ${m.highlight}자 이내(쓰임은 아래).`,
     `- ${count}장(마무리): headline에 전체를 한 줄로 정리(${o.headline}자 이내), body에 저장·공유·팔로우를 자연스럽게 권하는 문구(${o.body}자 이내). 강요하는 말투 금지.`,
     '- 글자 수는 공백 포함. 한도를 넘기지 마. 문장은 짧게, 보고서체 대신 말하듯이.',
   ].join('\n')
@@ -97,6 +109,7 @@ function cardLine(p: Panel, i: number, count: number) {
     headline: p.scene,
     body: p.narration,
     highlight: p.direction,
+    tag: p.dialogue,
     imageNote: p.productionNotes,
     check: p.adaptationNotes,
     ...(p.locked ? { locked: true } : {}),
@@ -122,6 +135,7 @@ export function cardsPrompt(ep: Episode, s: CharacterSettings, count: number, lo
 ${sourceOf(ep)}
 
 ${limitGuide(count)}
+${designGuide(s)}
 - 원문 메모에 없는 수치·통계·제도·법은 지어내지 마. 일반 상식이라도 확인이 필요하면 check에 "확인 필요: …"로 적어.
 - imageNote는 그 장 문구와 정확히 맞는 그림 한 줄(사물·상황·도식 위주). 특정 캐릭터 없이. 이미지 안에는 글자를 넣지 않는다고 가정.
 - title은 작업용 짧은 제목, hook은 표지 headline과 같아도 된다.${
@@ -150,6 +164,7 @@ ${sourceOf(ep)}
 ${all.map((p, k) => cardLine(p, k, all.length)).join('\n')}
 
 ${task}
+${designGuide(s)}
 원문에 없는 수치·제도는 지어내지 말고 check에 적어.${JSON_ONLY}
 {"cards":[${CARD_SHAPE.replace('{', `{"id":"${target.id}",`)}]}`
 }
@@ -168,7 +183,7 @@ export function toDraftItem(c: Record<string, unknown>): PanelDraftItem {
     adaptationNotes: str(c.check),
     action: '',
     cast: [],
-    dialogue: '',
+    dialogue: str(c.tag),
   }
   if (typeof c.id === 'string') item.id = c.id
   return item

@@ -6,6 +6,8 @@
  */
 import { CARD_FIELD_LABEL, cardName, cardRole } from './cards'
 import { getAsset } from './repo'
+import { brandOf, designOf } from './cardDesign'
+import type { CardBrand, CardDesign, CardNewsSettings } from './types'
 import type { Episode, ImageMemo, Panel } from './types'
 
 export const FIGMA_EXPORT_VERSION = 2
@@ -19,7 +21,7 @@ export const FIGMA_EXPORT_VERSION = 2
  */
 export type TextField = 'scene' | 'narration' | 'direction' | 'hook' | 'dialogue' | `cast:${string}`
 
-export type TextRole = 'headline' | 'body' | 'highlight' | 'hook' | 'dialogue' | 'narration'
+export type TextRole = 'headline' | 'body' | 'highlight' | 'tag' | 'hook' | 'dialogue' | 'narration'
 
 export interface FigmaText {
   role: TextRole
@@ -46,6 +48,9 @@ export interface FigmaExport {
   width: number
   height: number
   exportedAt: string
+  /** 카드뉴스 디자인 템플릿 (플러그인이 배치를 고른다) */
+  design?: CardDesign
+  brand?: CardBrand
   frames: FigmaFrame[]
 }
 
@@ -56,7 +61,7 @@ async function toBase64(blob: Blob) {
   return btoa(s)
 }
 
-export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: ImageMemo): Promise<FigmaExport> {
+export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: ImageMemo, cardnews?: Partial<CardNewsSettings>): Promise<FigmaExport> {
   const card = ep.contentType === 'cardnews'
   const width = 1080
   const height = memo.ratio === '1:1' ? 1080 : 1350
@@ -75,6 +80,7 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
       if (p.scene.trim()) texts.push({ role: 'headline', name: F.headline, text: p.scene.trim(), field: 'scene' })
       if (p.narration.trim()) texts.push({ role: 'body', name: F.body, text: p.narration.trim(), field: 'narration' })
       if (p.direction.trim()) texts.push({ role: 'highlight', name: '강조', text: p.direction.trim(), field: 'direction' })
+      if (p.dialogue.trim()) texts.push({ role: 'tag', name: '태그', text: p.dialogue.trim(), field: 'dialogue' })
       frames.push({ name: cardName(i, panels.length), panelId: p.id, kind: role, image, texts })
     } else {
       if (i === 0 && ep.hookText?.trim() && ep.format !== 'single') texts.push({ role: 'hook', name: '첫 화면 문구', text: ep.hookText.trim(), field: 'hook' })
@@ -102,6 +108,7 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
     width,
     height,
     exportedAt: new Date().toISOString(),
+    ...(card ? { design: designOf(cardnews ?? {}), brand: brandOf(cardnews ?? {}) } : {}),
     frames,
   }
 }

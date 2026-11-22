@@ -291,7 +291,7 @@ function FigmaBox() {
     setBusy(true)
     setMsg('')
     try {
-      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings))
+      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings), ws.settings.cardnews)
       downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${safe(ep.title)}-figma.json`)
       setMsg(`${data.frames.length}개 프레임용 파일을 받았어요. 피그마에서 ‘뚜구리 가져오기’ 플러그인에 넣으세요.`)
     } catch (e) {
