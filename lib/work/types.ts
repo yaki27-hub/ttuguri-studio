@@ -254,7 +254,7 @@ export interface CardNewsSettings {
   brand?: Partial<CardBrand>
 }
 
-export type CardDesign = 'seodang' | 'plain'
+export type CardDesign = 'master' | 'seodang' | 'plain'
 export interface CardBrand {
   /** 계정 이름. 첫 단어가 강조색 (예: AI 서당) */
   name: string

@@ -668,7 +668,7 @@ export function defaultCardNews(): CardNewsSettings {
   return {
     intro: 'AI 활용법과 새 소식을 직장인이 바로 써먹을 수 있게 정리하는 정보 카드뉴스 계정. 말투는 친근하지만 과장하지 않고, 한 장에 메시지 하나.',
     ...SEODANG_STYLE,
-    design: 'seodang',
+    design: 'master',
     brand: { ...SEODANG_BRAND },
     styleRefIds: [],
     topics: CARD_TOPICS.map((t) => ({ ...t, keywords: [...t.keywords] })),

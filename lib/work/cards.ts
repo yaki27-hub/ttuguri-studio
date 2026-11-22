@@ -14,7 +14,7 @@
  */
 import { ParseError } from './prompts'
 import { defaultCardNews } from './repo'
-import { brandOf, designOf, seriesBlock } from './cardDesign'
+import { brandOf, isDark, seriesBlock } from './cardDesign'
 import type { PanelDraftItem } from './repo'
 import type { CharacterSettings, Episode, ImageMemo, Panel, Slide } from './types'
 
@@ -86,7 +86,7 @@ export function cardSystem(s: CharacterSettings) {
   return [
     '너는 인스타그램 정보 카드뉴스 계정의 제작 보조다.',
     c.intro.trim() && `계정 소개·말투: ${c.intro.trim()}`,
-    designOf(c) === 'seodang' && seriesBlock(brandOf(c)),
+    isDark(c) && seriesBlock(brandOf(c)),
     '공통 원칙: 원문 메모에 없는 사실·수치·제도·인용을 지어내지 않는다. 확인이 필요한 것은 따로 표시한다. 과장된 제목, 공포 마케팅, 근거 없는 단정 금지. 특정 캐릭터나 마스코트를 등장시키지 않는다.',
   ]
     .filter(Boolean)
@@ -100,10 +100,10 @@ const CARD_SHAPE = '{"tag":"작은 태그(없으면 빈 문자열)","headline":"
 /** 디자인에 따라 강조·태그를 어떻게 쓰는지 */
 function designGuide(s: CharacterSettings, style: CardStyle = 'brief') {
   if (style === 'story')
-    return designOf(cardSettings(s)) === 'seodang'
+    return isDark(cardSettings(s))
       ? '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다. 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄(반전)을 highlight로.'
       : '- highlight: headline 안에서 강조할 1~3단어(headline에 그대로 들어 있게).'
-  return designOf(cardSettings(s)) === 'seodang'
+  return isDark(cardSettings(s))
     ? [
         '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다(예: headline "이미지 2.6", highlight "2.6"). 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄을 highlight로.',
         '- tag: 본문 장 오른쪽 위 작은 알약에 들어갈 날짜·상태(예: "11.04 출시", "순차 적용", "무료 플랜 가능"). 원문에 근거가 없으면 빈 문자열. 표지·마무리는 빈 문자열.',

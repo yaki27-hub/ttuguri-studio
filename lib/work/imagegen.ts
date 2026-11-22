@@ -6,7 +6,7 @@
  * - 문구는 "뜻 참고용"으로만 주고, 글자·숫자·말풍선·간판·UI 글씨를 모두 금지한다.
  * - 한 장면, 한 칸, 테두리·칸 나누기 금지를 맨 앞과 맨 뒤에 두 번 적는다.
  */
-import { designOf } from './cardDesign'
+import { designOf, isDark } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import type { CharacterSettings, ImageMemo, Panel } from './types'
@@ -37,7 +37,7 @@ export function cardGenPrompt(p: Panel, i: number, count: number, s: CharacterSe
   const c = cardSettings(s)
   const role = cardRole(i, count)
   const space =
-    designOf(c) === 'seodang'
+    isDark(c)
       ? '그림의 주제는 위쪽 60% 안에 두고, 아래쪽 40%는 거의 검은 배경으로 자연스럽게 어두워지게 비워 둬(글이 올라가). 위쪽 가장자리도 살짝 어둡게.'
       : role === 'cover'
         ? '위쪽 40%는 제목이 올라갈 빈 여백으로 비워 둬.'

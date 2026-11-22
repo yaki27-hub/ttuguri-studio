@@ -9,7 +9,7 @@ import { IMAGE_MEMO_FIELDS, RATIO_LABEL, buildSystem } from '@/lib/work/prompts'
 import { saver } from '@/lib/work/saver'
 import { fmtDateTime } from '@/lib/work/format'
 import type { CardDesign, CharacterSettings, Ratio } from '@/lib/work/types'
-import { CARD_DESIGN_LABEL, SEODANG_BRAND, SEODANG_STYLE, applySeodang, brandOf, designOf } from '@/lib/work/cardDesign'
+import { CARD_DESIGN_LABEL, SEODANG_BRAND, SEODANG_STYLE, applySeodang, brandOf, designOf, isDark } from '@/lib/work/cardDesign'
 import { AssetImage, CopyButton, Field, FilePick, Lightbox, ListField, Notice } from './ui'
 import { BackupButtons, SaveIndicator } from './Backup'
 
@@ -266,9 +266,13 @@ function CardNewsSettingsBox({ s, edit, onBig, setMsg }: { s: CharacterSettings;
             </option>
           ))}
         </select>
-        <p className="hint">피그마로 보낼 때 이 배치로 프레임을 만들고, 이미지도 이 배치에 맞는 여백으로 그려요.</p>
+        <p className="hint">
+          {designOf(c) === 'master'
+            ? '피그마 플러그인을 마스터 파일(어쩌다 발견 · 표지 MASTER)에서 실행하면, 그 파일의 ai_title(그림 있는 장)·page(글만 있는 장·마무리) 컴포넌트를 복제해 글자와 그림만 채워요. 마스터를 고치면 모든 카드에 그대로 반영돼요. 컴포넌트가 없는 파일에서는 AI 서당 배치로 만들어요.'
+            : '피그마로 보낼 때 이 배치로 프레임을 만들고, 이미지도 이 배치에 맞는 여백으로 그려요.'}
+        </p>
       </div>
-      {designOf(c) === 'seodang' && (
+      {isDark(c) && (
         <>
           <div className="row-inline wraps">
             <Field label="계정 이름 (첫 단어가 청록색)" single value={brandOf(c).name} onChange={(v) => set({ brand: { ...brandOf(c), name: v } })} />

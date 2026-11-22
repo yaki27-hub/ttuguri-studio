@@ -7,7 +7,7 @@ import {
   toDraftItem, type CardOp, type CardsDoc,
 } from '@/lib/work/cards'
 import { fmtDateTime } from '@/lib/work/format'
-import { designOf } from '@/lib/work/cardDesign'
+import { isDark } from '@/lib/work/cardDesign'
 import type { Episode, Panel } from '@/lib/work/types'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
@@ -187,7 +187,7 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
   const story = style === 'story'
   const L = limitsOf(style)[role]
   const F = CARD_FIELD_LABEL[role]
-  const seodang = designOf(cardSettings(ws.settings)) === 'seodang'
+  const seodang = isDark(cardSettings(ws.settings))
   const [op, setOp] = useState<CardOp>()
   const [request, setRequest] = useState('')
   const [history, setHistory] = useState(false)

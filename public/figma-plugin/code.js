@@ -69,7 +69,11 @@ function rightEdge() {
 }
 
 async function build(data) {
-  if (data.contentType === 'cardnews' && data.design === 'seodang') return buildSeodang(data);
+  if (data.contentType === 'cardnews' && data.design === 'master') {
+    const r = await buildMaster(data);
+    if (r) return r;
+  }
+  if (data.contentType === 'cardnews' && (data.design === 'seodang' || data.design === 'master')) return buildSeodang(data);
   const fonts = await pickFonts();
   const W = data.width;
   const H = data.height;
@@ -458,6 +462,165 @@ async function buildSeodang(data) {
 
   return finish(frames, data, W, H, startX, `${fonts.title.family} · ${fonts.body.family}`);
 }
+
+/* ───────── 카드뉴스 · 내 피그마 마스터 (이 파일의 ai_title · page 컴포넌트) ─────────
+ * 그림 있는 장 = 전체 이미지 + ai_title(invert 우선) 인스턴스를 아래에
+ * 그림 없는 본문 장 = page(type=Default) 인스턴스
+ * 마무리 = page(type=end) 인스턴스 (이미지 칸이 있으면 그림을 채운다)
+ * 인스턴스 안 글자는 레이어 이름(브랜드·제목·본문)으로 찾아 채우고, 나머지는 마스터 그대로 둔다.
+ */
+async function findMaster() {
+  await figma.loadAllPagesAsync();
+  const sets = figma.root.findAllWithCriteria({ types: ['COMPONENT_SET'] });
+  const pick = (setName, variants) => {
+    const set = sets.find((x) => x.name.trim() === setName);
+    if (!set) return null;
+    for (const v of variants) {
+      const c = set.children.find((k) => k.type === 'COMPONENT' && k.name.replace(/\s/g, '') === v);
+      if (c) return c;
+    }
+    return set.defaultVariant || set.children[0] || null;
+  };
+  return {
+    title: pick('ai_title', ['type=invert', 'type=Default']),
+    page: pick('page', ['type=Default']),
+    end: pick('page', ['type=end', 'type=Default']),
+  };
+}
+
+async function loadFontsOf(node) {
+  if (node.type !== 'TEXT' || !node.characters.length) {
+    if (node.type === 'TEXT') await figma.loadFontAsync(node.fontName === figma.mixed ? { family: 'Inter', style: 'Regular' } : node.fontName);
+    return;
+  }
+  for (const f of node.getRangeAllFontNames(0, node.characters.length)) await figma.loadFontAsync(f);
+}
+
+/** 인스턴스 안 글자 바꾸기 (첫 글자 스타일을 그대로 쓴다) */
+async function setText(node, text) {
+  await loadFontsOf(node);
+  node.characters = text;
+}
+
+const textsIn = (inst, name) => inst.findAll((n) => n.type === 'TEXT' && n.name.trim() === name);
+
+function paintRange(node, accent, color) {
+  const t = node.characters;
+  let a = -1;
+  let b = -1;
+  const k = accent ? t.indexOf(accent) : -1;
+  if (k >= 0) {
+    a = k;
+    b = k + accent.length;
+  } else if (t.indexOf('\n') > 0) {
+    a = t.indexOf('\n') + 1;
+    b = t.length;
+  }
+  if (a >= 0 && b > a && color) node.setRangeFills(a, b, [{ type: 'SOLID', color }]);
+}
+
+/** 브랜드 알약 배경색을 강조색으로 쓴다 */
+function accentOf(inst) {
+  const brand = textsIn(inst, '브랜드')[0];
+  const pill = brand && brand.parent;
+  const fill = pill && Array.isArray(pill.fills) && pill.fills.find((f) => f.type === 'SOLID' && f.visible !== false);
+  return fill ? fill.color : hex('#5CE1E6');
+}
+
+function imageFill(node, base64) {
+  const img = figma.createImage(figma.base64Decode(base64));
+  node.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
+}
+
+async function buildMaster(data) {
+  const m = await findMaster();
+  if (!m.title || !m.page) {
+    figma.notify('이 파일에서 ai_title · page 컴포넌트를 찾지 못해 기본 AI 서당 배치로 만들어요.');
+    return null;
+  }
+  const W = data.width;
+  const H = data.height;
+  const startX = rightEdge();
+  const brand = data.brand || {};
+  const frames = [];
+
+  for (const [i, f] of data.frames.entries()) {
+    const by = (role) => f.texts.find((t) => t.role === role);
+    const head = by('headline');
+    const body = by('body');
+    const accent = (by('highlight') || {}).text || '';
+    const tag = by('tag');
+    const src = by('source');
+    const hasImg = !!(f.image && f.image.base64);
+    const fields = {};
+
+    const frame = figma.createFrame();
+    frame.name = f.name;
+    frame.resize(W, H);
+    frame.x = startX + i * (W + GAP);
+    frame.y = 0;
+    frame.fills = [{ type: 'SOLID', color: hex('#090B0E') }];
+    frame.clipsContent = true;
+
+    let inst;
+    if (f.kind === 'outro' || (!hasImg && f.kind !== 'cover')) {
+      inst = (f.kind === 'outro' ? m.end : m.page).createInstance();
+      frame.appendChild(inst);
+      inst.x = 0;
+      inst.y = 0;
+      const pic = inst.findOne((n) => n.name.trim() === '이미지' && 'fills' in n);
+      if (pic) {
+        if (hasImg) {
+          imageFill(pic, f.image.base64);
+          pic.visible = true;
+        } else pic.visible = false;
+      }
+    } else {
+      if (hasImg) {
+        const rect = figma.createRectangle();
+        rect.name = '이미지';
+        rect.resize(W, H);
+        imageFill(rect, f.image.base64);
+        frame.appendChild(rect);
+      }
+      inst = m.title.createInstance();
+      frame.appendChild(inst);
+      inst.x = 0;
+    }
+
+    const color = accentOf(inst);
+    for (const b of textsIn(inst, '브랜드')) await setText(b, brand.series || b.characters);
+    const t = textsIn(inst, '제목')[0];
+    if (t && head) {
+      await setText(t, head.text);
+      paintRange(t, accent, color);
+      fields[t.id] = head.field;
+    }
+    // 본문 칸이 여럿이면: 가장 큰 칸 = 본문, 가장 아래 작은 칸 = 태그(#섹션) 또는 출처
+    const bodies = textsIn(inst, '본문').sort((a, b) => b.width * b.height - a.width * a.height);
+    if (bodies[0] && body) {
+      await setText(bodies[0], body.text);
+      fields[bodies[0].id] = body.field;
+    }
+    const small = bodies.slice(1).sort((a, b) => b.y - a.y)[0];
+    if (small && f.kind !== 'outro') {
+      const line = tag ? `#${tag.text.replace(/^#/, '')}` : src ? `출처 · ${src.text}` : '';
+      if (line) await setText(small, line);
+      else small.visible = false;
+    }
+
+    // ai_title 은 글 길이에 맞춰 아래 여백 68px 에 붙인다
+    if (inst.mainComponent && inst.mainComponent.parent && inst.mainComponent.parent.name.trim() === 'ai_title') {
+      const bottom = Math.max(...inst.findAll((n) => n.type === 'TEXT' && n.visible).map((n) => n.y + n.height));
+      inst.y = Math.max(135, Math.round(H - 68 - bottom));
+    }
+
+    frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '', fields }));
+    frames.push(frame);
+  }
+  return finish(frames, data, W, H, startX, '마스터 컴포넌트');
+}
+
 /* ───────── ② 완성본을 사이트로 ───────── */
 
 function metaOf(node) {
@@ -510,6 +673,12 @@ async function sendFinal() {
     const texts = f
       .findAll((n) => n.type === 'TEXT' && n.visible && !!n.getPluginData('field'))
       .map((n) => ({ field: n.getPluginData('field'), text: n.characters }));
+    // 마스터 인스턴스 안 글자는 프레임에 적어 둔 레이어 id 로 찾는다
+    const map = metaOf(f).fields || {};
+    for (const id of Object.keys(map)) {
+      const n = await figma.getNodeByIdAsync(id);
+      if (n && n.type === 'TEXT') texts.push({ field: map[id], text: n.characters });
+    }
     out.push({ panelId: metaOf(f).panelId, name: f.name, image: { mime: 'image/png', base64: figma.base64Encode(bytes) }, texts });
   }
   return { app: 'ttuguri-studio', kind: 'final', version: 2, episodeId: first.episodeId, title: first.title, contentType: first.contentType, exportedAt: new Date().toISOString(), frames: out };
