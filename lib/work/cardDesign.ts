@@ -1,16 +1,20 @@
 /*
  * 카드뉴스 디자인 템플릿
  *
- * 'master'  = 사용자 피그마 파일의 ai_title · page 컴포넌트를 그대로 복제해 글자·그림만 채운다 (기본)
+ * 'eojjeoda' = 어쩌다 발견 템플릿 (기본, Downloads/eojjeoda-cards.html 을 옮김)
+ *   표지: 위 그림(아래로 검게) + 청록 알약(연재 이름) + 큰 제목 + 부제
+ *   본문·마무리: 그림 없이 #1A1A1A 배경 · 위아래 청록 선 · 가운데 알약 · 제목(강조 청록) · 문단 · 해시태그 / 쪽수
+ * 'master'  = 사용자 피그마 파일의 ai_title · page 컴포넌트를 그대로 복제해 글자·그림만 채운다
  * 'seodang' = AI 서당 스타일 (어두운 먹색 배경 · 청록 강조 · Black Han Sans 제목)
  *   표지: 그림 위 + 가운데 정렬 큰 제목(둘째 줄 강조) + 부제 + @계정 / SWIPE →
  *   본문: 위 60% 그림(아래로 어둡게) + 번호 01 · 선 · 태그 알약 + 제목(강조 단어 청록) + 본문
  *   마무리: 그림 + 가운데 제목 + 문구 + 청록 알약 '@계정 팔로우'
- * 피그마 플러그인(public/figma-plugin/code.js)의 buildSeodang 과 짝이다.
+ * 피그마 플러그인(public/figma-plugin/code.js)의 buildEojjeoda · buildMaster · buildSeodang 과 짝이다.
  */
 import type { CardBrand, CardDesign, CardNewsSettings } from './types'
 
 export const CARD_DESIGN_LABEL: Record<CardDesign, string> = {
+  eojjeoda: '어쩌다 발견 (표지만 그림 · 청록 선과 알약)',
   master: '내 피그마 마스터 (파일 안 ai_title · page 컴포넌트)',
   seodang: 'AI 서당 스타일 (어두운 배경 · 청록 강조)',
   plain: '기본 (그림 위에 글자만)',
@@ -48,10 +52,12 @@ export const SEODANG_STYLE = {
 
 /** 이 템플릿으로 설정 채우기 (계정 소개·참고 이미지는 그대로) */
 export function applySeodang(c: CardNewsSettings): CardNewsSettings {
-  return { ...c, ...SEODANG_STYLE, design: c.design === 'plain' || !c.design ? 'master' : c.design, brand: { ...SEODANG_BRAND, ...c.brand } }
+  return { ...c, ...SEODANG_STYLE, design: c.design === 'plain' || !c.design ? 'eojjeoda' : c.design, brand: { ...SEODANG_BRAND, ...c.brand } }
 }
 
-export const designOf = (c: Pick<CardNewsSettings, 'design'>): CardDesign => c.design ?? 'master'
+export const designOf = (c: Pick<CardNewsSettings, 'design'>): CardDesign => c.design ?? 'eojjeoda'
+/** 표지에만 그림을 쓰는 디자인 (본문 장은 글만) */
+export const coverOnlyImage = (c: Pick<CardNewsSettings, 'design'>) => designOf(c) === 'eojjeoda'
 /** 어두운 배경 + 제목 강조색 디자인 (마스터·AI 서당) */
 export const isDark = (c: Pick<CardNewsSettings, 'design'>) => designOf(c) !== 'plain'
 export const brandOf = (c: Pick<CardNewsSettings, 'brand'>): CardBrand => ({ ...SEODANG_BRAND, ...c.brand })

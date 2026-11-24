@@ -6,7 +6,7 @@
  */
 import { CARD_FIELD_LABEL, cardName, cardRole } from './cards'
 import { getAsset } from './repo'
-import { brandOf, designOf } from './cardDesign'
+import { brandOf, coverOnlyImage, designOf } from './cardDesign'
 import type { CardBrand, CardDesign, CardNewsSettings } from './types'
 import type { Episode, ImageMemo, Panel } from './types'
 
@@ -15,7 +15,7 @@ export const FIGMA_EXPORT_VERSION = 2
  * 피그마 플러그인 버전. 플러그인을 고치면 1 올리고 public/figma-plugin 의 세 곳도 같이 고칠 것:
  * code.js PLUGIN_VERSION · ui.html 제목 · manifest.json name
  */
-export const FIGMA_PLUGIN_VERSION = 3
+export const FIGMA_PLUGIN_VERSION = 4
 
 /**
  * field: 피그마에서 고친 글자를 다시 앱에 넣을 자리
@@ -76,7 +76,8 @@ export async function buildFigmaExport(ep: Episode, panels: Panel[], memo: Image
 
   for (const [i, p] of panels.entries()) {
     let image: FigmaFrame['image']
-    if (p.assetId) {
+    // '어쩌다 발견'은 표지에만 그림을 쓴다 — 본문 장 그림은 보내지 않는다
+    if (p.assetId && !(card && i > 0 && coverOnlyImage(cardnews ?? {}))) {
       const a = await getAsset(p.assetId)
       if (a) image = { mime: a.mimeType, base64: await toBase64(a.blob), width: a.width, height: a.height }
     }

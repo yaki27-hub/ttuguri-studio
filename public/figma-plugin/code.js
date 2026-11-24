@@ -1,6 +1,7 @@
 // 뚜구리 가져오기
 //  ① 사이트에서 내보낸 .json 으로 프레임을 만든다 (lib/work/figmaExport.ts, version 1·2)
 //  v3: 카드뉴스 '내 피그마 마스터' (ai_title · page 컴포넌트 복제)
+//  v4: 카드뉴스 기본 템플릿 '어쩌다 발견' (buildEojjeoda)
 //  ② 다 만든 프레임을 PNG + 최종 글자로 묶어 사이트로 돌려보낸다 (lib/work/figmaImport.ts)
 // 프레임·글자 레이어에는 pluginData 로 편 id·장 id·글자 자리를 기억해 둔다.
 
@@ -8,7 +9,7 @@ figma.showUI(__html__, { width: 360, height: 420 });
 
 const KEY = 'ttuguri';
 /** 플러그인 버전 — lib/work/figmaExport.ts FIGMA_PLUGIN_VERSION · ui.html 제목 · manifest.json name 과 같이 올릴 것 */
-const PLUGIN_VERSION = 3;
+const PLUGIN_VERSION = 4;
 
 const ACCENT = { r: 0x79 / 255, g: 0x56 / 255, b: 0xce / 255 };
 const INK = { r: 0.12, g: 0.12, b: 0.14 };
@@ -74,6 +75,7 @@ function rightEdge() {
 async function build(data) {
   if (data.plugin && data.plugin > PLUGIN_VERSION)
     throw new Error(`이 파일은 플러그인 v${data.plugin}용인데 지금 플러그인은 v${PLUGIN_VERSION}이에요. 사이트 이미지 단계 → 피그마로 보내기 → ‘플러그인 받기’로 새로 받아 폴더에 덮어써 주세요.`);
+  if (data.contentType === 'cardnews' && data.design === 'eojjeoda') return buildEojjeoda(data);
   if (data.contentType === 'cardnews' && data.design === 'master') {
     const r = await buildMaster(data);
     if (r) return r;
@@ -130,7 +132,7 @@ async function build(data) {
 }
 
 /** 한 편을 섹션으로 묶고 화면을 옮긴다 (섹션이 안 되는 환경이면 프레임만) */
-function finish(frames, data, W, H, startX, fontName) {
+function finish(frames, data, W, H, startX, fontName, coverOnly) {
   let wrap = null;
   try {
     wrap = figma.createSection();
@@ -151,8 +153,8 @@ function finish(frames, data, W, H, startX, fontName) {
 
   figma.currentPage.selection = frames;
   figma.viewport.scrollAndZoomIntoView(wrap ? [wrap] : frames);
-  const noImage = data.frames.filter((f) => !f.image).length;
-  return `${frames.length}개 프레임을 만들었어요${noImage ? ` (이미지 없는 장 ${noImage}개)` : ''}. 글꼴: ${fontName}`;
+  const noImage = (coverOnly ? data.frames.slice(0, 1) : data.frames).filter((f) => !f.image).length;
+  return `${frames.length}개 프레임을 만들었어요${noImage ? (coverOnly ? ' (표지 그림 없음)' : ` (이미지 없는 장 ${noImage}개)`) : ''}. 글꼴: ${fontName}`;
 }
 
 /* ───────── 카드뉴스 · AI 서당 스타일 (lib/work/cardDesign.ts 와 짝) ───────── */
@@ -362,6 +364,7 @@ async function buildSeodang(data) {
     const placeSource = (y) => {
       if (!src) return y;
       const t = sdText(frame, { name: '출처', text: `출처 · ${src.text}`, font: fonts.medium, size: 24, color: SD.dim, width: IW, field: src.field });
+      t.setPluginData('prefix', '출처 · ');
       t.x = 90;
       t.y = y - t.height;
       return t.y - 24;
@@ -717,6 +720,259 @@ function targetFrames() {
   return out;
 }
 
+/* ───────── 카드뉴스 · 어쩌다 발견 (기본 템플릿, lib/work/cardDesign.ts · app/work.css .eoj 와 짝) ─────────
+ * 원본 좌표는 864×1080 (피그마 1080×1350 의 0.8배) → k = W/864 로 키운다.
+ * 표지: 위 그림 + 아래로 검게 + 알약(연재) · 제목 · 부제를 아래에 붙여 쌓기
+ * 본문·마무리: #1A1A1A · 위아래 청록 선 · 가운데 알약 · 제목(둘째 줄 청록) · 문단 · 해시태그 / 쪽수
+ */
+const EJ = { bg: hex('#1A1A1A'), black: hex('#000000'), ink: hex('#FFFFFF'), accent: hex('#00EEFF'), dim: hex('#7A7A7A') };
+
+async function tryFont(f) {
+  try {
+    await figma.loadFontAsync(f);
+    return f;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Pretendard → Noto Sans KR → 한글 되는 아무 글꼴 */
+async function eojFonts() {
+  const base = await pickFonts();
+  const pick = async (styles) => {
+    for (const family of ['Pretendard', 'Pretendard Variable', 'Noto Sans KR']) for (const style of styles) {
+      const f = await tryFont({ family, style });
+      if (f) return f;
+    }
+    return null;
+  };
+  return {
+    heavy: (await pick(['ExtraBold', 'Bold'])) || base.bold,
+    medium: (await pick(['Medium', 'Regular'])) || base.regular,
+    regular: (await pick(['Regular'])) || base.regular,
+  };
+}
+
+function ejText(parent, o) {
+  const n = figma.createText();
+  n.name = o.name;
+  n.fontName = o.font;
+  n.fontSize = o.size;
+  n.lineHeight = o.line ? { unit: 'PIXELS', value: o.line } : { unit: 'AUTO' };
+  if (o.spacing) n.letterSpacing = { unit: 'PIXELS', value: o.spacing };
+  n.fills = [solid(o.color)];
+  n.characters = o.text;
+  if (o.align) n.textAlignHorizontal = o.align;
+  if (o.field) n.setPluginData('field', o.field);
+  parent.appendChild(n);
+  if (o.width) {
+    n.resize(o.width, n.height);
+    n.textAutoResize = 'HEIGHT';
+  } else n.textAutoResize = 'WIDTH_AND_HEIGHT';
+  return n;
+}
+
+function ejRect(parent, name, x, y, w, h, fills) {
+  const r = figma.createRectangle();
+  r.name = name;
+  r.resize(Math.max(1, w), Math.max(1, h));
+  r.x = x;
+  r.y = y;
+  r.fills = fills;
+  parent.appendChild(r);
+  return r;
+}
+
+/** 청록 알약 (183×44, 글이 길면 늘어남) */
+function ejPill(parent, text, fonts, k) {
+  const f = figma.createFrame();
+  f.name = '연재 알약';
+  f.layoutMode = 'HORIZONTAL';
+  f.primaryAxisSizingMode = 'AUTO';
+  f.counterAxisSizingMode = 'FIXED';
+  f.primaryAxisAlignItems = 'CENTER';
+  f.counterAxisAlignItems = 'CENTER';
+  f.paddingLeft = f.paddingRight = Math.round(20 * k);
+  f.cornerRadius = 22 * k;
+  f.fills = [solid(EJ.accent)];
+  parent.appendChild(f);
+  ejText(f, { name: '연재', text: text || '어쩌다 발견', font: fonts.heavy, size: 26 * k, color: EJ.black, spacing: -0.5 * k });
+  f.resize(f.width, 44 * k);
+  if (f.width < 183 * k) {
+    f.primaryAxisSizingMode = 'FIXED';
+    f.resize(183 * k, 44 * k);
+  }
+  return f;
+}
+
+/** 제목 강조: 강조 단어가 있으면 그 부분, 없으면(lineFallback 일 때) 둘째 줄 */
+function ejAccent(node, accent, lineFallback) {
+  const t = node.characters;
+  const k = accent ? t.indexOf(accent) : -1;
+  if (k >= 0) node.setRangeFills(k, k + accent.length, [solid(EJ.accent)]);
+  else if (lineFallback && t.indexOf('\n') > 0) node.setRangeFills(t.indexOf('\n') + 1, t.length, [solid(EJ.accent)]);
+}
+
+/** 사이트 본문(문단은 빈 줄) → 피그마 문단(\n) + 문단 안 줄바꿈(U+2028) */
+const ejParas = (text) =>
+  text
+    .split(/\n\s*\n/)
+    .map((x) => x.trim().replace(/\n/g, '\u2028'))
+    .filter(Boolean)
+    .join('\n');
+
+async function buildEojjeoda(data) {
+  const fonts = await eojFonts();
+  const W = data.width;
+  const H = data.height;
+  const k = W / 864;
+  const X = 64 * k;
+  const IW = 736 * k;
+  const series = (data.brand && data.brand.series) || '어쩌다 발견';
+  const startX = rightEdge();
+  const frames = [];
+  const n = data.frames.length;
+  let shrunk = 0;
+
+  data.frames.forEach((f, i) => {
+    const frame = figma.createFrame();
+    frame.name = f.name;
+    frame.resize(W, H);
+    frame.x = startX + i * (W + GAP);
+    frame.y = 0;
+    frame.clipsContent = true;
+    frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '' }));
+    const by = (role) => f.texts.find((t) => t.role === role);
+    const head = by('headline');
+    const body = by('body');
+    const accent = (by('highlight') || {}).text || '';
+    const tag = by('tag');
+    const src = by('source');
+
+    if (i === 0) {
+      // 표지
+      frame.fills = [solid(EJ.black)];
+      const heroH = Math.min(H, 848 * k);
+      if (f.image && f.image.base64) {
+        const img = figma.createImage(figma.base64Decode(f.image.base64));
+        ejRect(frame, '이미지', 0, 0, W, heroH, [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }]);
+      }
+      ejRect(frame, '아래 어둡게', 0, heroH - 512 * k, W, 514 * k, [
+        {
+          type: 'GRADIENT_LINEAR',
+          gradientTransform: [
+            [0, 1, 0],
+            [-1, 0, 1],
+          ],
+          gradientStops: [
+            { position: 0, color: { r: 0, g: 0, b: 0, a: 0 } },
+            { position: 0.45, color: { r: 0, g: 0, b: 0, a: 0.15 } },
+            { position: 1, color: { r: 0, g: 0, b: 0, a: 1 } },
+          ],
+        },
+      ]);
+      const CX = 58 * k;
+      const CW = 760 * k;
+      let y = H - 108 * k;
+      if (body) {
+        const b = ejText(frame, { name: '부제', text: body.text, font: fonts.regular, size: 34 * k, line: 54 * k, spacing: -0.5 * k, color: EJ.ink, width: CW, field: body.field });
+        b.x = CX;
+        b.y = y - b.height;
+        y = b.y - 34 * k;
+      }
+      if (head) {
+        const longest = Math.max(...head.text.split('\n').map((l) => l.length));
+        const size = longest <= 14 ? 77 : longest <= 18 ? 64 : 54;
+        const t = ejText(frame, { name: '제목', text: head.text, font: fonts.heavy, size: size * k, line: (size * 100 / 77) * k, spacing: -2 * k, color: EJ.ink, width: CW, field: head.field });
+        ejAccent(t, accent, false);
+        t.x = CX;
+        t.y = y - t.height;
+        y = t.y - 8 * k;
+      }
+      const pill = ejPill(frame, series, fonts, k);
+      pill.x = CX;
+      pill.y = y - pill.height;
+      frames.push(frame);
+      return;
+    }
+
+    // 본문 · 마무리
+    frame.fills = [solid(EJ.bg)];
+    ejRect(frame, '위 선', X, 86 * k, IW, 2 * k, [solid(EJ.accent)]);
+    const ruleBottomY = H - 77 * k;
+    ejRect(frame, '아래 선', X, ruleBottomY, IW, 2 * k, [solid(EJ.accent)]);
+    const pill = ejPill(frame, series, fonts, k);
+    pill.x = (W - pill.width) / 2;
+    pill.y = 64 * k;
+
+    let y = 147 * k;
+    if (head) {
+      const t = ejText(frame, { name: '제목', text: head.text, font: fonts.heavy, size: 77 * k, line: 104 * k, spacing: -2 * k, color: EJ.ink, width: IW, field: head.field });
+      ejAccent(t, accent, true);
+      t.x = X;
+      t.y = y;
+      y = t.y + t.height + 50 * k;
+    }
+    y = Math.max(y, 405 * k);
+
+    // 아래: 해시태그(없으면 출처) · 쪽수
+    const footY = H - 130 * k;
+    const footText = tag ? tag.text : src ? src.text : '';
+    if (footText) {
+      const ft = ejText(frame, { name: tag ? '해시태그' : '출처', text: tag ? footText : `출처 · ${footText}`, font: fonts.medium, size: 26 * k, color: tag ? EJ.accent : EJ.dim, field: (tag || src).field });
+      if (!tag) ft.setPluginData('prefix', '출처 · ');
+      ft.x = X;
+      ft.y = footY;
+      // 쪽수 자리를 남기고 한 줄에 안 들어가면 글자를 줄인다
+      const maxW = IW - 90 * k;
+      if (ft.width > maxW) ft.fontSize = Math.max(18 * k, Math.floor((ft.fontSize * maxW) / ft.width));
+    }
+    const pg = ejText(frame, { name: '쪽수', text: `${i + 1}/${n}`, font: fonts.medium, size: 24 * k, color: EJ.dim });
+    pg.x = X + IW - pg.width;
+    pg.y = footY + 2 * k;
+    let bottom = footY - 30 * k;
+    if (tag && src) {
+      const st = ejText(frame, { name: '출처', text: `출처 · ${src.text}`, font: fonts.medium, size: 22 * k, color: EJ.dim, width: IW, field: src.field });
+      st.setPluginData('prefix', '출처 · ');
+      st.x = X;
+      st.y = footY - 14 * k - st.height;
+      bottom = st.y - 24 * k;
+    }
+
+    if (body) {
+      // 넘치면 32 → 28 → 25 로 줄인다
+      let b = null;
+      for (const [size, line, gap] of [
+        [32, 50, 50],
+        [28, 44, 36],
+        [25, 39, 28],
+      ]) {
+        if (b) b.remove();
+        b = ejText(frame, { name: '본문', text: ejParas(body.text), font: fonts.regular, size: size * k, line: line * k, spacing: -0.5 * k, color: EJ.ink, width: IW, field: body.field });
+        b.paragraphSpacing = gap * k;
+        b.setPluginData('para', '1');
+        b.x = X;
+        b.y = y;
+        if (b.y + b.height <= bottom) break;
+        if (size === 25) shrunk += 1;
+      }
+    }
+    frames.push(frame);
+  });
+
+  const r = finish(frames, data, W, H, startX, fonts.heavy.family, true);
+  return shrunk ? `${r} · 본문이 넘치는 장 ${shrunk}개는 글을 줄여 주세요.` : r;
+}
+
+/** 프레임 글자 → 사이트 글자: 붙인 머리말('출처 · ')을 떼고, 문단(\n)·줄바꿈(U+2028)을 사이트 표기(\n\n · \n)로 되돌린다 */
+function fieldText(n) {
+  let t = n.characters;
+  const pre = n.getPluginData('prefix');
+  if (pre && t.indexOf(pre) === 0) t = t.slice(pre.length);
+  if (n.getPluginData('para') === '1') return t.split('\n').map((x) => x.replace(/\u2028/g, '\n')).join('\n\n');
+  return t.replace(/\u2028/g, '\n');
+}
+
 async function sendFinal() {
   const frames = targetFrames();
   if (!frames.length) throw new Error('이 플러그인으로 만든 프레임을 찾지 못했어요. 보낼 프레임(또는 섹션)을 선택해 주세요.');
@@ -732,7 +988,7 @@ async function sendFinal() {
     const bytes = await f.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 1080 } });
     const texts = f
       .findAll((n) => n.type === 'TEXT' && n.visible && !!n.getPluginData('field'))
-      .map((n) => ({ field: n.getPluginData('field'), text: n.characters }));
+      .map((n) => ({ field: n.getPluginData('field'), text: fieldText(n) }));
     // 마스터 인스턴스 안 글자는 프레임에 적어 둔 레이어 id 로 찾는다
     const map = metaOf(f).fields || {};
     for (const id of Object.keys(map)) {

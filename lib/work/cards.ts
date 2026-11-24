@@ -14,7 +14,7 @@
  */
 import { ParseError } from './prompts'
 import { defaultCardNews } from './repo'
-import { brandOf, isDark, seriesBlock } from './cardDesign'
+import { brandOf, designOf, isDark, seriesBlock } from './cardDesign'
 import type { PanelDraftItem } from './repo'
 import type { CharacterSettings, Episode, ImageMemo, Panel, Slide } from './types'
 
@@ -99,6 +99,14 @@ const CARD_SHAPE = '{"tag":"작은 태그(없으면 빈 문자열)","headline":"
 
 /** 디자인에 따라 강조·태그를 어떻게 쓰는지 */
 function designGuide(s: CharacterSettings, style: CardStyle = 'brief') {
+  if (designOf(cardSettings(s)) === 'eojjeoda')
+    return [
+      '[디자인: 어쩌다 발견] 표지만 그림이 있고, 본문 장은 어두운 배경에 제목·문단·해시태그만 올라간다. 위 지시와 다르면 이 지시를 따른다.',
+      '- headline: 두 줄(\\n), 줄마다 14자 안팎. 둘째 줄이 청록 강조로 들어간다(예: "그림 고치는 속도가\\n확 빨라졌다").',
+      '- highlight: headline 둘째 줄을 글자 그대로. 표지는 빈 문자열.',
+      '- body: 본문 장은 2~3문단, 문단 사이는 빈 줄(\\n\\n), 문단마다 한두 줄(줄바꿈 \\n로 한 줄 20자 안팎), 전체 150자 이내. 표지는 부제 한두 줄(줄바꿈 \\n, 50자 이내).',
+      '- tag: 본문 장 아래에 들어갈 해시태그 1~2개(예: "#이미지2.6 #ChatGPT"). 섹션 이름 대신 쓴다. 표지는 빈 문자열, 마무리는 연재 소개 한 줄(예: "조선 선비와 함께 읽는 AI 뉴스 · 어쩌다 발견").',
+    ].join('\n')
   if (style === 'story')
     return isDark(cardSettings(s))
       ? '- highlight: headline 안에서 강조색으로 칠할 1~3단어. headline에 글자 그대로 들어 있어야 한다. 표지는 headline을 두 줄(\\n)로 나누고 둘째 줄(반전)을 highlight로.'

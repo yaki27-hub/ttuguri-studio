@@ -7,7 +7,7 @@ import {
   toDraftItem, type CardOp, type CardsDoc,
 } from '@/lib/work/cards'
 import { fmtDateTime } from '@/lib/work/format'
-import { isDark } from '@/lib/work/cardDesign'
+import { designOf, isDark } from '@/lib/work/cardDesign'
 import type { Episode, Panel } from '@/lib/work/types'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
@@ -188,6 +188,7 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
   const L = limitsOf(style)[role]
   const F = CARD_FIELD_LABEL[role]
   const seodang = isDark(cardSettings(ws.settings))
+  const eoj = designOf(cardSettings(ws.settings)) === 'eojjeoda'
   const [op, setOp] = useState<CardOp>()
   const [request, setRequest] = useState('')
   const [history, setHistory] = useState(false)
@@ -220,9 +221,9 @@ function CardEditor({ p, i, count, onMove }: { p: Panel; i: number; count: numbe
         </button>
       </div>
       <div className="panel-fields card-fields">
-        {(story || (seodang && role === 'content')) && (
+        {(eoj ? role !== 'cover' : story || (seodang && role === 'content')) && (
           <Field
-            label={story ? (role === 'cover' ? '분류 (예: AI ISSUE · MATHEMATICS)' : '섹션 이름 (예: 사건의 시작)') : '태그 (선택 · 예: 11.04 출시)'}
+            label={eoj ? (role === 'outro' ? '아래 한 줄 (예: 조선 선비와 함께 읽는 AI 뉴스 · 어쩌다 발견)' : '해시태그 (아래 왼쪽 · 예: #이미지2.6 #ChatGPT)') : story ? (role === 'cover' ? '분류 (예: AI ISSUE · MATHEMATICS)' : '섹션 이름 (예: 사건의 시작)') : '태그 (선택 · 예: 11.04 출시)'}
             single
             value={p.dialogue}
             readOnly={p.locked}

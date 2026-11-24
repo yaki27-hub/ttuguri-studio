@@ -669,7 +669,8 @@ export function defaultCardNews(): CardNewsSettings {
   return {
     intro: 'AI 활용법과 새 소식을 직장인이 바로 써먹을 수 있게 정리하는 정보 카드뉴스 계정. 말투는 친근하지만 과장하지 않고, 한 장에 메시지 하나.',
     ...SEODANG_STYLE,
-    design: 'master',
+    design: 'eojjeoda',
+    designV: 2,
     brand: { ...SEODANG_BRAND },
     styleRefIds: [],
     topics: CARD_TOPICS.map((t) => ({ ...t, keywords: [...t.keywords] })),
@@ -694,7 +695,10 @@ export async function getSettings(): Promise<CharacterSettings> {
   if (!saved) return defaultSettings()
   // 나중에 추가된 항목은 기본값으로 채운다
   const d = defaultSettings()
-  return { ...d, ...saved, imageDefaults: { ...d.imageDefaults, ...saved.imageDefaults }, cardnews: { ...d.cardnews!, ...saved.cardnews } }
+  // 예전 기본값('master')으로 저장된 설정은 새 기본 템플릿 '어쩌다 발견'으로 한 번 옮긴다
+  const sc = saved.cardnews
+  const moved = sc && !sc.designV && (!sc.design || sc.design === 'master') ? { design: 'eojjeoda' as const, designV: 2 } : {}
+  return { ...d, ...saved, imageDefaults: { ...d.imageDefaults, ...saved.imageDefaults }, cardnews: { ...d.cardnews!, ...sc, ...moved } }
 }
 
 export async function saveSettings(s: CharacterSettings) {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { deleteAssetIfUnused, getEpisode, patchEpisode, patchPanelMeta, putAsset, setStatus, imageMemoOf } from '@/lib/work/repo'
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName, cardSettings } from '@/lib/work/cards'
+import { coverOnlyImage } from '@/lib/work/cardDesign'
 import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
 import { SHOTS, SHOT_HINT, SHOT_LABEL, shotPlan } from '@/lib/work/shots'
 import type { Shot } from '@/lib/work/types'
@@ -119,6 +120,8 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
   const ws = useWS()
   const card = ws.ep.contentType === 'cardnews'
   const count = ws.b.panels.length
+  /** '어쩌다 발견' 디자인의 본문 장: 그림 없이 글만 올라간다 */
+  const noArt = card && i > 0 && coverOnlyImage(cardSettings(ws.settings))
   const [gen, setGen] = useState(false)
   // 카드뉴스는 뚜구리 캐릭터 레퍼런스 대신 카드뉴스 그림체 참고 이미지를 쓴다
   const refIds = (card ? cardSettings(ws.settings).styleRefIds : ws.settings.referenceAssetIds).slice(0, MAX_REFS)
@@ -207,12 +210,13 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
           </>
         )}
         <div className="row-inline wraps">
-          {ws.imageReady && (
+          {noArt && !p.assetId && <span className="small muted">이 디자인은 표지만 그림을 써요 — 이 장은 그림이 필요 없어요.</span>}
+          {ws.imageReady && !noArt && (
             <button type="button" className="btn small primary" disabled={gen || busy} onClick={generate}>
               {gen ? 'Gemini 그리는 중… (10~30초)' : p.assetId ? 'Gemini로 다시 만들기' : 'Gemini로 만들기'}
             </button>
           )}
-          {card ? (
+          {noArt ? null : card ? (
             <CopyButton text={() => genPrompt()} label="이미지 프롬프트 복사" className="small" />
           ) : (
             <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings), shot)} label="장면 설명 복사" className="small" />

@@ -462,3 +462,31 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 /* 컷 카메라 */
 .shot-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 4px 0 0; }
 .shot-pick select { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }
+
+/* 카드뉴스 '어쩌다 발견' 미리보기 — 864×1080 좌표를 --u 로 줄임 (lib/work/cardDesign.ts · 플러그인 buildEojjeoda 와 짝) */
+.pv-cards li { container-type: inline-size; }
+.eoj { --u: calc(100cqw / 864); --eoj-accent: #00EEFF; position: relative; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 10px; background: #1A1A1A; color: #fff; font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif; }
+.eoj.cover { background: #000; }
+.eoj > * { position: absolute; }
+.eoj-rule { left: calc(64 * var(--u)); width: calc(736 * var(--u)); height: max(1px, calc(2 * var(--u))); background: var(--eoj-accent); }
+.eoj-rule.top { top: calc(86 * var(--u)); }
+.eoj-rule.bottom { top: calc(1003 * var(--u)); }
+.eoj-pill { left: calc(58 * var(--u)); top: calc(524 * var(--u)); min-width: calc(183 * var(--u)); height: calc(44 * var(--u)); padding: 0 calc(20 * var(--u)); box-sizing: border-box; border-radius: 999px; background: var(--eoj-accent); color: #000; font-size: calc(26 * var(--u)); font-weight: 800; line-height: calc(44 * var(--u)); text-align: center; white-space: nowrap; }
+.eoj-pill.center { left: 50%; top: calc(64 * var(--u)); transform: translateX(-50%); }
+.eoj-title { left: calc(64 * var(--u)); top: calc(147 * var(--u)); width: calc(736 * var(--u)); font-size: calc(77 * var(--u)); font-weight: 800; line-height: calc(104 * var(--u)); letter-spacing: calc(-2 * var(--u)); white-space: pre-line; word-break: keep-all; }
+.eoj-hl { color: var(--eoj-accent); }
+.eoj-body { left: calc(64 * var(--u)); top: calc(405 * var(--u)); width: calc(736 * var(--u)); display: flex; flex-direction: column; gap: calc(50 * var(--u)); font-size: calc(32 * var(--u)); line-height: calc(50 * var(--u)); letter-spacing: calc(-0.5 * var(--u)); white-space: pre-line; word-break: keep-all; }
+.eoj-foot { left: calc(64 * var(--u)); top: calc(950 * var(--u)); width: calc(736 * var(--u)); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: calc(26 * var(--u)); font-weight: 500; color: var(--eoj-accent); }
+.eoj-page { font-size: calc(24 * var(--u)); color: #7A7A7A; }
+.eoj-hero { left: 0; top: 0; width: 100%; height: calc(848 * var(--u)); object-fit: cover; }
+.eoj-noimg { display: grid; place-items: center; background: #222; color: #666; font-size: 12px; }
+.eoj-fade { left: 0; top: calc(336 * var(--u)); width: 100%; height: calc(514 * var(--u)); background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.15) 45%, #000 100%); }
+/* 본문 장: 제목(147) 아래 50 띄우고 문단 — 제목이 세 줄이면 문단이 밀려 내려간다 */
+.eoj-main { left: calc(64 * var(--u)); top: calc(147 * var(--u)); width: calc(736 * var(--u)); display: flex; flex-direction: column; gap: calc(50 * var(--u)); }
+.eoj-main > * { position: static; width: 100%; }
+/* 표지: 알약 · 제목 · 부제를 아래(부제 끝 972)에 붙여 쌓는다 */
+.eoj-cstack { left: calc(58 * var(--u)); bottom: calc(108 * var(--u)); width: calc(760 * var(--u)); display: flex; flex-direction: column; align-items: flex-start; }
+.eoj-cstack > * { position: static; }
+.eoj-cstack .eoj-pill { margin-bottom: calc(8 * var(--u)); }
+.eoj-cstack .eoj-title { width: 100%; line-height: calc(100 * var(--u)); }
+.eoj-lead { margin-top: calc(34 * var(--u)); font-size: calc(34 * var(--u)); line-height: calc(54 * var(--u)); letter-spacing: calc(-0.5 * var(--u)); white-space: pre-line; word-break: keep-all; }
