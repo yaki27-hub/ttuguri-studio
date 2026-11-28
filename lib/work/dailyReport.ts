@@ -1,6 +1,6 @@
 /*
  * 매일 소재 리포트: 조사 기준(고칠 수 있음) + 오늘 날짜·다가오는 시즌·이전 7일 추천·기존 에피소드를 붙여 프롬프트를 만든다.
- * 결과는 JSON 으로 받아 이 브라우저(localStorage)에 날짜별로 쌓는다.
+ * 결과는 JSON 으로 받아 서버(Vercel Blob)에 날짜별로 쌓는다 — lib/dailyReports.js
  */
 import { PATTERNS, SEASONS, daysUntil, type Pattern } from './patterns'
 
@@ -87,7 +87,7 @@ export interface DailyReport {
 export interface SavedReport {
   date: string
   savedAt: string
-  via: 'ai' | 'paste'
+  via: 'ai' | 'paste' | 'auto'
   report: DailyReport
   answer?: string
 }
@@ -178,10 +178,9 @@ ${o.episodes.slice(0, 80).map((t) => `- ${t}`).join('\n') || '- (없음)'}
 {"observations":[{"title":"","url":"","source":"","postedAt":"","views":"미확인","likes":"","comments":"","saves":"미확인","shares":"미확인","multiple":"","observedAt":""}],"noTrend":"","ideas":[{"title":"","point":"","visual":"","cuts":"4컷","category":"회사생활","freelance":false,"tags":["기대→반전"],"priority":1}],"question":"","conti":[{"idea":"","panels":[{"scene":"","action":"","line":"","background":"","props":""}],"twist":"","silentCheck":""}]}`
 }
 
-/* ───────── 이 브라우저에 저장 ───────── */
+/* ───────── 예전 브라우저 저장분 (서버로 옮길 때만 읽는다) ───────── */
 
 const KEY = 'ddg.dailyReports'
-const BRIEF_KEY = 'ddg.dailyBrief'
 
 export function listSavedReports(): SavedReport[] {
   try {
@@ -192,36 +191,9 @@ export function listSavedReports(): SavedReport[] {
   }
 }
 
-export function saveReport(r: SavedReport) {
-  const list = [r, ...listSavedReports().filter((x) => x.date !== r.date)].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30)
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list))
-  } catch {
-    /* 저장 공간이 없으면 이번 화면에서만 보인다 */
-  }
-  return list
-}
-
 export function recentIdeaTitles(list: SavedReport[], today: string, days = 7) {
   const from = new Date(new Date(today).getTime() - days * 864e5).toISOString().slice(0, 10)
   return list.filter((r) => r.date >= from && r.date < today).flatMap((r) => r.report.ideas.map((i) => `${r.date} ${i.title}`))
-}
-
-export function loadBrief() {
-  try {
-    return localStorage.getItem(BRIEF_KEY) || DEFAULT_BRIEF
-  } catch {
-    return DEFAULT_BRIEF
-  }
-}
-
-export function saveBrief(text: string) {
-  try {
-    if (!text.trim() || text.trim() === DEFAULT_BRIEF.trim()) localStorage.removeItem(BRIEF_KEY)
-    else localStorage.setItem(BRIEF_KEY, text)
-  } catch {
-    /* 무시 */
-  }
 }
 
 export const todayKST = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })

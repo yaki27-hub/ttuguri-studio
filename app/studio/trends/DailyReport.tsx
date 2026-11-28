@@ -6,29 +6,28 @@ import { createEpisode, listEpisodes } from '@/lib/work/repo'
 import { extractJSON } from '@/lib/work/prompts'
 import {
   DEFAULT_BRIEF,
-  buildDailyPrompt,
   isShareIdea,
   listSavedReports,
-  loadBrief,
   parseDailyReport,
   patternsFromTags,
-  recentIdeaTitles,
-  saveBrief,
-  saveReport,
   todayKST,
   type Conti,
   type Idea,
   type SavedReport,
 } from '@/lib/work/dailyReport'
-import { dailyReportSearch } from './actions'
+import { dailyBriefSave, dailyReportAnswer, dailyReportPrompt, dailyReportRun, dailyReportSave, dailyReportsLoad } from './actions'
 
-/** 소재 찾기: 매일 소재 리포트 (조사 → 소재 10개 → 오늘의 질문 → 콘티) */
+const VIA_LABEL: Record<SavedReport['via'], string> = { auto: '아침 7시 자동 조사', ai: '직접 조사', paste: '붙여넣기' }
+
+/** 소재 찾기: 매일 소재 리포트 (매일 아침 7시 서버가 조사 → 소재 10개 → 오늘의 질문 → 콘티) */
 export default function DailyReport() {
   const router = useRouter()
   const today = todayKST()
   const [saved, setSaved] = useState<SavedReport[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [date, setDate] = useState(today)
   const [brief, setBrief] = useState(DEFAULT_BRIEF)
+  const [savedBrief, setSavedBrief] = useState(DEFAULT_BRIEF)
   const [episodes, setEpisodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string }>()
@@ -37,30 +36,48 @@ export default function DailyReport() {
   const [making, setMaking] = useState('')
   const [answer, setAnswer] = useState('')
 
+  const upsert = (rec: SavedReport) => setSaved((list) => [rec, ...list.filter((x) => x.date !== rec.date)].sort((a, b) => b.date.localeCompare(a.date)))
+
   useEffect(() => {
-    const list = listSavedReports()
-    setSaved(list)
-    setBrief(loadBrief())
-    setAnswer(list.find((r) => r.date === today)?.answer ?? '')
     listEpisodes().then((eps) => setEpisodes(eps.map((e) => [e.title, e.hookText].filter(Boolean).join(' — '))))
+    ;(async () => {
+      const r = (await dailyReportsLoad()) as { reports: SavedReport[]; brief: string; error?: string }
+      let list = r.reports ?? []
+      if (r.error) setMsg({ ok: false, text: r.error })
+      // 예전에 이 브라우저에만 저장한 리포트는 서버로 옮긴다
+      const local = listSavedReports().filter((x) => !list.some((y) => y.date === x.date))
+      if (!r.error && local.length) {
+        const moved = await Promise.all(local.map((x) => dailyReportSave(x).then((m) => (m as { saved?: SavedReport }).saved)))
+        list = [...list, ...moved.filter((x): x is SavedReport => !!x)].sort((a, b) => b.date.localeCompare(a.date))
+        try {
+          localStorage.removeItem('ddg.dailyReports')
+        } catch {}
+      }
+      setSaved(list)
+      if (r.brief) {
+        setBrief(r.brief)
+        setSavedBrief(r.brief)
+      }
+      setAnswer(list.find((x) => x.date === today)?.answer ?? '')
+      setLoaded(true)
+    })()
   }, [today])
 
   const cur = saved.find((r) => r.date === date)
-  const prompt = () => buildDailyPrompt({ brief, recentIdeas: recentIdeaTitles(saved, today), episodes })
 
-  function keep(report: SavedReport['report'], via: SavedReport['via']) {
-    setSaved(saveReport({ date: today, savedAt: new Date().toISOString(), via, report, answer: '' }))
-    setDate(today)
-    setAnswer('')
+  function shown(rec: SavedReport) {
+    upsert(rec)
+    setDate(rec.date)
+    setAnswer(rec.answer ?? '')
   }
 
   async function runAI() {
     setBusy(true)
     setMsg(undefined)
     try {
-      const r = (await dailyReportSearch(prompt())) as { data?: unknown; error?: string }
-      if (r.error) return setMsg({ ok: false, text: r.error })
-      keep(parseDailyReport(r.data), 'ai')
+      const r = (await dailyReportRun(episodes)) as { saved?: SavedReport; error?: string }
+      if (r.error || !r.saved) return setMsg({ ok: false, text: r.error || '저장하지 못했어요.' })
+      shown(r.saved)
       setMsg({ ok: true, text: '오늘 리포트를 저장했어요.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })
@@ -70,14 +87,18 @@ export default function DailyReport() {
   }
 
   async function copy() {
-    await navigator.clipboard.writeText(prompt())
+    const { prompt } = (await dailyReportPrompt(episodes)) as { prompt: string }
+    await navigator.clipboard.writeText(prompt)
     setShowPaste(true)
     setMsg({ ok: true, text: '프롬프트를 복사했어요. 웹 검색이 되는 Claude·ChatGPT에 붙여넣고, 받은 JSON을 아래에 붙여넣어 주세요.' })
   }
 
-  function applyPaste() {
+  async function applyPaste() {
     try {
-      keep(parseDailyReport(extractJSON(paste)), 'paste')
+      const report = parseDailyReport(extractJSON(paste))
+      const r = (await dailyReportSave({ date: today, via: 'paste', report, answer: saved.find((x) => x.date === today)?.answer ?? '' })) as { saved?: SavedReport; error?: string }
+      if (r.error || !r.saved) return setMsg({ ok: false, text: r.error || '저장하지 못했어요.' })
+      shown(r.saved)
       setPaste('')
       setShowPaste(false)
       setMsg({ ok: true, text: '오늘 리포트를 저장했어요.' })
@@ -86,10 +107,18 @@ export default function DailyReport() {
     }
   }
 
-  function saveAnswer(text: string) {
-    setAnswer(text)
-    if (!cur) return
-    setSaved(saveReport({ ...cur, answer: text }))
+  async function saveAnswer() {
+    if (!cur || (cur.answer ?? '') === answer) return
+    const r = (await dailyReportAnswer(cur.date, answer)) as { saved?: SavedReport; error?: string }
+    if (r.saved) upsert(r.saved)
+    else setMsg({ ok: false, text: `답을 저장하지 못했어요: ${r.error}` })
+  }
+
+  async function keepBrief(text: string) {
+    if (text === savedBrief) return
+    const r = (await dailyBriefSave(text)) as { brief?: string; error?: string }
+    if (r.brief) setSavedBrief(r.brief)
+    else setMsg({ ok: false, text: `기준을 저장하지 못했어요: ${r.error}` })
   }
 
   async function make(key: string, memo: string, extra: Parameters<typeof createEpisode>[1]) {
@@ -133,7 +162,7 @@ export default function DailyReport() {
       <div className="card-head">
         <h2 id="daily-title">📰 매일 소재 리포트</h2>
         {saved.length > 0 && (
-          <select aria-label="날짜" value={date} onChange={(e) => setDate(e.target.value)}>
+          <select aria-label="날짜" value={date} onChange={(e) => { setDate(e.target.value); setAnswer(saved.find((x) => x.date === e.target.value)?.answer ?? '') }}>
             {!saved.some((x) => x.date === today) && <option value={today}>{today} (아직 없음)</option>}
             {saved.map((x) => (
               <option key={x.date} value={x.date}>
@@ -143,7 +172,7 @@ export default function DailyReport() {
           </select>
         )}
       </div>
-      <p className="muted small">직장인 인스타툰·스레드·커뮤니티를 조사해 오늘의 관찰, 새 소재 10개, 오늘의 질문, 콘티 1~2개를 받아요. 이전 7일 추천과 내 에피소드 {episodes.length}개를 같이 보내 겹치지 않게 해요.</p>
+      <p className="muted small">직장인 인스타툰·스레드·커뮤니티를 조사해 오늘의 관찰, 새 소재 10개, 오늘의 질문, 콘티 1~2개를 받아요. 매일 아침 7시에 자동으로 조사하고, 어느 기기에서 열어도 같은 리포트가 보여요. 이전 7일 추천과 내 에피소드 {episodes.length}개를 같이 보내 겹치지 않게 해요.</p>
 
       <div className="row-inline wraps">
         <button type="button" className="btn primary small" disabled={busy} onClick={runAI}>
@@ -169,20 +198,22 @@ export default function DailyReport() {
 
       <details className="daily-brief">
         <summary className="small">조사 기준 보기·고치기</summary>
-        <textarea rows={14} value={brief} onChange={(e) => setBrief(e.target.value)} onBlur={() => saveBrief(brief)} aria-label="조사 기준" />
+        <textarea rows={14} value={brief} onChange={(e) => setBrief(e.target.value)} onBlur={() => keepBrief(brief)} aria-label="조사 기준" />
         <button
           type="button"
           className="btn small ghost"
           onClick={() => {
             setBrief(DEFAULT_BRIEF)
-            saveBrief(DEFAULT_BRIEF)
+            keepBrief(DEFAULT_BRIEF)
           }}
         >
           처음 기준으로
         </button>
       </details>
 
-      {!r && <p className="muted small">{date === today ? '오늘 리포트가 아직 없어요.' : ''}</p>}
+      {loaded && !r && date === today && <p className="muted small">오늘 리포트가 아직 없어요. 매일 아침 7시에 자동으로 조사해요.</p>}
+      {!loaded && <p className="muted small">불러오는 중…</p>}
+      {cur && <p className="muted small">{VIA_LABEL[cur.via] ?? cur.via} · {new Date(cur.savedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
       {r && (
         <div className="daily-body">
           <h3>1. 오늘의 관찰 <span className="muted small">검증된 사례</span></h3>
@@ -244,7 +275,7 @@ export default function DailyReport() {
               <p className="daily-q">🙋 {r.question}</p>
               <div className="field">
                 <label htmlFor="daily-answer">내 답 (실화 소재는 여기 답으로만)</label>
-                <textarea id="daily-answer" rows={3} value={answer} onChange={(e) => saveAnswer(e.target.value)} />
+                <textarea id="daily-answer" rows={3} value={answer} onChange={(e) => setAnswer(e.target.value)} onBlur={saveAnswer} />
               </div>
               <button
                 type="button"

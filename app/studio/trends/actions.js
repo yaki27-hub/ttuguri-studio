@@ -193,29 +193,63 @@ export async function seasonHistory(seasons = [], channel = 'toon') {
   }
 }
 
-/**
- * 매일 소재 리포트: 구글 검색을 붙여 조사한다 (GEMINI_API_KEY 필요).
- * 관찰 사례의 링크는 실제 검색 결과와 맞는지 확인해 linkOk 를 단다.
- */
-export async function dailyReportSearch(prompt = '') {
+/* ───────── 매일 소재 리포트 (Vercel Blob 에 저장, 매일 아침 7시 자동 조사) ───────── */
+
+export async function dailyReportsLoad() {
   await requireAuth();
-  const { searchWebJSON, resolveGroundingUrl, isGroundingUrl } = await import('@/lib/ai');
+  const m = await import('@/lib/dailyReports');
+  if (!m.blobReady()) return { error: '서버 저장소(Vercel Blob)가 연결되지 않았어요.', reports: [], brief: '' };
   try {
-    const { data, sources } = await searchWebJSON({ prompt: String(prompt).slice(0, 20000), temperature: 0.5 });
-    if (!data) return { error: '검색은 했지만 JSON 결과를 받지 못했어요. 다시 시도하거나 프롬프트를 복사해 다른 AI에 붙여넣어 주세요.' };
-    const real = sources.filter((x) => /^https?:\/\//.test(x.url) && !isGroundingUrl(x.url));
-    const norm = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, '') + x.pathname.replace(/\/$/, '')).toLowerCase(); } catch { return ''; } };
-    const obs = Array.isArray(data.observations) ? data.observations : [];
-    data.observations = await Promise.all(
-      obs.map(async (o) => {
-        const url = String(o?.url || '');
-        const resolved = await resolveGroundingUrl(url);
-        if (resolved) return { ...o, url: resolved, linkOk: true };
-        const hit = real.find((x) => norm(x.url) && norm(x.url) === norm(url));
-        return { ...o, url: hit?.url || url, linkOk: !!hit };
-      }),
-    );
-    return { data, sources: real.map((x) => ({ url: x.url, title: x.title })) };
+    const [reports, brief] = await Promise.all([m.listReports(30), m.getBrief()]);
+    return { reports, brief };
+  } catch (e) {
+    return { error: e.message, reports: [], brief: '' };
+  }
+}
+
+/** 지금 조사하기 (자동 조사와 같은 흐름) */
+export async function dailyReportRun(extraTitles = []) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  try {
+    return { saved: await m.runDailyReport({ via: 'ai', extraTitles: Array.isArray(extraTitles) ? extraTitles.slice(0, 80) : [] }) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+export async function dailyReportPrompt(extraTitles = []) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  return { prompt: await m.makePrompt(Array.isArray(extraTitles) ? extraTitles.slice(0, 80) : []) };
+}
+
+/** 붙여넣은 결과 저장, 브라우저에만 있던 옛 리포트 옮기기 */
+export async function dailyReportSave(rec) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  try {
+    return { saved: await m.saveReport({ ...rec, date: rec?.date || m.todayKST() }) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+export async function dailyReportAnswer(date, answer) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  try {
+    return { saved: await m.setAnswer(String(date), answer) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+export async function dailyBriefSave(text) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  try {
+    return { brief: await m.setBrief(text) };
   } catch (e) {
     return { error: e.message };
   }
