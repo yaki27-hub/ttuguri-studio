@@ -16,6 +16,7 @@ import AiNews from './AiNews'
 import HookLibrary from './HookLibrary'
 import AccountAnalysis from './AccountAnalysis'
 import SeasonCalendar from './SeasonCalendar'
+import DailyReport from './DailyReport'
 
 interface Trend {
   title: string
@@ -83,6 +84,7 @@ export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: b
             <TrendingSection topics={topics} />
           </div>
           <div className="finder-watch">
+            {!card && <DailyReport />}
             {card ? <AiNews topics={topics} /> : <HookLibrary />}
             <WatchSection igReady={igReady} watch={watch} topics={topics} channel={channel} onWatch={(w) => patchSettings({ watchlist: w })} />
             {card && <AccountAnalysis igReady={igReady} watch={watch} onWatch={(w) => patchSettings({ watchlist: w })} />}

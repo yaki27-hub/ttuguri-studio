@@ -510,3 +510,20 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .check-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .check-list .hint { margin-left: 24px !important; }
 .title-fb .row-inline { margin-top: 8px; }
+
+/* 매일 소재 리포트 */
+.daily .row-inline { margin: 10px 0 4px; }
+.daily-brief { margin: 8px 0; }
+.daily-brief textarea { width: 100%; margin: 6px 0; font-size: 13px; }
+.daily-body h3 { margin: 18px 0 6px; font-size: 15px; }
+.daily-obs, .daily-ideas { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.daily-obs { list-style: none; }
+.daily-ideas { padding-left: 20px; }
+.daily-obs li, .daily-ideas li, .daily-conti { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.daily-obs p, .daily-ideas p, .daily-conti p { margin: 3px 0; }
+.daily-nums { font-variant-numeric: tabular-nums; }
+.daily-idea-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.daily-q { font-weight: 600; margin: 4px 0 8px; }
+.daily-conti + .daily-conti { margin-top: 8px; }
+.daily-conti ol { margin: 6px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.tag.warn { color: var(--bad, #b4462b); }
