@@ -1,4 +1,5 @@
 import type { CastItem, CastPosition, CharacterSettings, Episode, FactStatus, Format, ImageMemo, Panel, Purpose, Ratio, Shot, Slide, StoryVersion } from './types'
+import { artKontiLines } from './artGuide'
 import { FORMAT_LABEL, byPage, countRange } from './format'
 import { hookBlock } from './hooks'
 import type { PanelDraftItem } from './repo'
@@ -246,7 +247,7 @@ ${memoBlock(memo, s)}
 - 컷에 나오는 인물마다 cast 항목을 하나씩 만들고, 화면 위치(left/center/right)와 차림·행동·표정·소품을 한 줄에 하나씩 적어.
 - 대사는 그 인물의 dialogue에. 인물당 짧은 한 문장, 빈 대사도 가능.
 - direction에는 웃음이 전달되는 핵심 연출(대비, 거리감, 소품)을 짧게.
-${SHOT_RULES}
+${SHOT_RULES}${artKontiLines(s).length ? `\n- 그림 설정(연출):\n${artKontiLines(s).map((l) => `  · ${l}`).join('\n')}` : ''}
 - ${auto ? 'narration은 컷자막형이면 그 장에 올릴 자막 한 줄, 정보툰 정리 장이면 팁 목록, 아니면 속마음·내레이션이 꼭 필요할 때만.' : format === 'captions' ? 'narration에는 그 장에 올릴 자막 한 줄.' : format === 'info' ? 'narration은 앞 장에서는 짧은 자막(필요할 때만), 정리 장에서는 팁 목록.' : 'narration은 속마음·내레이션이 꼭 필요할 때만.'}${auto || format === 'info' ? `\n${auto ? '(정보툰을 고른 경우)\n' : ''}${INFO_RULES}` : ''}
 - 원문에 없는 대사나 시각적 장치는 adaptationNotes에 "각색 제안"이라고 적어.
 - hook은 첫 화면(첫 장)에 올릴 짧은 문구.${format === 'single' || auto ? ' 한컷이면 그림 안 자막으로 쓰인다.' : ''}

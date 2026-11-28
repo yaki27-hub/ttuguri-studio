@@ -231,6 +231,8 @@ export interface Publication extends Base {
   orderConfirmed: boolean
   checkDialogue: boolean
   checkNames: boolean
+  /** 업로드 전 그림 검수 (lib/work/artGuide ART_CHECKS id) */
+  artChecks?: string[]
   history: { publishedAt?: ISO; url?: string; revokedAt: ISO }[]
 }
 
@@ -252,6 +254,8 @@ export interface CharacterSettings extends Base {
   watchlist?: string[]
   /** 카드뉴스 전용 설정 (뚜구리 캐릭터·그림체를 쓰지 않는다) */
   cardnews?: CardNewsSettings
+  /** 그림 설정(lib/work/artGuide): 제안·확인 필요 규칙을 켜고 끈 값 (없으면 기본값) */
+  artRules?: Record<string, boolean>
 }
 
 export interface CardNewsSettings {

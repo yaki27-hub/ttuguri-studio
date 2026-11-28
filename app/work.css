@@ -527,3 +527,15 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .daily-conti + .daily-conti { margin-top: 8px; }
 .daily-conti ol { margin: 6px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .tag.warn { color: var(--bad, #b4462b); }
+
+/* 그림 설정 */
+.art-sec { border: 0; padding: 0; margin: 14px 0 0; }
+.art-sec legend { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.art-sec ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.art-sec li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 14px; line-height: 1.5; }
+.art-sec li.off .art-text { color: var(--muted); }
+.art-sec .art-text { flex: 1 1 260px; }
+.tag.art-fixed { background: var(--accent); color: #fff; }
+.tag.art-check { outline: 1px dashed currentColor; }
+.art-check { margin-top: 12px; }
+.art-check summary { cursor: pointer; font-weight: 600; }

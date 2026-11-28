@@ -10,6 +10,7 @@ import { coverOnlyImage, isDark } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import { SHOT_CAMERA, SHOT_LABEL } from './shots'
+import { artPromptLines, ruleOn, ART_RULES } from './artGuide'
 import type { CharacterSettings, ImageMemo, Panel, Shot } from './types'
 
 const NO_TEXT =
@@ -78,7 +79,7 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     `인스타툰 「${s.seriesName}」 컷 ${i + 1}. 비율 ${RATIO_LABEL[memo.ratio] ?? memo.ratio}.`,
     ONE_FRAME,
     NO_TEXT,
-    '대사는 나중에 따로 올리니 말풍선 자리만 위쪽에 조금 비워 둬.',
+    topSpace(s) ? '' : '대사는 나중에 따로 올리니 말풍선 자리만 위쪽에 조금 비워 둬.',
     '',
     `카메라(${SHOT_LABEL[shot]}): ${SHOT_CAMERA[shot]}`,
     `이 편의 컷들은 카메라 거리·각도·포즈가 서로 달라야 해. 다른 컷처럼 '책상 앞에 앉아 모니터를 보는 같은 구도'를 반복하지 마.${others.length ? ` (앞뒤 컷은 ${others.join('·')}이야.)` : ''}`,
@@ -94,9 +95,33 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     refLine(s, refCount),
     ...styleLines(s, memo),
     '',
+    `그림 설정(지킬 것):\n${artPromptLines(s).map((l) => `- ${l}`).join('\n')}`,
+    '',
     `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.`,
   ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+const topSpace = (s: CharacterSettings) => ruleOn(ART_RULES.find((r) => r.id === 'top25')!, s)
+
+/** 그림 설정 7번의 Higgsfield 프롬프트 틀 (한국어, 카메라가 첫 줄) */
+export function higgsfieldPrompt(p: Panel, i: number, s: CharacterSettings, memo: ImageMemo, shot: Shot = 'medium') {
+  const on = (id: string) => ruleOn(ART_RULES.find((r) => r.id === id)!, s)
+  const cast = (p.cast ?? []).filter((c) => c.name && c.name !== s.characterName)
+  const lead = (p.cast ?? []).find((c) => !c.name || c.name === s.characterName)
+  const pose = [lead?.action, p.action].map((x) => (x ?? '').split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(', ')).filter(Boolean).join(', ')
+  const bg = [memo.background.trim(), on('props3') && '소품 2~3개 이하', on('dimBg') && '채도 낮게'].filter(Boolean).join(', ')
+  const comp = [`${RATIO_LABEL[memo.ratio] ?? memo.ratio} 비율`, `${s.characterName}는 화면 중심보다 약간 아래`, on('top25') && '위쪽 25%는 비워 둠'].filter(Boolean).join(', ')
+  return [
+    `[카메라] ${SHOT_LABEL[shot]} — ${SHOT_CAMERA[shot]}`,
+    `[장면] ${[p.scene, p.direction].map((x) => x.trim()).filter(Boolean).join(' / ') || '(미정)'}`,
+    `[표정·포즈] ${pose || '(콘티에서 정하기)'}`,
+    `[배경] ${bg || '단순하게'}`,
+    `[주변 인물] ${cast.length ? `${cast.map((c) => c.name).join(', ')} — 얼굴 없는${on('monoSil') ? ' 단색' : ''} 실루엣` : '없음 (있다면 얼굴 없는 단색 실루엣)'}`,
+    `[구도] ${comp}`,
+    `[금지] 글자, 말풍선, 워터마크 넣지 않기, 캐릭터 외형 바꾸지 않기`,
+    `(컷 ${i + 1}, 확정된 ${s.characterName} 캐릭터 레퍼런스를 같이 넣어 주세요)`,
+  ].join('\n')
 }

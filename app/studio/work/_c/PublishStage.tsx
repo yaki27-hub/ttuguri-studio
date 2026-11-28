@@ -8,6 +8,7 @@ import { parsePublish, publishPrompt, type PublishOut } from '@/lib/work/prompts
 import { cardPublishPrompt } from '@/lib/work/cards'
 import { saver } from '@/lib/work/saver'
 import { downloadBlob, fmtDateTime, fromLocalInput, toLocalInput } from '@/lib/work/format'
+import { ART_CHECKS, ART_GUIDE_VERSION } from '@/lib/work/artGuide'
 import { buildPublishZip, buildTextDraftZip, checkSlides, finalCaption, type PackageIssue } from '@/lib/work/zip'
 import { METRIC_KEYS, type Metric, type MetricKey, type Publication, type Slide } from '@/lib/work/types'
 import { AssetImage, CopyButton, Field, FilePick, ListField, Modal, Notice } from './ui'
@@ -322,6 +323,31 @@ export default function PublishStage() {
           </li>
         </ul>
         <p className="hint">대사 잘림·실명 노출은 자동 검사하지 않아요. 직접 확인하는 체크 항목이에요.</p>
+        {ep.contentType !== 'cardnews' && (
+          <details className="art-check" open={(pub.artChecks ?? []).length < ART_CHECKS.length}>
+            <summary>
+              그림 검수 <span className="muted small">{(pub.artChecks ?? []).length}/{ART_CHECKS.length} · 그림 설정 {ART_GUIDE_VERSION}</span>
+            </summary>
+            <ul className="checklist">
+              {ART_CHECKS.map((c) => {
+                const on = (pub.artChecks ?? []).includes(c.id)
+                return (
+                  <li key={c.id}>
+                    <label className="check">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => editPub({ artChecks: on ? (pub.artChecks ?? []).filter((x) => x !== c.id) : [...(pub.artChecks ?? []), c.id] })}
+                      />{' '}
+                      {c.label}
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="hint">게시를 막지는 않아요. 업로드 전에 눈으로 한 번씩 보는 항목이에요.</p>
+          </details>
+        )}
 
         <div className="stack">
           <button

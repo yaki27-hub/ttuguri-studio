@@ -12,6 +12,7 @@ import type { CardDesign, CharacterSettings, Ratio } from '@/lib/work/types'
 import { CARD_DESIGN_LABEL, SEODANG_BRAND, SEODANG_STYLE, applySeodang, brandOf, designOf, isDark } from '@/lib/work/cardDesign'
 import { AssetImage, CopyButton, Field, FilePick, Lightbox, ListField, Notice } from './ui'
 import { BackupButtons, SaveIndicator } from './Backup'
+import ArtGuideSettings from './ArtGuideSettings'
 
 interface Env {
   ai: { provider: string; ready: boolean; model: string }
@@ -126,6 +127,8 @@ export default function SettingsClient({ env, channel = 'toon' }: { env: Env; ch
           ))}
         </div>
       </section>
+
+      <ArtGuideSettings s={s} edit={edit} />
 
       <section className="card">
         <h2>캐릭터 레퍼런스</h2>

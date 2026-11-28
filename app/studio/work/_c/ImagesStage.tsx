@@ -5,7 +5,7 @@ import { deleteAssetIfUnused, getEpisode, patchEpisode, patchPanelMeta, putAsset
 import { dialogueLines, sceneDescription } from '@/lib/work/prompts'
 import { cardName, cardSettings } from '@/lib/work/cards'
 import { coverOnlyImage } from '@/lib/work/cardDesign'
-import { cardGenPrompt, cutGenPrompt } from '@/lib/work/imagegen'
+import { cardGenPrompt, cutGenPrompt, higgsfieldPrompt } from '@/lib/work/imagegen'
 import { SHOTS, SHOT_HINT, SHOT_LABEL, shotPlan } from '@/lib/work/shots'
 import type { Shot } from '@/lib/work/types'
 import { aiImage } from '../actions'
@@ -219,7 +219,10 @@ function ImageCard({ p, i, onBig }: { p: Panel; i: number; onBig: (id: string) =
           {noArt ? null : card ? (
             <CopyButton text={() => genPrompt()} label="이미지 프롬프트 복사" className="small" />
           ) : (
-            <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings), shot)} label="장면 설명 복사" className="small" />
+            <>
+              <CopyButton text={() => higgsfieldPrompt(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings), shot)} label="Higgsfield 프롬프트 복사" className="small" />
+              <CopyButton text={() => sceneDescription(p, i, ws.settings, imageMemoOf(ws.ep, ws.settings), shot)} label="장면 설명 복사" className="small" />
+            </>
           )}
           <FilePick label={busy ? '확인 중…' : p.assetId ? '교체' : '이미지 첨부'} className="small" disabled={busy} onFile={attach} />
           {p.assetId && (
