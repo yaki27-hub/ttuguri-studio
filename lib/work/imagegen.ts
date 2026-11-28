@@ -10,7 +10,7 @@ import { coverOnlyImage, isDark } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import { SHOT_CAMERA, SHOT_LABEL } from './shots'
-import { artPromptLines, ruleOn, ART_RULES } from './artGuide'
+import { artPromptLines, densityBlock, ruleOn, ART_RULES } from './artGuide'
 import type { CharacterSettings, ImageMemo, Panel, Shot } from './types'
 
 const NO_TEXT =
@@ -82,6 +82,7 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     topSpace(s) ? '' : '대사는 나중에 따로 올리니 말풍선 자리만 위쪽에 조금 비워 둬.',
     '',
     `카메라(${SHOT_LABEL[shot]}): ${SHOT_CAMERA[shot]}`,
+    ...densityBlock(s, shot),
     `이 편의 컷들은 카메라 거리·각도·포즈가 서로 달라야 해. 다른 컷처럼 '책상 앞에 앉아 모니터를 보는 같은 구도'를 반복하지 마.${others.length ? ` (앞뒤 컷은 ${others.join('·')}이야.)` : ''}`,
     '',
     `장면: ${p.scene || '(미정)'}`,
@@ -97,7 +98,7 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     '',
     `그림 설정(지킬 것):\n${artPromptLines(s).map((l) => `- ${l}`).join('\n')}`,
     '',
-    `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.`,
+    `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.${densityBlock(s, shot).length ? ' 배경은 단순하게, 빈 면을 넉넉히.' : ''}`,
   ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -112,7 +113,10 @@ export function higgsfieldPrompt(p: Panel, i: number, s: CharacterSettings, memo
   const cast = (p.cast ?? []).filter((c) => c.name && c.name !== s.characterName)
   const lead = (p.cast ?? []).find((c) => !c.name || c.name === s.characterName)
   const pose = [lead?.action, p.action].map((x) => (x ?? '').split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(', ')).filter(Boolean).join(', ')
-  const bg = [memo.background.trim(), on('props3') && '소품 2~3개 이하', on('dimBg') && '채도 낮게'].filter(Boolean).join(', ')
+  const bg = [
+    memo.background.trim(),
+    densityBlock(s, shot).slice(1).map((l) => l.replace(/^- /, '')).join(' '),
+  ].filter(Boolean).join(' / ')
   const comp = [`${RATIO_LABEL[memo.ratio] ?? memo.ratio} 비율`, `${s.characterName}는 화면 중심보다 약간 아래`, on('top25') && '위쪽 25%는 비워 둠'].filter(Boolean).join(', ')
   return [
     `[카메라] ${SHOT_LABEL[shot]} — ${SHOT_CAMERA[shot]}`,

@@ -10,7 +10,7 @@
  * prompt  : 인스타툰 컷 이미지 프롬프트(Gemini·Higgsfield)에 들어가는 한 줄
  * konti   : 콘티 프롬프트에 들어가는 한 줄
  */
-import type { CharacterSettings } from './types'
+import type { CharacterSettings, Shot } from './types'
 
 export const ART_GUIDE_VERSION = 'v1.0 (2026-11-28)'
 
@@ -58,7 +58,7 @@ export const ART_RULES: ArtRule[] = [
   { id: 'reelsUI', sec: ART_SECTIONS[3], status: 'proposed', text: '릴스는 아래 약 20%와 오른쪽 끝이 인스타 UI에 가려지므로 대사를 두지 않는다. 릴스 커버의 제목은 가운데에 모은다.' },
   { id: 'reelsFirst', sec: ART_SECTIONS[3], status: 'proposed', text: '신규 도달은 릴스에서만 나오고 있으므로(조회 1,000 이상 6편이 모두 릴스) 릴스를 기본으로 하고, 피드 중복 게시는 줄인다.' },
   // 4
-  { id: 'props3', sec: ART_SECTIONS[4], status: 'proposed', text: '배경 소품은 장면 이해에 필요한 것만 최대 2~3개(예: 책상, 모니터, 머그컵).', prompt: '배경 소품은 장면 이해에 꼭 필요한 것만 2~3개 이하.' },
+  { id: 'props3', sec: ART_SECTIONS[4], status: 'proposed', text: '배경 소품은 장면 이해에 필요한 것만 최대 2~3개(예: 책상, 모니터, 머그컵).', prompt: '배경 소품은 장면 이해에 꼭 필요한 것만 2~3개 이하.', konti: 'scene·cast·imageMemo.background에는 장면 이해에 꼭 필요한 소품만 2~3개 적고, 배경 인물·창밖 풍경·식물 같은 장식은 적지 마.' },
   { id: 'dimBg', sec: ART_SECTIONS[4], status: 'proposed', text: '배경은 채도와 대비를 낮추고, 뚜구리와 핵심 소품만 선명하게 한다.', prompt: '배경은 채도와 대비를 낮추고, 주인공과 핵심 소품만 선명하게.' },
   { id: 'decoEmotion', sec: ART_SECTIONS[4], status: 'proposed', text: '그라데이션 조명, 창밖 도시, 화분, 책장 같은 장식 요소는 감정 컷(평온함, 허무함 강조)에만 쓴다.', prompt: '그라데이션 조명·창밖 도시·화분·책장 같은 장식은 평온함이나 허무함을 강조하는 감정 컷이 아니면 넣지 마.' },
   { id: 'contrastCuts', sec: ART_SECTIONS[4], status: 'proposed', text: '평범한 컷은 단순하게, 웃음 포인트 컷만 연출(집중선, 극화체, 어두운 배경)을 넣는다.', prompt: '이 컷이 웃음 포인트(반전·충격)일 때만 집중선·극화체·어두운 배경 같은 연출을 쓰고, 평범한 컷은 단순하게.', konti: '평범한 컷은 단순하게 두고, 웃음 포인트 컷에만 집중선·극화체·어두운 배경 같은 연출을 direction에 적어.' },
@@ -100,9 +100,35 @@ export function ruleOn(r: ArtRule, s: Pick<CharacterSettings, 'artRules'>) {
 
 export const activeRules = (s: Pick<CharacterSettings, 'artRules'>) => ART_RULES.filter((r) => ruleOn(r, s))
 
+/** 밀도 규칙은 아래 densityBlock 으로 카메라 바로 다음에 강하게 넣으므로 일반 목록에서는 뺀다 */
+const DENSITY_IDS = ['props3', 'dimBg', 'decoEmotion', 'readable']
+
 /** 컷 이미지 프롬프트에 넣을 그림 규칙 줄 */
 export function artPromptLines(s: Pick<CharacterSettings, 'artRules'>) {
-  return activeRules(s).map((r) => r.prompt).filter((x): x is string => !!x)
+  return activeRules(s).filter((r) => !DENSITY_IDS.includes(r.id)).map((r) => r.prompt).filter((x): x is string => !!x)
+}
+
+/** 샷별 배경 예산 (그림 설정 4번) */
+const BUDGET: Record<Shot, string> = {
+  wide: '바닥·벽·책상 같은 큰 면 2~3개와 핵심 소품 1~2개만. 뒤쪽 인물은 필요할 때만 최대 2명, 단색 실루엣으로.',
+  medium: '뒤는 옅은 단색 벽 한 면(또는 흐릿한 면)만. 책상과 핵심 소품 최대 2개.',
+  closeup: '배경은 단색이나 아주 옅은 그라데이션 한 가지. 소품 없음.',
+  detail: '핵심 물건 하나와 단색 배경만.',
+  over: '주인공 어깨와 보고 있는 대상 하나만. 그 밖의 배경은 옅은 단색 면.',
+}
+
+/** 배경·밀도 블록 — 카메라 바로 다음에 넣는다 (밀도 규칙이 하나도 안 켜져 있으면 빈 배열) */
+export function densityBlock(s: Pick<CharacterSettings, 'artRules'>, shot: Shot) {
+  const on = (id: string) => ruleOn(ART_RULES.find((r) => r.id === id)!, s)
+  if (!['props3', 'dimBg', 'decoEmotion', 'readable'].some(on)) return []
+  const lines = [
+    on('readable') && '목표는 잘 그린 장면이 아니라 한눈에 읽히는 장면. 화면의 40% 이상은 아무것도 없는 평평한 면으로 남겨.',
+    on('props3') && `이 컷의 배경: ${BUDGET[shot]}`,
+    on('dimBg') && '배경은 채도·대비를 낮춘 2~3가지 색 면으로 단순하게. 선명한 건 주인공과 핵심 소품뿐.',
+    on('decoEmotion') &&
+      '그리지 말 것(장면에 꼭 필요하다고 적힌 경우만 예외): 창밖 도시 풍경, 화분·식물, 천장 조명·타일·에어컨 반복, 줄지어 늘어선 책상·모니터·칸막이, 뒤쪽 동료 여러 명, 포스트잇·잡동사니. 평온함·허무함을 강조하는 감정 컷일 때만 장식 하나 허용.',
+  ].filter((x): x is string => !!x)
+  return [`배경·밀도 (중요 — 장면 설명보다 우선):`, ...lines.map((l) => `- ${l}`)]
 }
 
 /** 콘티 프롬프트에 넣을 연출 규칙 줄 */
