@@ -11,6 +11,7 @@ import type { Shot } from '@/lib/work/types'
 import { aiImage } from '../actions'
 import { referencePayload, aiImageFile } from '@/lib/work/imageRefs'
 import { FIGMA_PLUGIN_VERSION, buildFigmaExport } from '@/lib/work/figmaExport'
+import { figmaStyle } from '@/lib/work/artGuide'
 import { applyImport, parseFinal, planImport, type FinalFile, type ImportPlan } from '@/lib/work/figmaImport'
 import { downloadBlob } from '@/lib/work/format'
 import JSZip from 'jszip'
@@ -295,7 +296,7 @@ function FigmaBox() {
     setBusy(true)
     setMsg('')
     try {
-      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings), ws.settings.cardnews, { layout })
+      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings), ws.settings.cardnews, { layout, style: figmaStyle(ws.settings) })
       downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${safe(ep.title)}-${layout === 'reels' ? 'reels-' : ''}figma.json`)
       setMsg(
         layout === 'reels'
@@ -351,6 +352,15 @@ function FigmaBox() {
           플러그인 받기 (v{FIGMA_PLUGIN_VERSION})
         </button>
       </div>
+      {ep.contentType !== 'cardnews' && (
+        <div className="field figma-badge">
+          <label htmlFor="ep-badge">시리즈 배지 (선택)</label>
+          <input id="ep-badge" value={ep.badge ?? ''} placeholder="예: 바이브코딩 적자일기 01" onChange={(e) => ws.editEp({ badge: e.target.value })} />
+          <p className="hint">
+            피그마 프레임에 그림 설정 6번이 들어가요: 왼쪽 위 ‘{figmaStyle(ws.settings).watermark || '워터마크 끔'}’, 오른쪽 위 컷 번호{ep.badge?.trim() ? '와 시리즈 배지' : ''}, 굵은 고딕 갈색 제목, 손글씨 대사 말풍선. 설정 → 그림 설정에서 켜고 끌 수 있어요.
+          </p>
+        </div>
+      )}
       {msg && <p className="hint">{msg}</p>}
       <ol className="small muted figma-steps">
         <li>

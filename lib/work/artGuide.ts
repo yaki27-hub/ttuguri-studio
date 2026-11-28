@@ -14,6 +14,11 @@ import type { CharacterSettings } from './types'
 
 export const ART_GUIDE_VERSION = 'v1.0 (2026-11-28)'
 
+/** 그림 설정 6번: 워터마크 하나로 통일 */
+export const WATERMARK = '@ttuguri'
+/** 제목 색 (진한 갈색 계열) */
+export const TITLE_BROWN = '#4a2e1f'
+
 export type ArtStatus = 'fixed' | 'proposed' | 'check'
 export const ART_STATUS_LABEL: Record<ArtStatus, string> = { fixed: '확정', proposed: '제안', check: '확인 필요' }
 
@@ -104,3 +109,17 @@ export function artPromptLines(s: Pick<CharacterSettings, 'artRules'>) {
 export function artKontiLines(s: Pick<CharacterSettings, 'artRules'>) {
   return activeRules(s).map((r) => r.konti).filter((x): x is string => !!x)
 }
+
+/** 피그마 내보내기에 넘길 마감 규칙 (6번 텍스트와 마감) */
+export function figmaStyle(s: Pick<CharacterSettings, 'artRules'>) {
+  const on = (id: string) => ruleOn(ART_RULES.find((r) => r.id === id)!, s)
+  return {
+    watermark: on('watermark') ? WATERMARK : '',
+    cutNumbers: on('watermark'),
+    titleFont: on('titleFont'),
+    titleColor: TITLE_BROWN,
+    bubbles: on('lineFont'),
+    maxLines: on('lineFont') ? 3 : 0,
+  }
+}
+export type FigmaStyle = ReturnType<typeof figmaStyle>

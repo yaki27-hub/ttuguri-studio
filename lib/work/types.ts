@@ -87,6 +87,8 @@ export interface Episode extends Base {
   imageMemo?: ImageMemo
   /** 첫 화면 문구 (한 컷 밈이면 그림 안 자막) */
   hookText?: string
+  /** 시리즈 배지 (예: '바이브코딩 적자일기 01') — 피그마에서 오른쪽 위에 붙는다 */
+  badge?: string
   /** 없으면 인스타툰 */
   contentType?: ContentType
   /** 레퍼런스 보드에서 연결한 레퍼런스 */

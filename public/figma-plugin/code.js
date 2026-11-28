@@ -3,6 +3,7 @@
 //  v3: 카드뉴스 '내 피그마 마스터' (ai_title · page 컴포넌트 복제)
 //  v4: 카드뉴스 기본 템플릿 '어쩌다 발견' (buildEojjeoda)
 //  v5: 인스타툰 릴스 9:16 레이아웃 (buildReels) · 가이드 레이어는 완성본 PNG에서 뺀다
+//  v6: 인스타툰 마감(그림 설정 6번) — 워터마크 왼쪽 위, 컷 번호·시리즈 배지 오른쪽 위, 굵은 고딕 갈색 제목, 손글씨 대사 말풍선
 //  ② 다 만든 프레임을 PNG + 최종 글자로 묶어 사이트로 돌려보낸다 (lib/work/figmaImport.ts)
 // 프레임·글자 레이어에는 pluginData 로 편 id·장 id·글자 자리를 기억해 둔다.
 
@@ -10,7 +11,7 @@ figma.showUI(__html__, { width: 360, height: 420 });
 
 const KEY = 'ttuguri';
 /** 플러그인 버전 — lib/work/figmaExport.ts FIGMA_PLUGIN_VERSION · ui.html 제목 · manifest.json name 과 같이 올릴 것 */
-const PLUGIN_VERSION = 5;
+const PLUGIN_VERSION = 6;
 
 const ACCENT = { r: 0x79 / 255, g: 0x56 / 255, b: 0xce / 255 };
 const INK = { r: 0.12, g: 0.12, b: 0.14 };
@@ -77,6 +78,7 @@ async function build(data) {
   if (data.plugin && data.plugin > PLUGIN_VERSION)
     throw new Error(`이 파일은 플러그인 v${data.plugin}용인데 지금 플러그인은 v${PLUGIN_VERSION}이에요. 사이트 이미지 단계 → 피그마로 보내기 → ‘플러그인 받기’로 새로 받아 폴더에 덮어써 주세요.`);
   if (data.layout === 'reels') return buildReels(data);
+  if (data.contentType === 'instatoon' && data.style) return buildToonFeed(data);
   if (data.contentType === 'cardnews' && data.design === 'eojjeoda') return buildEojjeoda(data);
   if (data.contentType === 'cardnews' && data.design === 'master') {
     const r = await buildMaster(data);
@@ -159,6 +161,187 @@ function finish(frames, data, W, H, startX, fontName, coverOnly) {
   return `${frames.length}개 프레임을 만들었어요${noImage ? (coverOnly ? ' (표지 그림 없음)' : ` (이미지 없는 장 ${noImage}개)`) : ''}. 글꼴: ${fontName}`;
 }
 
+/* ───────── 인스타툰 마감 (그림 설정 6번, lib/work/artGuide.ts figmaStyle 와 짝) ───────── */
+
+const HAND_FAMILIES = ['Nanum Pen Script', 'NanumPen', '나눔손글씨 펜', 'KyoboHandwriting2019', 'KyoboHandwriting2020', 'Gaegu', 'Gamja Flower', 'Hi Melody', 'Poor Story', 'Single Day', 'Yeon Sung', 'Nanum Brush Script', 'East Sea Dokdo', 'Cafe24 Ssurround'];
+const TITLE_FAMILIES = ['Pretendard', 'Pretendard Variable', 'Pretendard JP', 'Noto Sans KR', 'Spoqa Han Sans Neo', 'Apple SD Gothic Neo'];
+
+/** 제목용 굵은 고딕 + 대사용 손글씨 (없으면 보통 글꼴로) */
+async function toonFonts(base) {
+  const all = await figma.listAvailableFontsAsync();
+  const by = {};
+  for (const f of all) (by[f.fontName.family] = by[f.fontName.family] || []).push(f.fontName.style);
+  const pick = async (fams, wants) => {
+    for (const fam of fams) {
+      const st = by[fam];
+      if (!st) continue;
+      const style = wants.find((w) => st.indexOf(w) >= 0) || st[0];
+      try {
+        await figma.loadFontAsync({ family: fam, style });
+        return { family: fam, style };
+      } catch (e) {}
+    }
+    return null;
+  };
+  const heavy = (await pick(TITLE_FAMILIES, ['ExtraBold', 'Black', 'Bold', 'SemiBold'])) || base.bold;
+  const hand = await pick(HAND_FAMILIES, ['Regular', 'Medium', 'Bold']);
+  return { heavy, hand: hand || base.regular, handFound: !!hand };
+}
+
+function plainText(parent, o) {
+  const n = figma.createText();
+  n.name = o.name;
+  n.fontName = o.font;
+  n.fontSize = o.size;
+  n.lineHeight = { unit: 'PERCENT', value: o.line || 130 };
+  n.letterSpacing = { unit: 'PERCENT', value: o.track === undefined ? -2 : o.track };
+  n.fills = [{ type: 'SOLID', color: o.color, opacity: o.opacity === undefined ? 1 : o.opacity }];
+  n.characters = o.text;
+  if (o.align) n.textAlignHorizontal = o.align;
+  parent.appendChild(n);
+  return n;
+}
+
+/** 왼쪽 위 워터마크, 오른쪽 위 [시리즈 배지][컷 번호] — 위치·모양 고정 */
+function toonMarks(frame, data, st, fonts, tf, o) {
+  const brown = rgbOf(st.titleColor, INK);
+  const y = o.y;
+  if (st.watermark) {
+    const w = plainText(frame, { name: '워터마크', text: st.watermark, font: fonts.bold, size: 26, color: brown, opacity: 0.8, track: 0 });
+    w.x = 44;
+    w.y = y;
+  }
+  let right = o.W - 44;
+  if (st.cutNumbers && o.number) {
+    const n = plainText(frame, { name: '컷 번호', text: o.number, font: fonts.bold, size: 26, color: brown, opacity: 0.8, track: 0 });
+    n.x = right - n.width;
+    n.y = y;
+    right = n.x - 16;
+  }
+  if (data.badge) {
+    const pill = figma.createFrame();
+    pill.name = '시리즈 배지';
+    pill.layoutMode = 'HORIZONTAL';
+    pill.primaryAxisSizingMode = 'AUTO';
+    pill.counterAxisSizingMode = 'AUTO';
+    pill.paddingLeft = pill.paddingRight = 18;
+    pill.paddingTop = pill.paddingBottom = 6;
+    pill.cornerRadius = 999;
+    pill.fills = [{ type: 'SOLID', color: brown }];
+    const t = plainText(pill, { name: '배지 글자', text: data.badge, font: tf.heavy, size: 22, color: WHITE, track: 0 });
+    t.textAutoResize = 'WIDTH_AND_HEIGHT';
+    frame.appendChild(pill);
+    pill.x = right - pill.width;
+    pill.y = y - 4;
+  }
+}
+
+/** 제목·첫 화면 문구: 굵은 고딕, 진한 갈색 (어두운 바탕이면 흰색) */
+function toonTitle(frame, t, st, tf, o) {
+  const n = plainText(frame, { name: t.name, text: t.text, font: st.titleFont ? tf.heavy : o.fonts.bold, size: o.size, color: o.dark ? WHITE : rgbOf(st.titleColor, INK), line: 125, align: o.align || 'LEFT' });
+  if (t.field) n.setPluginData('field', t.field);
+  n.x = o.x;
+  n.resize(o.w, n.height);
+  n.textAutoResize = 'HEIGHT';
+  if (o.room) while (n.height > o.room && n.fontSize > 40) n.fontSize = n.fontSize - 4;
+  n.y = o.y;
+  return n;
+}
+
+/** 대사: 손글씨 + 흰 말풍선 / 자막·내레이션: 반투명 흰 상자. 돌려주는 값 { node, lines } */
+function toonLine(frame, t, st, fonts, tf, o) {
+  const isDialogue = t.role === 'dialogue';
+  const text = plainText(frame, {
+    name: t.name,
+    text: t.text,
+    font: isDialogue && st.bubbles ? tf.hand : fonts.regular,
+    size: isDialogue && st.bubbles && tf.handFound ? 46 : isDialogue ? 40 : 36,
+    color: INK,
+    line: isDialogue ? 135 : 150,
+  });
+  if (t.field) text.setPluginData('field', t.field);
+  const padX = isDialogue ? 34 : 28;
+  const padY = isDialogue ? 22 : 18;
+  text.textAutoResize = 'WIDTH_AND_HEIGHT';
+  if (text.width > o.w - padX * 2) {
+    text.resize(o.w - padX * 2, text.height);
+    text.textAutoResize = 'HEIGHT';
+  }
+  const lines = Math.round(text.height / (text.fontSize * (isDialogue ? 1.35 : 1.5)));
+  if (!st.bubbles) {
+    text.x = o.x;
+    text.y = o.y;
+    return { node: text, lines };
+  }
+  const box = figma.createFrame();
+  box.name = isDialogue ? `말풍선 · ${t.name}` : `자막 상자 · ${t.name}`;
+  box.layoutMode = 'VERTICAL';
+  box.primaryAxisSizingMode = 'AUTO';
+  box.counterAxisSizingMode = 'AUTO';
+  box.paddingLeft = box.paddingRight = padX;
+  box.paddingTop = box.paddingBottom = padY;
+  box.cornerRadius = isDialogue ? 40 : 18;
+  box.fills = [{ type: 'SOLID', color: WHITE, opacity: isDialogue ? 1 : 0.82 }];
+  if (isDialogue) {
+    box.strokes = [{ type: 'SOLID', color: INK }];
+    box.strokeWeight = 3;
+  }
+  frame.appendChild(box);
+  box.appendChild(text);
+  box.x = o.x;
+  box.y = o.y;
+  return { node: box, lines };
+}
+
+/** 피드 4:5 인스타툰 (data.style 이 있을 때) */
+async function buildToonFeed(data) {
+  const fonts = await pickFonts();
+  const tf = await toonFonts(fonts);
+  const st = data.style;
+  const W = data.width;
+  const H = data.height;
+  const startX = rightEdge();
+  const frames = [];
+  const n = data.frames.length;
+  let long = 0;
+
+  data.frames.forEach((f, i) => {
+    const frame = figma.createFrame();
+    frame.name = f.name;
+    frame.resize(W, H);
+    frame.x = startX + i * (W + GAP);
+    frame.y = 0;
+    frame.fills = [{ type: 'SOLID', color: WHITE }];
+    frame.clipsContent = true;
+    frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '' }));
+    if (f.image && f.image.base64) {
+      const img = figma.createImage(figma.base64Decode(f.image.base64));
+      const rect = figma.createRectangle();
+      rect.name = '이미지';
+      rect.resize(W, H);
+      rect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
+      frame.appendChild(rect);
+    }
+    toonMarks(frame, data, st, fonts, tf, { W, y: 40, number: n > 1 ? `${i + 1}/${n}` : '' });
+    // 제목·말풍선은 그리드 3:4 잘림을 피해 좌우 끝에서 60px 넘게 안쪽 (PAD 88)
+    let y = 112;
+    for (const t of f.texts) {
+      if (t.role === 'hook') {
+        const node = toonTitle(frame, t, st, tf, { fonts, size: 60, x: PAD, y, w: W - PAD * 2 });
+        y += node.height + 28;
+        continue;
+      }
+      const r = toonLine(frame, t, st, fonts, tf, { x: PAD, y, w: W - PAD * 2 });
+      if (st.maxLines && r.lines > st.maxLines) long += 1;
+      y += r.node.height + 18;
+    }
+    frames.push(frame);
+  });
+
+  const r = finish(frames, data, W, H, startX, `${tf.heavy.family}${st.bubbles ? ` · 대사 ${tf.hand.family}` : ''}`);
+  return [r, st.bubbles && !tf.handFound ? '손글씨 글꼴(나눔손글씨 펜 등)이 없어 대사는 보통 글꼴로 넣었어요' : '', long ? `대사가 ${st.maxLines}줄을 넘는 곳 ${long}개` : ''].filter(Boolean).join(' · ');
+}
+
 /* ───────── 인스타툰 릴스 9:16 (lib/work/figmaExport.ts REELS 와 짝) ───────── */
 
 const RL = { W: 1080, H: 1920, IMG_Y: 280, UI_BOTTOM: 0.2, UI_RIGHT: 170, GRID_TOP: 240, GRID_H: 1440 };
@@ -185,6 +368,10 @@ function guideRect(frame, name, x, y, w, h, opts) {
 
 async function buildReels(data) {
   const fonts = await pickFonts();
+  const st = data.style || null;
+  const tf = st ? await toonFonts(fonts) : null;
+  const cuts = data.frames.filter((f) => f.kind !== 'reelsCover').length;
+  let long = 0;
   const { W, H, IMG_Y } = RL;
   const IMG_H = data.cutHeight || 1350;
   const UI_Y = Math.round(H * (1 - RL.UI_BOTTOM));
@@ -222,8 +409,21 @@ async function buildReels(data) {
       frame.appendChild(rect);
     }
 
-    let y = IMG_Y + 48;
+    if (st) toonMarks(frame, data, st, fonts, tf, { W, y: IMG_Y + 26, number: !cover && cuts > 1 ? `${data.frames.slice(0, i + 1).filter((x) => x.kind !== 'reelsCover').length}/${cuts}` : '' });
+    let y = IMG_Y + (st ? 96 : 48);
     for (const t of f.texts) {
+      if (st && t.role === 'reelsTitle') {
+        const node = toonTitle(frame, t, st, tf, { fonts, size: cover ? 88 : 68, x: PAD, y: 0, w: W - PAD * 2, align: 'CENTER', dark: !cover && !isLight(top), room: cover ? 300 : IMG_Y - 120 });
+        // 커버는 워터마크 줄(그림 위 26px) 아래, 그리드 3:4 안
+        node.y = cover ? RL.GRID_TOP + 140 : Math.max(96, Math.round((IMG_Y - node.height) / 2 + 30));
+        continue;
+      }
+      if (st) {
+        const r = toonLine(frame, t, st, fonts, tf, { x: PAD, y, w: W - PAD - RL.UI_RIGHT });
+        if (st.maxLines && r.lines > st.maxLines) long += 1;
+        y += r.node.height + 18;
+        continue;
+      }
       const node = figma.createText();
       node.name = t.name;
       if (t.field) node.setPluginData('field', t.field);
@@ -269,8 +469,13 @@ async function buildReels(data) {
     frames.push(frame);
   });
 
-  const r = finish(frames, data, W, H, startX, fonts.bold.family);
-  return crowded ? `${r} · 글이 UI 자리(아래 20%)까지 내려간 프레임 ${crowded}개는 대사를 줄여 주세요.` : r;
+  const r = finish(frames, data, W, H, startX, tf ? `${tf.heavy.family}${st.bubbles ? ` · 대사 ${tf.hand.family}` : ''}` : fonts.bold.family);
+  return [
+    r,
+    crowded ? `글이 UI 자리(아래 20%)까지 내려간 프레임 ${crowded}개는 대사를 줄여 주세요` : '',
+    st && st.bubbles && !tf.handFound ? '손글씨 글꼴(나눔손글씨 펜 등)이 없어 대사는 보통 글꼴로 넣었어요' : '',
+    long ? `대사가 ${st.maxLines}줄을 넘는 곳 ${long}개` : '',
+  ].filter(Boolean).join(' · ');
 }
 
 /* ───────── 카드뉴스 · AI 서당 스타일 (lib/work/cardDesign.ts 와 짝) ───────── */
