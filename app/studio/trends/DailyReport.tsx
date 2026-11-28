@@ -15,7 +15,7 @@ import {
   type Idea,
   type SavedReport,
 } from '@/lib/work/dailyReport'
-import { dailyBriefSave, dailyReportAnswer, dailyReportPrompt, dailyReportRun, dailyReportSave, dailyReportsLoad } from './actions'
+import { dailyBriefSave, dailyReportAnswer, dailyReportMore, dailyReportPrompt, dailyReportRun, dailyReportSave, dailyReportsLoad } from './actions'
 
 const VIA_LABEL: Record<SavedReport['via'], string> = { auto: '아침 7시 자동 조사', ai: '직접 조사', paste: '붙여넣기' }
 
@@ -29,7 +29,7 @@ export default function DailyReport() {
   const [brief, setBrief] = useState(DEFAULT_BRIEF)
   const [savedBrief, setSavedBrief] = useState(DEFAULT_BRIEF)
   const [episodes, setEpisodes] = useState<string[]>([])
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'' | 'run' | 'more'>('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string }>()
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
@@ -71,18 +71,20 @@ export default function DailyReport() {
     setAnswer(rec.answer ?? '')
   }
 
-  async function runAI() {
-    setBusy(true)
+  async function runAI(mode: 'run' | 'more' = 'run') {
+    if (mode === 'run' && date === today && cur && !confirm('오늘 리포트를 새 조사로 바꿀까요? 지금 소재는 사라져요. 지금 소재를 두고 더 받으려면 ‘다른 소재 더 찾기’를 눌러 주세요.')) return
+    setBusy(mode)
     setMsg(undefined)
     try {
-      const r = (await dailyReportRun(episodes)) as { saved?: SavedReport; error?: string }
+      const before = cur?.report.ideas.length ?? 0
+      const r = (await (mode === 'more' ? dailyReportMore(episodes) : dailyReportRun(episodes))) as { saved?: SavedReport; error?: string }
       if (r.error || !r.saved) return setMsg({ ok: false, text: r.error || '저장하지 못했어요.' })
       shown(r.saved)
-      setMsg({ ok: true, text: '오늘 리포트를 저장했어요.' })
+      setMsg({ ok: true, text: mode === 'more' ? `새 소재 ${r.saved.report.ideas.length - before}개를 아래에 더했어요.` : '오늘 리포트를 저장했어요.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })
     } finally {
-      setBusy(false)
+      setBusy('')
     }
   }
 
@@ -175,9 +177,20 @@ export default function DailyReport() {
       <p className="muted small">직장인 인스타툰·스레드·커뮤니티를 조사해 오늘의 관찰, 새 소재 10개, 오늘의 질문, 콘티 1~2개를 받아요. 매일 아침 7시에 자동으로 조사하고, 어느 기기에서 열어도 같은 리포트가 보여요. 이전 7일 추천과 내 에피소드 {episodes.length}개를 같이 보내 겹치지 않게 해요.</p>
 
       <div className="row-inline wraps">
-        <button type="button" className="btn primary small" disabled={busy} onClick={runAI}>
-          {busy ? '조사하는 중… (1~2분)' : date === today && cur ? '오늘 다시 조사하기' : '오늘 조사하기 (구글 검색)'}
-        </button>
+        {date === today && cur ? (
+          <>
+            <button type="button" className="btn primary small" disabled={!!busy} onClick={() => runAI('more')}>
+              {busy === 'more' ? '더 찾는 중… (1~2분)' : '다른 소재 10개 더 찾기'}
+            </button>
+            <button type="button" className="btn small" disabled={!!busy} onClick={() => runAI('run')}>
+              {busy === 'run' ? '조사하는 중… (1~2분)' : '처음부터 다시 조사'}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn primary small" disabled={!!busy} onClick={() => runAI('run')}>
+            {busy === 'run' ? '조사하는 중… (1~2분)' : '오늘 조사하기 (구글 검색)'}
+          </button>
+        )}
         <button type="button" className="btn small" onClick={copy}>
           프롬프트 복사
         </button>
@@ -247,8 +260,9 @@ export default function DailyReport() {
             프리랜서·디자이너 {ideas.filter((i) => i.freelance).length} · 시즌 {ideas.filter((i) => i.tags.some((t) => /시즌/.test(t))).length} · 공유형 {ideas.filter(isShareIdea).length}
           </p>
           <ol className="daily-ideas">
-            {ideas.map((i) => (
+            {ideas.map((i, k) => (
               <li key={i.title}>
+                {i.round && i.round !== ideas[k - 1]?.round && <p className="daily-round">➕ 더 찾은 소재 {i.round}</p>}
                 <div className="daily-idea-head">
                   <b>{i.title}</b>
                   <span className="tag">{i.cuts}</span>
@@ -273,6 +287,9 @@ export default function DailyReport() {
             <>
               <h3>3. 오늘의 질문</h3>
               <p className="daily-q">🙋 {r.question}</p>
+              {(r.questions ?? []).map((q) => (
+                <p key={q} className="daily-q more">🙋 {q}</p>
+              ))}
               <div className="field">
                 <label htmlFor="daily-answer">내 답 (실화 소재는 여기 답으로만)</label>
                 <textarea id="daily-answer" rows={3} value={answer} onChange={(e) => setAnswer(e.target.value)} onBlur={saveAnswer} />

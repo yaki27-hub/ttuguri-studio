@@ -218,6 +218,17 @@ export async function dailyReportRun(extraTitles = []) {
   }
 }
 
+/** 다른 소재 더 찾기 (오늘 리포트에 새 묶음을 덧붙인다) */
+export async function dailyReportMore(extraTitles = []) {
+  await requireAuth();
+  const m = await import('@/lib/dailyReports');
+  try {
+    return { saved: await m.moreDailyIdeas({ extraTitles: Array.isArray(extraTitles) ? extraTitles.slice(0, 80) : [] }) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 export async function dailyReportPrompt(extraTitles = []) {
   await requireAuth();
   const m = await import('@/lib/dailyReports');

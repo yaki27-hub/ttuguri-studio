@@ -52,6 +52,8 @@ const matchTopics = (text: string, topics: Topic[]): Topic[] => matchAny(text, t
 export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: boolean; channel?: 'toon' | 'card' }) {
   const card = channel === 'card'
   const [settings, setSettings] = useState<CharacterSettings>()
+  // 새로고침: 아래 섹션을 모두 다시 그려서 급상승·워치리스트·매일 리포트를 새로 불러온다
+  const [refresh, setRefresh] = useState(0)
   // 채널마다 토픽·워치리스트를 따로 둔다 (카드뉴스는 settings.cardnews 안에)
   const topics = (card ? settings?.cardnews?.topics : settings?.topics) ?? []
   const watch = (card ? settings?.cardnews?.watchlist : settings?.watchlist) ?? []
@@ -72,13 +74,16 @@ export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: b
     <>
       <header className="sub-top">
         <h1>소재 찾기</h1>
+        <button type="button" className="btn small" onClick={() => setRefresh((n) => n + 1)} title="급상승·워치리스트·매일 리포트를 다시 불러와요">
+          ↻ 새로고침
+        </button>
       </header>
       <p className="muted small intro">
         {card ? '오늘 AI 소식, 뜨는 검색어, 지켜보는 AI 계정의 새 게시물을 한곳에서 봐요.' : '오늘 뜨는 검색어와 지켜보는 인스타툰 계정의 새 게시물을 한곳에서 봐요.'} 마음에 드는 게시물은 ⭐로 레퍼런스 보드에 담고, 거기서 뜯어보기 → 변주로 이어가세요.
       </p>
       {settings && (
         <>
-        <div className="finder">
+        <div className="finder" key={refresh}>
           <div className="finder-trend">
             {!card && <SeasonCalendar channel={channel} />}
             <TrendingSection topics={topics} />

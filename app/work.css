@@ -539,3 +539,6 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .tag.art-check { outline: 1px dashed currentColor; }
 .art-check { margin-top: 12px; }
 .art-check summary { cursor: pointer; font-weight: 600; }
+.daily-round { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.daily-q.more { font-weight: 500; }
+.figma-badge { margin: 10px 0 0; }

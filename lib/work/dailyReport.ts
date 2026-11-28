@@ -59,6 +59,8 @@ export interface Idea {
   freelance: boolean
   tags: string[]
   priority: number
+  /** '다른 소재 더 찾기'로 붙인 묶음 번호 (첫 조사는 없음) */
+  round?: number
 }
 
 export interface ContiPanel {
@@ -81,6 +83,8 @@ export interface DailyReport {
   noTrend: string
   ideas: Idea[]
   question: string
+  /** 더 찾기에서 나온 다른 질문 */
+  questions?: string[]
   conti: Conti[]
 }
 
@@ -101,7 +105,7 @@ export function parseDailyReport(raw: unknown): DailyReport {
   const arr = (v: unknown) => (Array.isArray(v) ? v : []) as Record<string, unknown>[]
   const num = (v: unknown) => (v == null || v === '' ? '미확인' : s(v, 40))
   return {
-    observations: arr(o.observations).slice(0, 20).map((x) => ({
+    observations: arr(o.observations).slice(0, 40).map((x) => ({
       title: s(x.title, 200),
       url: /^https?:\/\//.test(s(x.url, 600)) ? s(x.url, 600) : '',
       source: s(x.source, 80),
@@ -116,7 +120,7 @@ export function parseDailyReport(raw: unknown): DailyReport {
       linkOk: typeof x.linkOk === 'boolean' ? x.linkOk : undefined,
     })),
     noTrend: s(o.noTrend, 400),
-    ideas: arr(o.ideas).slice(0, 12).map((x, i) => ({
+    ideas: arr(o.ideas).slice(0, 50).map((x, i) => ({
       title: s(x.title, 120),
       point: s(x.point, 300),
       visual: s(x.visual, 300),
@@ -125,9 +129,11 @@ export function parseDailyReport(raw: unknown): DailyReport {
       freelance: x.freelance === true,
       tags: (Array.isArray(x.tags) ? x.tags : []).map((t) => s(t, 20)).filter(Boolean).slice(0, 5),
       priority: Number(x.priority) || i + 1,
+      round: Number(x.round) > 0 ? Number(x.round) : undefined,
     })).filter((x) => x.title),
     question: s(o.question, 200),
-    conti: arr(o.conti).slice(0, 2).map((c) => ({
+    questions: (Array.isArray(o.questions) ? o.questions : []).map((q) => s(q, 200)).filter(Boolean).slice(0, 10),
+    conti: arr(o.conti).slice(0, 8).map((c) => ({
       idea: s(c.idea, 120),
       panels: arr(c.panels).slice(0, 6).map((p) => ({ scene: s(p.scene), action: s(p.action), line: s(p.line, 200), background: s(p.background, 200), props: s(p.props, 200) })),
       twist: s(c.twist, 300),
