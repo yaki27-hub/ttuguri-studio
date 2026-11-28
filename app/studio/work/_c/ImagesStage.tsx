@@ -287,17 +287,21 @@ function FigmaBox() {
     if (!incoming) return
     const r = await ws.act(() => applyImport(ep, incoming.plan, b.slides, withText))
     setIncoming(undefined)
-    if (r) setMsg(`최종 이미지 ${r.images}장을 붙이고${withText && r.edited ? `, 글자를 고친 ${r.edited}개 장에 반영하고` : ''}, 게시 슬라이드 ${r.slides}장을 맞췄어요. 게시 단계에서 확인하세요.`)
+    if (r) setMsg(`최종 이미지 ${r.images}장을 붙이고${withText && r.edited ? `, 글자를 고친 ${r.edited}개 장에 반영하고` : ''}, 게시 슬라이드 ${r.slides}장을 맞췄어요.${r.cover ? ' 릴스 커버는 ‘연결 안 된 이미지’에 넣었어요.' : ''} 게시 단계에서 확인하세요.`)
   }
   const safe = (t: string) => t.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'ttuguri'
 
-  async function exportJson() {
+  async function exportJson(layout: 'feed' | 'reels' = 'feed') {
     setBusy(true)
     setMsg('')
     try {
-      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings), ws.settings.cardnews)
-      downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${safe(ep.title)}-figma.json`)
-      setMsg(`${data.frames.length}개 프레임용 파일을 받았어요. 피그마에서 ‘뚜구리 가져오기’ 플러그인에 넣으세요.`)
+      const data = await buildFigmaExport(ep, b.panels, imageMemoOf(ep, ws.settings), ws.settings.cardnews, { layout })
+      downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${safe(ep.title)}-${layout === 'reels' ? 'reels-' : ''}figma.json`)
+      setMsg(
+        layout === 'reels'
+          ? `릴스 9:16 프레임 ${data.frames.length}개(커버 포함)용 파일을 받았어요. 플러그인 v${FIGMA_PLUGIN_VERSION}에 넣으세요. 빨간 ‘가이드’ 영역(인스타 UI 자리)에는 대사를 두지 마세요 — 가이드는 완성본으로 보낼 때 자동으로 빠져요.`
+          : `${data.frames.length}개 프레임용 파일을 받았어요. 피그마에서 ‘뚜구리 가져오기’ 플러그인에 넣으세요.`,
+      )
     } catch (e) {
       setMsg(`내보내지 못했어요: ${(e as Error).message}`)
     } finally {
@@ -322,9 +326,14 @@ function FigmaBox() {
         <b>피그마로 보내기</b> <span className="muted small">이미지 {withImage}/{b.panels.length}장 · 글자는 고칠 수 있는 레이어로</span>
       </summary>
       <div className="row-inline wraps">
-        <button type="button" className="btn small primary" disabled={busy || !b.panels.length} onClick={exportJson}>
-          {busy ? '만드는 중…' : '피그마용 내보내기 (.json)'}
+        <button type="button" className="btn small primary" disabled={busy || !b.panels.length} onClick={() => exportJson('feed')}>
+          {busy ? '만드는 중…' : ep.contentType === 'cardnews' ? '피그마용 내보내기 (.json)' : '피드 4:5 내보내기 (.json)'}
         </button>
+        {ep.contentType !== 'cardnews' && (
+          <button type="button" className="btn small primary" disabled={busy || !b.panels.length} onClick={() => exportJson('reels')}>
+            릴스 9:16 내보내기 (.json)
+          </button>
+        )}
         <label className={`btn small ${busy ? 'disabled' : ''}`}>
           피그마에서 가져오기 (완성본)
           <input
@@ -350,6 +359,11 @@ function FigmaBox() {
         <li>처음 한 번: ‘플러그인 받기’ zip을 풀고, 피그마 데스크톱 앱 → 메뉴 Plugins → Development → Import plugin from manifest… → 푼 폴더의 manifest.json</li>
         <li>매번: ‘피그마용 내보내기’로 받은 .json을 피그마에서 Plugins → Development → 뚜구리 가져오기 에 넣기</li>
         <li>장(컷)마다 프레임이 나란히 생기고, 이미지 위에 제목·본문(또는 대사) 글자 레이어가 올라가요.</li>
+        {ep.contentType !== 'cardnews' && (
+          <li>
+            릴스 9:16: 1080×1920 프레임에 위는 큰 제목, 가운데 컷 그림, 아래는 그림 끝 색을 이어 칠해요. 아래 20%·오른쪽 끝(인스타 UI 자리)은 빨간 가이드로 표시하고 대사는 그 밖에 둬요. 맨 앞 ‘릴스 커버’는 제목을 가운데에 모으고 그리드 3:4 잘림선을 보여 줘요.
+          </li>
+        )}
         <li>다 만들면: 플러그인의 ‘② 선택한 프레임 보내기’ → 받은 *-final.json을 여기 ‘피그마에서 가져오기’에 넣기. 장마다 최종 이미지가 붙고, 피그마에서 고친 글자도 반영되고, 게시 슬라이드까지 맞춰져요.</li>
       </ol>
       {incoming && (

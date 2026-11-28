@@ -2,6 +2,7 @@
 //  ① 사이트에서 내보낸 .json 으로 프레임을 만든다 (lib/work/figmaExport.ts, version 1·2)
 //  v3: 카드뉴스 '내 피그마 마스터' (ai_title · page 컴포넌트 복제)
 //  v4: 카드뉴스 기본 템플릿 '어쩌다 발견' (buildEojjeoda)
+//  v5: 인스타툰 릴스 9:16 레이아웃 (buildReels) · 가이드 레이어는 완성본 PNG에서 뺀다
 //  ② 다 만든 프레임을 PNG + 최종 글자로 묶어 사이트로 돌려보낸다 (lib/work/figmaImport.ts)
 // 프레임·글자 레이어에는 pluginData 로 편 id·장 id·글자 자리를 기억해 둔다.
 
@@ -9,7 +10,7 @@ figma.showUI(__html__, { width: 360, height: 420 });
 
 const KEY = 'ttuguri';
 /** 플러그인 버전 — lib/work/figmaExport.ts FIGMA_PLUGIN_VERSION · ui.html 제목 · manifest.json name 과 같이 올릴 것 */
-const PLUGIN_VERSION = 4;
+const PLUGIN_VERSION = 5;
 
 const ACCENT = { r: 0x79 / 255, g: 0x56 / 255, b: 0xce / 255 };
 const INK = { r: 0.12, g: 0.12, b: 0.14 };
@@ -75,6 +76,7 @@ function rightEdge() {
 async function build(data) {
   if (data.plugin && data.plugin > PLUGIN_VERSION)
     throw new Error(`이 파일은 플러그인 v${data.plugin}용인데 지금 플러그인은 v${PLUGIN_VERSION}이에요. 사이트 이미지 단계 → 피그마로 보내기 → ‘플러그인 받기’로 새로 받아 폴더에 덮어써 주세요.`);
+  if (data.layout === 'reels') return buildReels(data);
   if (data.contentType === 'cardnews' && data.design === 'eojjeoda') return buildEojjeoda(data);
   if (data.contentType === 'cardnews' && data.design === 'master') {
     const r = await buildMaster(data);
@@ -155,6 +157,120 @@ function finish(frames, data, W, H, startX, fontName, coverOnly) {
   figma.viewport.scrollAndZoomIntoView(wrap ? [wrap] : frames);
   const noImage = (coverOnly ? data.frames.slice(0, 1) : data.frames).filter((f) => !f.image).length;
   return `${frames.length}개 프레임을 만들었어요${noImage ? (coverOnly ? ' (표지 그림 없음)' : ` (이미지 없는 장 ${noImage}개)`) : ''}. 글꼴: ${fontName}`;
+}
+
+/* ───────── 인스타툰 릴스 9:16 (lib/work/figmaExport.ts REELS 와 짝) ───────── */
+
+const RL = { W: 1080, H: 1920, IMG_Y: 280, UI_BOTTOM: 0.2, UI_RIGHT: 170, GRID_TOP: 240, GRID_H: 1440 };
+const rgbOf = (h, fb) => (/^#[0-9a-f]{6}$/i.test(h || '') ? { r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255 } : fb);
+const isLight = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b > 0.55;
+const WHITE = { r: 1, g: 1, b: 1 };
+
+/** 완성본으로 보낼 때 숨기는 안내 레이어 */
+function guideRect(frame, name, x, y, w, h, opts) {
+  const r = figma.createRectangle();
+  r.name = `가이드 · ${name}`;
+  r.x = x;
+  r.y = y;
+  r.resize(w, h);
+  r.fills = opts.fill ? [{ type: 'SOLID', color: { r: 0.93, g: 0.2, b: 0.2 }, opacity: 0.16 }] : [];
+  r.strokes = [{ type: 'SOLID', color: { r: 0.93, g: 0.2, b: 0.2 } }];
+  r.strokeWeight = 3;
+  r.dashPattern = [16, 10];
+  r.locked = true;
+  r.setPluginData('guide', '1');
+  frame.appendChild(r);
+  return r;
+}
+
+async function buildReels(data) {
+  const fonts = await pickFonts();
+  const { W, H, IMG_Y } = RL;
+  const IMG_H = data.cutHeight || 1350;
+  const UI_Y = Math.round(H * (1 - RL.UI_BOTTOM));
+  const startX = rightEdge();
+  const frames = [];
+  let crowded = 0;
+
+  data.frames.forEach((f, i) => {
+    const cover = f.kind === 'reelsCover';
+    const top = rgbOf(f.edge && f.edge.top, WHITE);
+    const bottom = rgbOf(f.edge && f.edge.bottom, WHITE);
+    const frame = figma.createFrame();
+    frame.name = f.name;
+    frame.resize(W, H);
+    frame.x = startX + i * (W + GAP);
+    frame.y = 0;
+    frame.fills = [{ type: 'SOLID', color: bottom }];
+    frame.clipsContent = true;
+    frame.setPluginData(KEY, JSON.stringify({ episodeId: data.episodeId || '', panelId: f.panelId || '', title: data.title || '', contentType: data.contentType || '' }));
+
+    // 위 여백: 그림 맨 위 색으로 이어 칠한다 (제목 자리)
+    const band = figma.createRectangle();
+    band.name = '위 여백';
+    band.resize(W, IMG_Y + 2);
+    band.fills = [{ type: 'SOLID', color: top }];
+    frame.appendChild(band);
+
+    if (f.image && f.image.base64) {
+      const img = figma.createImage(figma.base64Decode(f.image.base64));
+      const rect = figma.createRectangle();
+      rect.name = '컷 그림';
+      rect.y = IMG_Y;
+      rect.resize(W, IMG_H);
+      rect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
+      frame.appendChild(rect);
+    }
+
+    let y = IMG_Y + 48;
+    for (const t of f.texts) {
+      const node = figma.createText();
+      node.name = t.name;
+      if (t.field) node.setPluginData('field', t.field);
+      if (t.role === 'reelsTitle') {
+        node.fontName = fonts.bold;
+        node.fontSize = cover ? 88 : 68;
+        node.lineHeight = { unit: 'PERCENT', value: 125 };
+        node.letterSpacing = { unit: 'PERCENT', value: -2 };
+        node.textAlignHorizontal = 'CENTER';
+        // 커버는 그리드 3:4 안 위쪽(그림 위쪽 25% 빈 자리)에, 컷은 위 여백 안에
+        node.fills = [{ type: 'SOLID', color: cover ? INK : isLight(top) ? INK : WHITE }];
+        node.characters = t.text;
+        node.x = PAD;
+        node.resize(W - PAD * 2, node.height);
+        node.textAutoResize = 'HEIGHT';
+        const room = cover ? 300 : IMG_Y - 120;
+        while (node.height > room && node.fontSize > 40) node.fontSize = node.fontSize - 4;
+        node.y = cover ? RL.GRID_TOP + 90 : Math.max(96, Math.round((IMG_Y - node.height) / 2 + 30));
+        frame.appendChild(node);
+        continue;
+      }
+      const s = styleOf(t.role, 'cut', fonts);
+      node.fontName = s.font;
+      node.fontSize = s.size;
+      node.lineHeight = { unit: 'PERCENT', value: s.line };
+      node.letterSpacing = { unit: 'PERCENT', value: -2 };
+      node.fills = [{ type: 'SOLID', color: s.color }];
+      node.characters = t.text;
+      // 오른쪽 끝(좋아요·댓글 버튼)을 피해 폭을 줄인다
+      node.x = PAD;
+      node.y = y;
+      node.resize(W - PAD - RL.UI_RIGHT, node.height);
+      node.textAutoResize = 'HEIGHT';
+      frame.appendChild(node);
+      y += node.height + 20;
+    }
+    if (y > UI_Y) crowded += 1;
+
+    // 안내: 인스타 UI 자리 (대사 금지), 커버는 그리드 3:4 잘림선
+    guideRect(frame, '아래 20% 캡션·UI — 대사 금지', 0, UI_Y, W, H - UI_Y, { fill: true });
+    guideRect(frame, '오른쪽 버튼 — 대사 금지', W - RL.UI_RIGHT, Math.round(H * 0.45), RL.UI_RIGHT, UI_Y - Math.round(H * 0.45), { fill: true });
+    if (cover) guideRect(frame, '그리드 3:4로 보이는 영역', 0, RL.GRID_TOP, W, RL.GRID_H, { fill: false });
+    frames.push(frame);
+  });
+
+  const r = finish(frames, data, W, H, startX, fonts.bold.family);
+  return crowded ? `${r} · 글이 UI 자리(아래 20%)까지 내려간 프레임 ${crowded}개는 대사를 줄여 주세요.` : r;
 }
 
 /* ───────── 카드뉴스 · AI 서당 스타일 (lib/work/cardDesign.ts 와 짝) ───────── */
@@ -985,7 +1101,15 @@ async function sendFinal() {
   const out = [];
   for (const [k, f] of frames.entries()) {
     figma.ui.postMessage({ type: 'progress', text: `PNG로 내보내는 중… ${k + 1}/${frames.length}` });
-    const bytes = await f.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 1080 } });
+    // 가이드(빨간 안내 영역)는 PNG에 넣지 않는다
+    const guides = f.findAll((n) => n.getPluginData('guide') === '1' && n.visible);
+    for (const g of guides) g.visible = false;
+    let bytes;
+    try {
+      bytes = await f.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 1080 } });
+    } finally {
+      for (const g of guides) g.visible = true;
+    }
     const texts = f
       .findAll((n) => n.type === 'TEXT' && n.visible && !!n.getPluginData('field'))
       .map((n) => ({ field: n.getPluginData('field'), text: fieldText(n) }));

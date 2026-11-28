@@ -9,6 +9,7 @@
 import { getEpisode, newSlide, patchEpisode, patchPanelMeta, putAsset, saveSlides, savePanel } from './repo'
 import { db } from './db'
 import type { Episode, Panel, Slide } from './types'
+import { REELS_COVER_ID } from './figmaExport'
 
 export interface FinalFrame {
   panelId: string
@@ -49,6 +50,8 @@ export interface FramePlan {
 export interface ImportPlan {
   frames: FramePlan[]
   hook?: Change
+  /** 릴스 커버 프레임 (장에 붙이지 않고 '연결 안 된 이미지'로 보관) */
+  cover?: FinalFrame
   /** 이 편에 없는 장 id 의 프레임 (지운 장 등) */
   unmatched: FinalFrame[]
 }
@@ -63,6 +66,10 @@ export function planImport(ep: Episode, panels: Panel[], file: FinalFile): Impor
   const plan: ImportPlan = { frames: [], unmatched: [] }
   const card = ep.contentType === 'cardnews'
   for (const frame of file.frames) {
+    if (frame.panelId === REELS_COVER_ID) {
+      plan.cover = frame
+      continue
+    }
     const index = panels.findIndex((p) => p.id === frame.panelId)
     if (index < 0) {
       plan.unmatched.push(frame)
@@ -131,6 +138,8 @@ export async function applyImport(ep: Episode, plan: ImportPlan, slides: Slide[]
     }
   }
 
+  // 릴스 커버는 '연결 안 된 이미지'로 (게시할 때 커버로 따로 올린다)
+  if (plan.cover?.image?.base64) loose.push((await putAsset(fileOf(plan.cover.image, plan.cover.name), 'panel')).id)
   // 바뀌기 전 그림은 지우지 않고 '연결 안 된 이미지'로 보관
   const cur = await getEpisode(ep.id)
   const patch: Partial<Episode> = {}
@@ -151,5 +160,5 @@ export async function applyImport(ep: Episode, plan: ImportPlan, slides: Slide[]
     nextSlides = panels.map((p, i) => newSlide(ep.id, i + 1, 'content', [p.id], p.assetIsFinal ? p.assetId : undefined))
   }
   await saveSlides(ep.id, nextSlides)
-  return { images: assetOf.size, edited, slides: nextSlides.length }
+  return { images: assetOf.size, edited, slides: nextSlides.length, cover: !!plan.cover?.image?.base64 }
 }
