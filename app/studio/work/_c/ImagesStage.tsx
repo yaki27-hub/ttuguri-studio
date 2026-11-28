@@ -288,7 +288,7 @@ function FigmaBox() {
     if (!incoming) return
     const r = await ws.act(() => applyImport(ep, incoming.plan, b.slides, withText))
     setIncoming(undefined)
-    if (r) setMsg(`최종 이미지 ${r.images}장을 붙이고${withText && r.edited ? `, 글자를 고친 ${r.edited}개 장에 반영하고` : ''}, 게시 슬라이드 ${r.slides}장을 맞췄어요.${r.cover ? ' 릴스 커버는 ‘연결 안 된 이미지’에 넣었어요.' : ''} 게시 단계에서 확인하세요.`)
+    if (r) setMsg(`최종 이미지 ${r.images}장을 붙이고${withText && r.edited ? `, 글자를 고친 ${r.edited}개 장에 반영하고` : ''}, 게시 슬라이드 ${r.slides}장을 맞췄어요.${r.cover ? ' 릴스 커버는 ‘연결 안 된 이미지’에 넣었어요.' : ''}${r.layout ? ' 제목·워터마크 글꼴과 자리는 다음 피그마 내보내기 기본으로 저장했어요.' : ''} 게시 단계에서 확인하세요.`)
   }
   const safe = (t: string) => t.replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || 'ttuguri'
 
@@ -357,7 +357,7 @@ function FigmaBox() {
           <label htmlFor="ep-badge">시리즈 배지 (선택)</label>
           <input id="ep-badge" value={ep.badge ?? ''} placeholder="예: 바이브코딩 적자일기 01" onChange={(e) => ws.editEp({ badge: e.target.value })} />
           <p className="hint">
-            피그마 프레임에 그림 설정 6번이 들어가요: 왼쪽 위 ‘{figmaStyle(ws.settings).watermark || '워터마크 끔'}’, 오른쪽 위 컷 번호{ep.badge?.trim() ? '와 시리즈 배지' : ''}, 굵은 고딕 갈색 제목, 손글씨 대사 말풍선. 설정 → 그림 설정에서 켜고 끌 수 있어요.
+            피그마 프레임에 그림 설정 6번이 들어가요: 왼쪽 위 ‘{figmaStyle(ws.settings).watermark || '워터마크 끔'}’, 오른쪽 위 컷 번호{ep.badge?.trim() ? '와 시리즈 배지' : ''}, 둥근 굵은 제목(회색 테두리, 첫 화면 문구에서 [히터]처럼 대괄호로 감싼 말은 빨간색), 손글씨 대사 말풍선. 피그마에서 제목·워터마크의 글꼴·자리를 고쳐 완성본을 보내면 다음부터 그 배치로 만들어요{ws.settings.figmaLayout ? ' (저장된 배치 있음)' : ''}. 설정 → 그림 설정에서 켜고 끌 수 있어요.
           </p>
         </div>
       )}

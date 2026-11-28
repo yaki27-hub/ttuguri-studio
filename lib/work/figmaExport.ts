@@ -16,9 +16,12 @@ export const FIGMA_EXPORT_VERSION = 2
  * 피그마 플러그인 버전. 플러그인을 고치면 1 올리고 public/figma-plugin 의 세 곳도 같이 고칠 것:
  * code.js PLUGIN_VERSION · ui.html 제목 · manifest.json name
  */
-export const FIGMA_PLUGIN_VERSION = 6
+export const FIGMA_PLUGIN_VERSION = 7
 /** 인스타툰(피드·릴스)은 워터마크·글꼴 규칙이 들어간 v6 부터 읽는다. 카드뉴스는 v4 로도 된다 */
-const TOON_PLUGIN = 6
+const TOON_PLUGIN = 7
+
+/** 첫 화면 문구의 [강조] 표시를 뗀 글자 (피그마 제목에서만 강조색으로 쓴다) */
+export const plainHook = (t: string) => t.replace(/\[([^[\]\n]+)\]/g, '$1').trim()
 
 /** 릴스 9:16 (그림 설정 3번): 위는 제목, 아래는 배경색 연장, 아래 20%·오른쪽 끝은 인스타 UI 자리 */
 export const REELS = { width: 1080, height: 1920, imageTop: 280, uiBottom: 0.2, uiRight: 170, grid34: { top: 240, height: 1440 } } as const
@@ -157,7 +160,7 @@ export async function buildFigmaExport(
       if (p.dialogue.trim()) texts.push({ role: 'dialogue', name: '기타 대사', text: p.dialogue.trim(), field: 'dialogue' })
       // 한컷에서 자막이 비어 있으면 첫 화면 문구를 그림 안 자막으로 쓴다
       const hookAsCaption = !p.narration.trim() && ep.format === 'single' && i === 0 && !!ep.hookText?.trim()
-      const narr = p.narration.trim() || (hookAsCaption ? ep.hookText!.trim() : '')
+      const narr = p.narration.trim() || (hookAsCaption ? plainHook(ep.hookText!) : '')
       if (narr) texts.push({ role: 'narration', name: ep.format === 'captions' ? '자막' : ep.format === 'info' ? '자막·팁 정리' : '내레이션', text: narr, field: hookAsCaption ? 'hook' : 'narration' })
       frames.push({ name: `${reels ? '릴스 · ' : ''}${panels.length === 1 ? '한컷' : ep.format === 'captions' || ep.format === 'info' ? `${i + 1}장` : `컷 ${i + 1}`}`, panelId: p.id, kind: 'cut', image, edge: edges.get(p.id), texts })
     }

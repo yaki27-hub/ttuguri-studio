@@ -260,9 +260,17 @@ export interface CharacterSettings extends Base {
   artRules?: Record<string, boolean>
   /** 컷 배경 스타일: none = 흰 바탕에 인물·핵심 물건만 (기본), simple = 옅은 색 면의 단순한 배경 */
   bgStyle?: BgStyle
+  /** 피그마 인스타툰 피드의 제목·워터마크 배치 — 플러그인이 완성본 프레임에서 읽어 보낸 값 (없으면 플러그인 기본값) */
+  figmaLayout?: ToonLayout
 }
 
 export type BgStyle = 'none' | 'simple'
+
+/** 피그마 플러그인(learnLayout)이 읽은 글꼴·크기·색·자리. 모양은 플러그인이 정하고 사이트는 그대로 저장·전달만 한다 */
+export interface ToonLayout {
+  mark?: Record<string, unknown>
+  title?: Record<string, unknown>
+}
 
 export interface CardNewsSettings {
   /** 카드뉴스 계정 소개·말투 (장 구성·게시 문구 지시문) */

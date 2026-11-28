@@ -160,7 +160,7 @@ export function artKontiLines(s: Pick<CharacterSettings, 'artRules' | 'bgStyle'>
 }
 
 /** 피그마 내보내기에 넘길 마감 규칙 (6번 텍스트와 마감) */
-export function figmaStyle(s: Pick<CharacterSettings, 'artRules'>) {
+export function figmaStyle(s: Pick<CharacterSettings, 'artRules' | 'figmaLayout'>) {
   const on = (id: string) => ruleOn(ART_RULES.find((r) => r.id === id)!, s)
   return {
     watermark: on('watermark') ? WATERMARK : '',
@@ -169,6 +169,8 @@ export function figmaStyle(s: Pick<CharacterSettings, 'artRules'>) {
     titleColor: TITLE_BROWN,
     bubbles: on('lineFont'),
     maxLines: on('lineFont') ? 3 : 0,
+    /** 완성본에서 읽은 제목·워터마크 배치 (플러그인 v7) */
+    layout: s.figmaLayout ?? null,
   }
 }
 export type FigmaStyle = ReturnType<typeof figmaStyle>

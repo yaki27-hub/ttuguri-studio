@@ -6,10 +6,10 @@
  *  - 피그마에서 고친 글자 → 그 장의 제목·본문·대사 등 (이전 버전은 이력에 남김)
  *  - 게시 슬라이드 → 장 하나짜리 슬라이드는 새 이미지로, 슬라이드가 없으면 장마다 하나씩 만든다
  */
-import { getEpisode, newSlide, patchEpisode, patchPanelMeta, putAsset, saveSlides, savePanel } from './repo'
+import { getEpisode, getSettings, newSlide, patchEpisode, patchPanelMeta, putAsset, saveSettings, saveSlides, savePanel } from './repo'
 import { db } from './db'
-import type { Episode, Panel, Slide } from './types'
-import { REELS_COVER_ID } from './figmaExport'
+import type { Episode, Panel, Slide, ToonLayout } from './types'
+import { plainHook, REELS_COVER_ID } from './figmaExport'
 
 export interface FinalFrame {
   panelId: string
@@ -24,6 +24,8 @@ export interface FinalFile {
   episodeId: string
   title: string
   frames: FinalFrame[]
+  /** 플러그인 v7: 프레임에서 읽은 제목·워터마크 배치 */
+  layout?: ToonLayout
 }
 
 export function parseFinal(raw: unknown): FinalFile {
@@ -54,6 +56,8 @@ export interface ImportPlan {
   cover?: FinalFrame
   /** 이 편에 없는 장 id 의 프레임 (지운 장 등) */
   unmatched: FinalFrame[]
+  /** 다음 피그마 내보내기에 쓸 제목·워터마크 배치 (플러그인 v7) */
+  layout?: ToonLayout
 }
 
 /** "이름: "대사"" → 대사. 형식이 깨졌으면 글 전체 */
@@ -63,7 +67,7 @@ function dialogueOf(text: string) {
 }
 
 export function planImport(ep: Episode, panels: Panel[], file: FinalFile): ImportPlan {
-  const plan: ImportPlan = { frames: [], unmatched: [] }
+  const plan: ImportPlan = { frames: [], unmatched: [], layout: file.layout && typeof file.layout === 'object' ? file.layout : undefined }
   const card = ep.contentType === 'cardnews'
   for (const frame of file.frames) {
     if (frame.panelId === REELS_COVER_ID) {
@@ -82,7 +86,8 @@ export function planImport(ep: Episode, panels: Panel[], file: FinalFile): Impor
     for (const t of frame.texts) {
       const to = t.text.trim()
       if (t.field === 'hook') {
-        if (to !== (ep.hookText ?? '').trim()) plan.hook = { label: '첫 화면 문구', from: ep.hookText ?? '', to }
+        // 피그마 제목에는 [강조] 표시가 빠져 있으니 뗀 글자끼리 비교
+        if (to !== plainHook(ep.hookText ?? '')) plan.hook = { label: '첫 화면 문구', from: ep.hookText ?? '', to }
       } else if (t.field === 'scene' || t.field === 'narration' || t.field === 'direction' || t.field === 'dialogue' || t.field === 'action') {
         const from = p[t.field].trim()
         if (to !== from) {
@@ -160,5 +165,8 @@ export async function applyImport(ep: Episode, plan: ImportPlan, slides: Slide[]
     nextSlides = panels.map((p, i) => newSlide(ep.id, i + 1, 'content', [p.id], p.assetIsFinal ? p.assetId : undefined))
   }
   await saveSlides(ep.id, nextSlides)
-  return { images: assetOf.size, edited, slides: nextSlides.length, cover: !!plan.cover?.image?.base64 }
+
+  // 피그마에서 고친 제목·워터마크 배치는 설정에 저장 → 다른 컴퓨터의 피그마로 내보내도 같은 배치
+  if (plan.layout) await saveSettings({ ...(await getSettings()), figmaLayout: plan.layout })
+  return { images: assetOf.size, edited, slides: nextSlides.length, cover: !!plan.cover?.image?.base64, layout: !!plan.layout }
 }
