@@ -15,6 +15,7 @@ import { Notice } from '../work/_c/ui'
 import AiNews from './AiNews'
 import HookLibrary from './HookLibrary'
 import AccountAnalysis from './AccountAnalysis'
+import SeasonCalendar from './SeasonCalendar'
 
 interface Trend {
   title: string
@@ -78,6 +79,7 @@ export default function TrendsClient({ igReady, channel = 'toon' }: { igReady: b
         <>
         <div className="finder">
           <div className="finder-trend">
+            {!card && <SeasonCalendar channel={channel} />}
             <TrendingSection topics={topics} />
           </div>
           <div className="finder-watch">

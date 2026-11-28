@@ -3,6 +3,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { linkEpisode, unlinkEpisode } from '../actions';
 import UnlinkButton from '../UnlinkButton';
+import { FeedReelsCompare, PatternTable, TagEditor, findHits, groupKey, groupPosts, sameEpisodeGuess, useAutoHitRefs, useWorkEps, type Group, type Hit } from './extras';
+import type { Episode as WorkEp } from '@/lib/work/types';
 
 /* ---------- 타입 (lib/sync.js matchPosts 결과 중 화면에 쓰는 것만) ---------- */
 type Insights = { views?: number; reach?: number; likes?: number; comments?: number; shares?: number; saved?: number };
@@ -18,11 +20,14 @@ export type Post = {
   thumbnail_url?: string;
   insights?: Insights;
   insightsError?: string;
+  username?: string;
   episode: Episode | null;
 };
 type Props = {
   rows: Post[];
   candidates: Episode[];
+  /** 이미 게시물이 연결된 편 (피드·릴스 묶기용) */
+  linkedEpisodes?: Episode[];
   /** 노션 제작 상태별 에피소드 수 (뚜구리 채널만) */
   statusCounts: [string, number][];
   card: boolean;
@@ -124,28 +129,48 @@ function StatusChart({ counts }: { counts: [string, number][] }) {
 }
 
 /* ---------- 게시물 ↔ 에피소드 연결 ---------- */
-function LinkForm({ post, candidates }: { post: Post; candidates: Episode[] }) {
-  if (!candidates.length) return <p className="muted small">연결할 수 있는 에피소드가 없어요.</p>;
+function LinkForm({ post, candidates, linked, guess }: { post: Post; candidates: Episode[]; linked: Episode[]; guess: Episode | null }) {
+  if (!candidates.length && !linked.length) return <p className="muted small">연결할 수 있는 에피소드가 없어요.</p>;
+  const label = (ep: Episode) => `${ep.number != null ? `#${ep.number} ` : ''}${ep.title}${ep.status ? ` · ${ep.status}` : ''}`;
   return (
-    <form action={linkEpisode} className="link-form">
-      <input type="hidden" name="mediaId" value={post.id} />
-      <input type="hidden" name="permalink" value={post.permalink} />
-      <input type="hidden" name="timestamp" value={post.timestamp} />
-      <select name="pageId" required defaultValue="" aria-label="연결할 에피소드">
-        <option value="" disabled>에피소드 선택…</option>
-        {candidates.map((ep) => (
-          <option key={ep.id} value={ep.id}>
-            {ep.number != null ? `#${ep.number} ` : ''}{ep.title}{ep.status ? ` · ${ep.status}` : ''}
-          </option>
-        ))}
-      </select>
-      <button className="btn" type="submit">연결</button>
-    </form>
+    <>
+      {guess && (
+        <p className="small guess">
+          같은 편의 {isReels(post) ? '피드' : '릴스'}로 보여요: <b>{guess.title}</b>
+        </p>
+      )}
+      <form action={linkEpisode} className="link-form" key={guess?.id ?? 'none'}>
+        <input type="hidden" name="mediaId" value={post.id} />
+        <input type="hidden" name="permalink" value={post.permalink} />
+        <input type="hidden" name="timestamp" value={post.timestamp} />
+        <select name="pageId" required defaultValue={guess?.id ?? ''} aria-label="연결할 에피소드">
+          <option value="" disabled>에피소드 선택…</option>
+          {linked.length > 0 && (
+            <optgroup label="같은 편으로 묶기 (피드·릴스)">
+              {linked.map((ep) => (
+                <option key={ep.id} value={ep.id}>{label(ep)}</option>
+              ))}
+            </optgroup>
+          )}
+          {candidates.length > 0 && (
+            <optgroup label="아직 게시물이 없는 편">
+              {candidates.map((ep) => (
+                <option key={ep.id} value={ep.id}>{label(ep)}</option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+        <button className="btn" type="submit">{guess ? '묶기' : '연결'}</button>
+      </form>
+    </>
   );
 }
 
 /* ---------- 게시물 카드 ---------- */
-function PostRow({ post, candidates, maxViews, card, now }: { post: Post; candidates: Episode[]; maxViews: number; card: boolean; now: number }) {
+function PostRow({ post, candidates, linked, guess, group, hit, workEp, maxViews, card, now }: {
+  post: Post; candidates: Episode[]; linked: Episode[]; guess: Episode | null; group?: Group; hit?: Hit; workEp?: WorkEp; maxViews: number; card: boolean; now: number;
+}) {
+  const siblings = (group?.posts ?? []).filter((p) => p.id !== post.id);
   const i = post.insights || {};
   const thumb = post.thumbnail_url || (post.media_type === 'IMAGE' || post.media_type === 'CAROUSEL_ALBUM' ? post.media_url : null);
   const fresh = now - igTime(post.timestamp) < 48 * 3600 * 1000;
@@ -165,6 +190,7 @@ function PostRow({ post, candidates, maxViews, card, now }: { post: Post; candid
             <span className="tag">{isReels(post) ? '릴스' : '피드'}</span>
             {fresh && <span className="tag warn" title="인사이트는 최대 48시간 늦게 집계될 수 있어요">집계 중</span>}
             {post.insightsError && <span className="tag bad">인사이트 오류</span>}
+            {hit && <span className="tag hot" title={`같은 유형 중간값 ${fmt(Math.round(hit.median))}회의 ${hit.multiple.toFixed(1)}배`}>🔥 터진 편 ×{hit.multiple.toFixed(1)}</span>}
           </div>
         </div>
 
@@ -191,12 +217,18 @@ function PostRow({ post, candidates, maxViews, card, now }: { post: Post; candid
                 <span className="dot" />
                 {post.episode.number != null ? `#${post.episode.number} ` : ''}{post.episode.title}
               </a>
-              <UnlinkButton action={unlinkEpisode} pageId={post.episode.id} timestamp={post.timestamp} title={post.episode.title} />
+              {siblings.length > 0 && (
+                <p className="small muted sib">
+                  같은 편 {siblings.map((s) => `${isReels(s) ? '릴스' : '피드'} 조회 ${fmt(s.insights?.views)}`).join(' · ')}
+                </p>
+              )}
+              {group && <TagEditor g={group} ep={workEp} />}
+              <UnlinkButton action={unlinkEpisode} pageId={post.episode.id} timestamp={post.timestamp} title={post.episode.title} mediaId={post.id} permalink={post.permalink} grouped={siblings.length > 0} />
             </>
           ) : (
             <>
               <p className="label">노션 미연결</p>
-              <LinkForm post={post} candidates={candidates} />
+              <LinkForm post={post} candidates={candidates} linked={linked} guess={guess} />
             </>
           )}
         </div>
@@ -206,11 +238,11 @@ function PostRow({ post, candidates, maxViews, card, now }: { post: Post; candid
 }
 
 /* ---------- 성과 보드 ---------- */
-export default function StatsBoard({ rows, candidates, statusCounts, card, now, tokenDaysLeft, tokenVar }: Props) {
+export default function StatsBoard({ rows, candidates, linkedEpisodes = [], statusCounts, card, now, tokenDaysLeft, tokenVar }: Props) {
   const [period, setPeriod] = useState<Period>('30');
   const [metric, setMetric] = useState<Metric>('views');
   const [q, setQ] = useState('');
-  const [type, setType] = useState<'all' | 'reels' | 'feed'>('all');
+  const [type, setType] = useState<'all' | 'reels' | 'feed' | 'hit'>('all');
   const [link, setLink] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [sort, setSort] = useState<Sort>('recent');
 
@@ -220,6 +252,13 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
     const from = now - Number(period) * DAY;
     return rows.filter((r) => igTime(r.timestamp) >= from);
   }, [rows, period, now]);
+
+  // 같은 편 묶음·터진 편·태그
+  const groups = useMemo(() => groupPosts(inPeriod), [inPeriod]);
+  const groupByKey = useMemo(() => new Map(groupPosts(rows).map((g) => [g.key, g])), [rows]);
+  const hits = useMemo(() => findHits(rows), [rows]);
+  const addedRefs = useAutoHitRefs(rows, hits, card ? 'card' : 'toon');
+  const work = useWorkEps();
 
   // 2) 요약 숫자
   const totalReach = sumOf(inPeriod, 'reach');
@@ -246,7 +285,7 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
     const word = q.trim().toLowerCase();
     const list = inPeriod.filter((r) =>
       (!word || (r.caption || '').toLowerCase().includes(word)) &&
-      (type === 'all' || (type === 'reels') === isReels(r)) &&
+      (type === 'all' || (type === 'hit' ? hits.has(r.id) : (type === 'reels') === isReels(r))) &&
       (link === 'all' || (link === 'linked') === Boolean(r.episode)));
     const rate = (r: Post, k: 'saved' | 'shares') => pct(r.insights?.[k], r.insights?.reach) ?? -1;
     const by: Record<Sort, (a: Post, b: Post) => number> = {
@@ -256,7 +295,7 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
       shareRate: (a, b) => rate(b, 'shares') - rate(a, 'shares'),
     };
     return [...list].sort(by[sort]);
-  }, [inPeriod, q, type, link, sort]);
+  }, [inPeriod, q, type, link, sort, hits]);
   const maxViews = Math.max(0, ...filtered.map((r) => r.insights?.views || 0));
   const filtering = Boolean(q.trim()) || type !== 'all' || link !== 'all';
   const resetFilters = () => { setQ(''); setType('all'); setLink('all'); };
@@ -279,6 +318,14 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
       text: `노션에 연결 안 된 게시물 ${unlinked.length}개`,
       actionLabel: '목록에서 보기',
       action: () => { setPeriod('all'); setQ(''); setType('all'); setLink('unlinked'); document.getElementById('post-list')?.scrollIntoView({ behavior: 'smooth' }); },
+    });
+  }
+  if (hits.size) {
+    todos.push({
+      tone: 'info',
+      text: `🔥 터진 편 ${hits.size}개 (같은 유형 중간값의 3배 이상)${addedRefs ? ` — 레퍼런스 보드에 ${addedRefs}개 새로 쌓았어요` : ' — 레퍼런스 보드에 쌓여 있어요'}`,
+      actionLabel: '목록에서 보기',
+      action: () => { setPeriod('all'); setQ(''); setType('hit'); setLink('all'); setSort('views'); document.getElementById('post-list')?.scrollIntoView({ behavior: 'smooth' }); },
     });
   }
   if (fresh.length) todos.push({ tone: 'info', text: `48시간 안에 올린 게시물 ${fresh.length}개 — 수치가 아직 늘어나는 중이에요` });
@@ -342,12 +389,16 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
         )}
       </section>
 
+      {!card && <FeedReelsCompare groups={groups} />}
+      {!card && <PatternTable groups={groups} of={work.of} />}
+
       <section id="post-list" className="list-tools" aria-label="게시물 찾기">
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="캡션 검색" aria-label="캡션 검색" />
         <select value={type} onChange={(e) => setType(e.target.value as typeof type)} aria-label="형식">
           <option value="all">릴스·피드 전체</option>
           <option value="reels">릴스</option>
           <option value="feed">피드</option>
+          <option value="hit">🔥 터진 편만</option>
         </select>
         {!card && (
           <select value={link} onChange={(e) => setLink(e.target.value as typeof link)} aria-label="노션 연결">
@@ -368,7 +419,19 @@ export default function StatsBoard({ rows, candidates, statusCounts, card, now, 
 
       <section className="list">
         {filtered.map((post) => (
-          <PostRow key={post.id} post={post} candidates={candidates} maxViews={maxViews} card={card} now={now} />
+          <PostRow
+            key={post.id}
+            post={post}
+            candidates={candidates}
+            linked={linkedEpisodes}
+            guess={post.episode ? null : sameEpisodeGuess(post, rows)}
+            group={groupByKey.get(groupKey(post))}
+            hit={hits.get(post.id)}
+            workEp={work.of(post.episode?.id)}
+            maxViews={maxViews}
+            card={card}
+            now={now}
+          />
         ))}
         {!filtered.length && (
           <div className="muted empty">

@@ -97,6 +97,12 @@ export interface Episode extends Base {
   cardStyle?: 'story' | 'brief'
   /** 후킹 라이브러리 번호 (H01~H26). 성과 비교용 */
   hookId?: string
+  /** 제목·후킹 패턴 태그 (기대→반전, 공지 패러디, MBTI 호출, 질문형, 시즌, 직접 적은 것) */
+  patterns?: string[]
+  /** 유입용(새 사람) / 전환용(팔로우) */
+  role?: 'reach' | 'convert'
+  /** 제목 점검에서 확인한 항목 */
+  titleChecks?: string[]
   /** 카드뉴스: 읽어 온 기사 본문 */
   articles?: Article[]
   /** 카드뉴스: 기사 한 줄 요약 (번역·정리 결과) */

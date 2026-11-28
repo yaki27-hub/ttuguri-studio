@@ -166,6 +166,17 @@ export default function WorkHome({ notionReady: notionEnv, aiReady, channel = 't
             <span className="muted small">
               최근 30일 새 소재 {mix.total}편 — 레퍼런스에서 {mix.fromRef} · 내 이야기 {mix.own} <span className="hint">(성장기 목표 8:2)</span>
             </span>
+            <div className="mix-bar role" aria-hidden>
+              <span style={{ width: `${(mix.reach / mix.total) * 100}%` }} />
+              <span style={{ width: `${(mix.convert / mix.total) * 100}%` }} />
+            </div>
+            <span className="muted small">
+              목적 — 유입용 {mix.reach} · 전환용 {mix.convert}
+              {mix.noRole > 0 && <> · 미정 {mix.noRole}</>}
+              {mix.reach + mix.convert > 0 && (
+                <span className="hint"> (유입 {Math.round((mix.reach / (mix.reach + mix.convert)) * 10)} : 전환 {10 - Math.round((mix.reach / (mix.reach + mix.convert)) * 10)})</span>
+              )}
+            </span>
           </div>
         )}
         {eps && eps.length > 0 && (

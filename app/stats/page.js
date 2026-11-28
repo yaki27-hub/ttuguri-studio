@@ -50,6 +50,8 @@ export default async function Page({ searchParams }) {
   const candidates = episodes
     .filter((ep) => !ep.mediaId && !ep.link && !linkedIds.has(ep.id))
     .sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || (a.number ?? 999) - (b.number ?? 999));
+  // 이미 게시물이 연결된 편: 피드·릴스를 같은 편으로 묶을 때 고른다
+  const linkedEpisodes = episodes.filter((ep) => linkedIds.has(ep.id)).map(({ id, url, title, number, status }) => ({ id, url, title, number, status }));
 
   // 노션 제작 상태별 에피소드 수 (작업 순서대로)
   const statusFlow = ['아이디어', '스토리', '콘티', '이미지 제작', '검수', '제작 완료', '업로드 완료'];
@@ -91,6 +93,7 @@ export default async function Page({ searchParams }) {
         <StatsBoard
           rows={rows}
           candidates={candidates}
+          linkedEpisodes={linkedEpisodes}
           statusCounts={statusCounts}
           card={card}
           now={loadedAt}

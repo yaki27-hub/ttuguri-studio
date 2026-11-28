@@ -430,3 +430,20 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 6px; }
   .wr-table tbody th .muted { display: block; font-size: 11px; }
   .wr-badge { display: inline-block; margin: 2px 0 0; }
 }
+
+/* ===== 성과: 묶음·터진 편·패턴 ===== */
+.wr-badge.thin { background: var(--surface-2); color: var(--muted); }
+.wr-top.share { border-top: 0; margin-top: 10px; padding-top: 0; }
+.wr-top.share b { color: var(--accent-strong); }
+.table-scroll { overflow-x: auto; }
+.wr-table th.clip { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag.dashed { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
+.post-episode .guess { margin: 0 0 6px; color: var(--accent-strong); }
+.post-episode .sib { margin: 6px 0 0; }
+.tag-edit { margin-top: 8px; }
+.tag-line { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tag-line .unlink { display: inline; margin: 0 0 0 2px; }
+.tag-panel { margin-top: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.tag-panel .chip { padding: 4px 9px; font-size: 12px; }
+.tag-selects { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.tag-selects select { width: 100%; height: 32px; font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }

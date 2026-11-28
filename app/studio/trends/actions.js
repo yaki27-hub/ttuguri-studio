@@ -160,3 +160,35 @@ ${kw.length ? `\n[관심 키워드]\n${kw.join(', ')}\n` : ''}
 {"topics":[{"title":"작업 제목","hook":"표지 후킹 제목(22자 안팎)","angle":"무엇을 어떤 흐름으로 알려 줄지 한두 문장","format":"새 소식 정리|사용법·활용|비교·체크리스트","sources":[1],"check":"확인할 것","why":"왜 지금 이 소재인지"}]}`;
   return { prompt, news };
 }
+
+/**
+ * 시즌 캘린더: 내 지난 게시물 중 시즌 말이 들어간 것의 성과.
+ * seasons = [{ id, words }] → { [id]: [{ caption, permalink, timestamp, views, shares, reach, reels }] }
+ */
+export async function seasonHistory(seasons = [], channel = 'toon') {
+  await requireAuth();
+  const { collectPosts } = await import('@/lib/sync');
+  try {
+    const posts = await collectPosts(channel === 'card' ? 'card' : 'toon');
+    const out = {};
+    for (const s of seasons) {
+      const words = (s.words || []).filter(Boolean);
+      out[s.id] = posts
+        .filter((p) => words.some((w) => (p.caption || '').includes(w)))
+        .map((p) => ({
+          caption: (p.caption || '').split('\n').find((l) => l.trim()) || '',
+          permalink: p.permalink,
+          timestamp: p.timestamp,
+          views: p.insights?.views ?? null,
+          shares: p.insights?.shares ?? null,
+          reach: p.insights?.reach ?? null,
+          reels: p.media_product_type === 'REELS',
+        }))
+        .sort((a, b) => (b.views || 0) - (a.views || 0))
+        .slice(0, 3);
+    }
+    return { history: out, total: posts.length };
+  } catch (e) {
+    return { error: e.message };
+  }
+}

@@ -15,6 +15,7 @@ import type { CastItem, CastPosition, Episode, Format, ImageMemo, Panel, Ratio, 
 import { SHOTS, SHOT_HINT, SHOT_LABEL, shotPlan } from '@/lib/work/shots'
 import { CopyButton, Field, Notice } from './ui'
 import GenBox from './GenBox'
+import TitleCheck from './TitleCheck'
 import { useWS } from './Workspace'
 
 export default function PanelsStage() {
@@ -92,6 +93,7 @@ export default function PanelsStage() {
           placeholder={target === 'single' ? '그림 안 자막으로 들어갈 한 줄' : '첫 장에 올릴 짧은 문구'}
           hint={target === 'single' ? '한컷에서는 그림 안 자막으로 써도 돼요.' : undefined}
         />
+        {ep.contentType !== 'cardnews' && <TitleCheck />}
         <div className="field">
           <label htmlFor="pfmt">형식</label>
           <select

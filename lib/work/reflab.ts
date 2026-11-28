@@ -182,6 +182,8 @@ export function saveProvenRule(r: ProvenRule) {
 
 /** 기준 중 하나라도 넘으면 검증된 레퍼런스 */
 export function isProven(r: Reference, rule: ProvenRule) {
+  // 내 계정에서 터진 편은 숫자 기준과 상관없이 검증된 것으로 본다
+  if (r.tags.includes('터진 편')) return true
   return (['likes', 'comments', 'views'] as const).some((k) => rule[k] !== undefined && r[k] !== undefined && r[k]! >= rule[k]!)
 }
 
@@ -191,5 +193,7 @@ export function originMix(eps: Episode[], days = 30) {
   const since = Date.now() - days * 864e5
   const recent = eps.filter((e) => !e.isSample && Date.parse(e.createdAt) >= since)
   const fromRef = recent.filter((e) => (e.referenceIds?.length ?? 0) > 0).length
-  return { total: recent.length, fromRef, own: recent.length - fromRef }
+  const reach = recent.filter((e) => e.role === 'reach').length
+  const convert = recent.filter((e) => e.role === 'convert').length
+  return { total: recent.length, fromRef, own: recent.length - fromRef, reach, convert, noRole: recent.length - reach - convert }
 }

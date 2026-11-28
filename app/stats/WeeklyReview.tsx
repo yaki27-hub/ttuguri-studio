@@ -11,7 +11,7 @@ type Followers = {
   dailyError: string | null;
 } | null;
 type Props = { rows: Post[]; followers: Followers; card: boolean; now: number };
-type Key = 'posts' | 'views' | 'reach' | 'likes' | 'comments' | 'saved' | 'shares' | 'newFollowers';
+type Key = 'posts' | 'views' | 'reach' | 'likes' | 'comments' | 'saved' | 'shares' | 'shareRate' | 'newFollowers';
 
 const DAY = 86400000;
 const igTime = (ts: string) => new Date(String(ts).replace(/([+-]\d{2})(\d{2})$/, '$1:$2')).getTime();
@@ -19,6 +19,9 @@ const kstHour = (ms: number) => new Date(ms + 9 * 3600 * 1000).getUTCHours();
 const kstDate = (ms: number) =>
   new Date(ms).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' });
 const fmt = (n: number | null | undefined) => (typeof n === 'number' ? Math.round(n).toLocaleString('ko-KR') : '–');
+const pctTxt = (v: number | null | undefined) => (typeof v === 'number' ? `${v.toFixed(1)}%` : '–');
+/** 시간대 비교에 필요한 최소 게시물 수 */
+const MIN_SLOT = 3;
 const firstLine = (c?: string) => (c || '').split('\n').map((s) => s.trim()).find(Boolean) || '(캡션 없음)';
 
 /** 플래너의 4개 시간대 + 그 밖 */
@@ -74,6 +77,7 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
         comments: sum('comments'),
         saved: sum('saved'),
         shares: sum('shares'),
+        shareRate: sum('reach') ? (sum('shares') / sum('reach')) * 100 : null,
         newFollowers: followSum(from, to),
       };
     };
@@ -96,27 +100,31 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
         likes: avg('likes'),
       };
     });
-    // 2개 이상 올린 시간대 중 주 지표 평균이 가장 높은 곳
-    const best = [...slots].filter((s) => s.monthPosts >= 2 && s.main != null).sort((a, b) => b.main! - a.main!)[0]?.id;
+    // 3편 이상 올린 시간대 중 주 지표 평균이 가장 높은 곳 (그보다 적으면 우연일 수 있어 비교하지 않음)
+    const best = [...slots].filter((s) => s.monthPosts >= MIN_SLOT && s.main != null).sort((a, b) => b.main! - a.main!)[0]?.id;
     // 이번 주에 가장 많이 올린 시간대 (같은 수가 여럿이면 없음)
     const sorted = [...slots].sort((a, b) => b.week - a.week);
     const mostWeek = sorted[0].week > (sorted[1]?.week ?? 0) ? sorted[0] : null;
 
     const score = (p: (typeof posts)[number]) => (card ? p.insights?.saved || 0 : p.insights?.views || 0);
     const top = [...thisWeek].sort((a, b) => score(b) - score(a))[0];
+    // 공유가 확산의 핵심: 공유 수 1위 (같으면 공유율 높은 쪽)
+    const rate = (p: (typeof posts)[number]) => (p.insights?.reach ? (p.insights.shares || 0) / p.insights.reach : 0);
+    const shareTop = [...thisWeek].filter((p) => (p.insights?.shares || 0) > 0).sort((a, b) => (b.insights?.shares || 0) - (a.insights?.shares || 0) || rate(b) - rate(a))[0];
 
-    return { cur, prev, slots, best, mostWeek, top, monthCount: month.length };
+    return { cur, prev, slots, best, mostWeek, top, shareTop, monthCount: month.length };
   }, [rows, followers, card, now]);
 
-  const { cur, prev, slots, best, mostWeek, top, monthCount } = data;
+  const { cur, prev, slots, best, mostWeek, top, shareTop, monthCount } = data;
   const lines: [Key, string][] = [
     ['posts', '게시물'],
+    ['shares', '공유'],
+    ['shareRate', '공유율'],
     ['views', '조회'],
     ['reach', '도달'],
     ['likes', '좋아요'],
     ['comments', '댓글'],
     ['saved', '저장'],
-    ['shares', '공유'],
     ['newFollowers', '새 팔로워'],
   ];
   const mainLabel = card ? '저장' : '조회';
@@ -147,8 +155,8 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
               {lines.map(([k, label]) => (
                 <tr key={k}>
                   <th scope="row">{label}</th>
-                  <td><b>{fmt(cur[k])}</b></td>
-                  <td>{fmt(prev[k])}</td>
+                  <td><b>{k === 'shareRate' ? pctTxt(cur[k]) : fmt(cur[k])}</b></td>
+                  <td>{k === 'shareRate' ? pctTxt(prev[k]) : fmt(prev[k])}</td>
                   <td><Delta cur={cur[k]} prev={prev[k]} /></td>
                 </tr>
               ))}
@@ -167,6 +175,7 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
               <tr>
                 <th scope="col">시간대</th>
                 <th scope="col">이번 주</th>
+                <th scope="col">30일 표본</th>
                 <th scope="col">30일 평균 {mainLabel}</th>
                 <th scope="col">30일 평균 도달</th>
               </tr>
@@ -179,6 +188,10 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
                     {s.id === best && <span className="wr-badge">가장 좋음</span>}
                   </th>
                   <td>{s.week}개</td>
+                  <td>
+                    {s.monthPosts}편
+                    {s.monthPosts > 0 && s.monthPosts < MIN_SLOT && <span className="wr-badge thin">표본 적음</span>}
+                  </td>
                   <td>{s.monthPosts ? fmt(s.main) : '–'}</td>
                   <td>{s.monthPosts ? fmt(s.reach) : '–'}</td>
                 </tr>
@@ -191,11 +204,21 @@ export default function WeeklyReview({ rows, followers, card, now }: Props) {
               : mostWeek
                 ? `이번 주는 주로 ${mostWeek.label}${mostWeek.range ? `(${mostWeek.range})` : ''}에 올렸어요. `
                 : '이번 주는 여러 시간대에 고르게 올렸어요. '}
-            평균은 최근 30일 게시물 {monthCount}개 기준(한국 시간), 2개 이상 올린 시간대만 비교해요.
+            평균은 최근 30일 게시물 {monthCount}개 기준(한국 시간). ‘가장 좋음’은 {MIN_SLOT}편 이상 올린 시간대끼리만 비교해요{best ? ` — ${slots.find((s) => s.id === best)?.monthPosts}편 기준이라 아직 단정하긴 일러요` : ''}.
           </p>
         </div>
       </div>
 
+      {shareTop && !card && (
+        <p className="wr-top share">
+          <span className="muted small">이번 주 공유 1위</span>{' '}
+          <a href={shareTop.permalink} target="_blank" rel="noreferrer">{firstLine(shareTop.caption).slice(0, 60)}</a>{' '}
+          <span className="small">
+            · 공유 <b>{fmt(shareTop.insights?.shares)}</b> · 공유율 <b>{pctTxt(shareTop.insights?.reach ? ((shareTop.insights.shares || 0) / shareTop.insights.reach) * 100 : null)}</b>
+          </span>
+          <span className="muted small"> · 조회 {fmt(shareTop.insights?.views)}</span>
+        </p>
+      )}
       {top && (
         <p className="wr-top">
           <span className="muted small">이번 주 {mainLabel} 1위</span>{' '}

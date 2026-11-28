@@ -490,3 +490,23 @@ fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12p
 .eoj-cstack .eoj-pill { margin-bottom: calc(8 * var(--u)); }
 .eoj-cstack .eoj-title { width: 100%; line-height: calc(100 * var(--u)); }
 .eoj-lead { margin-top: calc(34 * var(--u)); font-size: calc(34 * var(--u)); line-height: calc(54 * var(--u)); letter-spacing: calc(-0.5 * var(--u)); white-space: pre-line; word-break: keep-all; }
+
+/* 유입·전환 비율 */
+.mix-bar.role span:first-child { background: #e0803a; }
+.mix-bar.role span:last-child { background: var(--accent); }
+
+/* 시즌 캘린더 */
+.season-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.season-list li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.season-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.season-list li p { margin: 4px 0 6px; }
+.season-past { display: flex; flex-direction: column; gap: 3px; margin: 0 0 6px; }
+.season-post { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.season-post:hover { text-decoration: underline; }
+
+/* 제목 점검 */
+.title-check { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.title-check summary { margin: 0; font-weight: 700; color: var(--text); }
+.check-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.check-list .hint { margin-left: 24px !important; }
+.title-fb .row-inline { margin-top: 8px; }

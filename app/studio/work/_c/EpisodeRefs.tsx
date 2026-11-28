@@ -7,6 +7,7 @@ import type { ContentType, Reference } from '@/lib/work/types'
 import { Modal } from './ui'
 import { RefCard, RefDetail, useRefFilter } from './Refs'
 import { useWS } from './Workspace'
+import { PATTERNS, ROLE_HINT, ROLE_LABEL, type Role } from '@/lib/work/patterns'
 
 /** 원문 메모 아래: 이 에피소드에 연결한 레퍼런스 */
 export default function EpisodeRefs() {
@@ -64,6 +65,43 @@ export default function EpisodeRefs() {
           <option value="cardnews">카드뉴스</option>
         </select>
       </div>
+
+      {ep.contentType !== 'cardnews' && (
+        <>
+          <div className="field">
+            <label htmlFor="ep-role">목적</label>
+            <select id="ep-role" value={ep.role ?? ''} onChange={(e) => ws.editEp({ role: (e.target.value || undefined) as Role | undefined })}>
+              <option value="">정하지 않음</option>
+              {(['reach', 'convert'] as Role[]).map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
+            </select>
+            {ep.role && <p className="hint">{ROLE_HINT[ep.role]}</p>}
+          </div>
+          <fieldset className="field">
+            <legend>제목 패턴</legend>
+            <div className="chips">
+              {PATTERNS.map((p) => {
+                const on = (ep.patterns ?? []).includes(p)
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`chip ${on ? 'on' : ''}`}
+                    aria-pressed={on}
+                    onClick={() => ws.editEp({ patterns: on ? (ep.patterns ?? []).filter((x) => x !== p) : [...(ep.patterns ?? []), p] })}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="hint">성과 화면의 ‘후킹·패턴별 성과’에 쓰여요.</p>
+          </fieldset>
+        </>
+      )}
 
       {picker && (
         <Modal title="레퍼런스 추가" onClose={() => setPicker(false)}>
