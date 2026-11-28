@@ -258,7 +258,11 @@ export interface CharacterSettings extends Base {
   cardnews?: CardNewsSettings
   /** 그림 설정(lib/work/artGuide): 제안·확인 필요 규칙을 켜고 끈 값 (없으면 기본값) */
   artRules?: Record<string, boolean>
+  /** 컷 배경 스타일: none = 흰 바탕에 인물·핵심 물건만 (기본), simple = 옅은 색 면의 단순한 배경 */
+  bgStyle?: BgStyle
 }
+
+export type BgStyle = 'none' | 'simple'
 
 export interface CardNewsSettings {
   /** 카드뉴스 계정 소개·말투 (장 구성·게시 문구 지시문) */

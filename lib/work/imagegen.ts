@@ -10,7 +10,7 @@ import { coverOnlyImage, isDark } from './cardDesign'
 import { CARD_ROLE_LABEL, cardRole, cardSettings } from './cards'
 import { RATIO_LABEL } from './prompts'
 import { SHOT_CAMERA, SHOT_LABEL } from './shots'
-import { artPromptLines, densityBlock, ruleOn, ART_RULES } from './artGuide'
+import { artPromptLines, bgStyleOf, densityBlock, ruleOn, ART_RULES } from './artGuide'
 import type { CharacterSettings, ImageMemo, Panel, Shot } from './types'
 
 const NO_TEXT =
@@ -25,7 +25,7 @@ function refLine(s: CharacterSettings, refCount: number) {
 function styleLines(s: CharacterSettings, memo: ImageMemo) {
   return [
     s.styleNotes.trim() && `그림체: ${s.styleNotes.trim().replace(/\n/g, ' ')}`,
-    memo.background.trim() && `배경 톤: ${memo.background.trim()}`,
+    memo.background.trim() && bgStyleOf(s) !== 'none' && `배경 톤: ${memo.background.trim()}`,
     memo.characterLook.trim() && `${s.characterName} 외형: ${memo.characterLook.trim()}`,
     memo.extras.trim() && `주변 인물: ${memo.extras.trim()}`,
   ].filter(Boolean) as string[]
@@ -98,7 +98,7 @@ export function cutGenPrompt(p: Panel, i: number, s: CharacterSettings, memo: Im
     '',
     `그림 설정(지킬 것):\n${artPromptLines(s).map((l) => `- ${l}`).join('\n')}`,
     '',
-    `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.${densityBlock(s, shot).length ? ' 배경은 단순하게, 빈 면을 넉넉히.' : ''}`,
+    `다시 한 번: ${ONE_FRAME} 카메라는 ${SHOT_LABEL[shot]}. 글자·말풍선 금지.${bgStyleOf(s) === 'none' ? ' 배경 없이 흰 바탕, 인물과 핵심 물건만.' : densityBlock(s, shot).length ? ' 배경은 단순하게, 빈 면을 넉넉히.' : ''}`,
   ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -114,7 +114,7 @@ export function higgsfieldPrompt(p: Panel, i: number, s: CharacterSettings, memo
   const lead = (p.cast ?? []).find((c) => !c.name || c.name === s.characterName)
   const pose = [lead?.action, p.action].map((x) => (x ?? '').split('\n').map((l) => l.trim().replace(/^[-•·]\s*/, '')).filter(Boolean).join(', ')).filter(Boolean).join(', ')
   const bg = [
-    memo.background.trim(),
+    bgStyleOf(s) !== 'none' && memo.background.trim(),
     densityBlock(s, shot).slice(1).map((l) => l.replace(/^- /, '')).join(' '),
   ].filter(Boolean).join(' / ')
   const comp = [`${RATIO_LABEL[memo.ratio] ?? memo.ratio} 비율`, `${s.characterName}는 화면 중심보다 약간 아래`, on('top25') && '위쪽 25%는 비워 둠'].filter(Boolean).join(', ')

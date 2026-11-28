@@ -10,7 +10,7 @@
  * prompt  : 인스타툰 컷 이미지 프롬프트(Gemini·Higgsfield)에 들어가는 한 줄
  * konti   : 콘티 프롬프트에 들어가는 한 줄
  */
-import type { CharacterSettings, Shot } from './types'
+import type { BgStyle, CharacterSettings, Shot } from './types'
 
 export const ART_GUIDE_VERSION = 'v1.0 (2026-11-28)'
 
@@ -108,6 +108,18 @@ export function artPromptLines(s: Pick<CharacterSettings, 'artRules'>) {
   return activeRules(s).filter((r) => !DENSITY_IDS.includes(r.id)).map((r) => r.prompt).filter((x): x is string => !!x)
 }
 
+export const BG_STYLE_LABEL: Record<BgStyle, string> = { none: '배경 없음 — 흰 바탕에 인물·핵심 물건만', simple: '단순한 배경 — 옅은 색 면 2~3개' }
+export const bgStyleOf = (s: Pick<CharacterSettings, 'bgStyle'>): BgStyle => s.bgStyle ?? 'none'
+
+/** 배경 없음: 샷별로 남길 것 */
+const BUDGET_NONE: Record<Shot, string> = {
+  wide: '인물과 상황을 보여주는 핵심 물건 1~3개만 흰 바탕 위에. 주변은 비워 둬.',
+  medium: '인물과 손에 닿는 핵심 물건 1~2개(예: 의자·책상 끝·모니터 하나)만.',
+  closeup: '얼굴과 표정만. 물건 없음, 필요하면 감정 효과선(땀방울·집중선)만.',
+  detail: '핵심 물건 하나만 크게.',
+  over: '주인공 어깨와 보고 있는 대상 하나만.',
+}
+
 /** 샷별 배경 예산 (그림 설정 4번) */
 const BUDGET: Record<Shot, string> = {
   wide: '바닥·벽·책상 같은 큰 면 2~3개와 핵심 소품 1~2개만. 뒤쪽 인물은 필요할 때만 최대 2명, 단색 실루엣으로.',
@@ -118,8 +130,17 @@ const BUDGET: Record<Shot, string> = {
 }
 
 /** 배경·밀도 블록 — 카메라 바로 다음에 넣는다 (밀도 규칙이 하나도 안 켜져 있으면 빈 배열) */
-export function densityBlock(s: Pick<CharacterSettings, 'artRules'>, shot: Shot) {
+export function densityBlock(s: Pick<CharacterSettings, 'artRules' | 'bgStyle'>, shot: Shot) {
   const on = (id: string) => ruleOn(ART_RULES.find((r) => r.id === id)!, s)
+  if (bgStyleOf(s) === 'none')
+    return [
+      '배경 (중요 — 장면 설명보다 우선): 배경 없음.',
+      '- 순백(#FFFFFF) 바탕. 벽·바닥·천장·창문·수평선·방 구석을 그리지 마. 장소는 물건 몇 개로만 암시해.',
+      `- 남길 것: ${BUDGET_NONE[shot]}`,
+      '- 물건과 가구는 흰 바탕 위에 놓인 것처럼, 바닥면 대신 발밑·다리 밑에 아주 옅은 그림자 하나만.',
+      '- 그리지 말 것: 아래 인물 목록에 없는 사람·동료, 창밖 풍경, 식물, 천장 조명, 줄지은 책상·모니터·칸막이, 잡동사니. 장면에 꼭 필요하다고 적힌 경우만 예외.',
+      '- 열기·김·땀방울 같은 효과선은 괜찮아. 선은 깔끔하게, 색은 평평하게.',
+    ]
   if (!['props3', 'dimBg', 'decoEmotion', 'readable'].some(on)) return []
   const lines = [
     on('readable') && '목표는 잘 그린 장면이 아니라 한눈에 읽히는 장면. 화면의 40% 이상은 아무것도 없는 평평한 면으로 남겨.',
@@ -132,8 +153,10 @@ export function densityBlock(s: Pick<CharacterSettings, 'artRules'>, shot: Shot)
 }
 
 /** 콘티 프롬프트에 넣을 연출 규칙 줄 */
-export function artKontiLines(s: Pick<CharacterSettings, 'artRules'>) {
-  return activeRules(s).map((r) => r.konti).filter((x): x is string => !!x)
+export function artKontiLines(s: Pick<CharacterSettings, 'artRules' | 'bgStyle'>) {
+  const lines = activeRules(s).map((r) => r.konti).filter((x): x is string => !!x)
+  if (bgStyleOf(s) === 'none') lines.push('배경은 그리지 않는 스타일(흰 바탕)이야. scene에는 장소 묘사 대신 인물과 장면을 읽히게 하는 핵심 물건 1~3개만 적어.')
+  return lines
 }
 
 /** 피그마 내보내기에 넘길 마감 규칙 (6번 텍스트와 마감) */
